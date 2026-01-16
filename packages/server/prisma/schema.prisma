@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// AUTHENTICATION
+// ============================================
+
+model Admin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("admins")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String
+  passwordHash String   @map("password_hash")
+  siteId       String   @map("site_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  site           Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  contentHistory ContentHistory[] @relation("ChangedBy")
+
+  @@unique([siteId, email])
+  @@map("users")
+}
+
+// ============================================
+// SITES
+// ============================================
+
+model Site {
+  id         String   @id @default(uuid())
+  name       String
+  url        String
+  apiKey     String   @unique @map("api_key")
+  schema     Json?    @db.JsonB
+  webhookUrl String?  @map("webhook_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  users           User[]
+  contents        Content[]
+  collectionItems CollectionItem[]
+  contentHistory  ContentHistory[]
+  webhookLogs     WebhookLog[]
+
+  @@map("sites")
+}
+
+// ============================================
+// CONTENT
+// ============================================
+
+model Content {
+  id        String   @id @default(uuid())
+  siteId    String   @map("site_id")
+  fieldKey  String   @map("field_key")
+  value     Json     @db.JsonB
+  version   Int      @default(1)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by")
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, fieldKey])
+  @@index([siteId])
+  @@map("contents")
+}
+
+model CollectionItem {
+  id             String   @id @default(uuid())
+  siteId         String   @map("site_id")
+  collectionType String   @map("collection_type")
+  data           Json     @db.JsonB
+  position       Int      @default(0)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, collectionType])
+  @@map("collection_items")
+}
+
+// ============================================
+// HISTORY
+// ============================================
+
+model ContentHistory {
+  id        String   @id @default(uuid())
+  siteId    String   @map("site_id")
+  fieldKey  String?  @map("field_key")
+  itemId    String?  @map("item_id")
+  oldValue  Json?    @map("old_value") @db.JsonB
+  newValue  Json     @map("new_value") @db.JsonB
+  changedAt DateTime @default(now()) @map("changed_at")
+  changedBy String?  @map("changed_by")
+
+  site Site  @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  user User? @relation("ChangedBy", fields: [changedBy], references: [id], onDelete: SetNull)
+
+  @@index([siteId, fieldKey])
+  @@index([siteId, itemId])
+  @@index([changedAt])
+  @@map("content_history")
+}
+
+// ============================================
+// WEBHOOKS
+// ============================================
+
+model WebhookLog {
+  id           String    @id @default(uuid())
+  siteId       String    @map("site_id")
+  status       String    @default("pending")
+  attempts     Int       @default(0)
+  lastAttempt  DateTime? @map("last_attempt")
+  responseCode Int?      @map("response_code")
+  errorMessage String?   @map("error_message")
+  payload      Json      @db.JsonB
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, status])
+  @@map("webhook_logs")
+}

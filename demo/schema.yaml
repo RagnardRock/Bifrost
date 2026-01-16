@@ -1,0 +1,110 @@
+# Schema Bifrost pour le site demo
+# Ce schema definit tous les champs editables du site
+
+fields:
+  # Hero Section
+  hero.logo:
+    type: image
+    label: "Logo"
+
+  hero.title:
+    type: text
+    label: "Titre principal"
+    placeholder: "Titre accrocheur"
+    required: true
+
+  hero.subtitle:
+    type: textarea
+    label: "Sous-titre"
+    placeholder: "Description courte"
+
+  hero.cta:
+    type: text
+    label: "Texte du bouton"
+    placeholder: "Contactez-nous"
+
+  # Features Section
+  features.title:
+    type: text
+    label: "Titre section services"
+    placeholder: "Nos Services"
+
+  features.feature1.title:
+    type: text
+    label: "Service 1 - Titre"
+
+  features.feature1.description:
+    type: textarea
+    label: "Service 1 - Description"
+
+  features.feature2.title:
+    type: text
+    label: "Service 2 - Titre"
+
+  features.feature2.description:
+    type: textarea
+    label: "Service 2 - Description"
+
+  features.feature3.title:
+    type: text
+    label: "Service 3 - Titre"
+
+  features.feature3.description:
+    type: textarea
+    label: "Service 3 - Description"
+
+  # Testimonials Section
+  testimonials.title:
+    type: text
+    label: "Titre section temoignages"
+
+  # About Section
+  about.title:
+    type: text
+    label: "Titre A propos"
+
+  about.description:
+    type: richtext
+    label: "Description A propos"
+
+  # Contact Section
+  contact.title:
+    type: text
+    label: "Titre contact"
+
+  contact.subtitle:
+    type: text
+    label: "Sous-titre contact"
+
+  contact.email:
+    type: text
+    label: "Email de contact"
+
+  # Footer
+  footer.copyright:
+    type: text
+    label: "Copyright"
+
+# Collections (pour les temoignages dynamiques)
+collections:
+  testimonials:
+    label: "Temoignages"
+    fields:
+      quote:
+        type: textarea
+        label: "Citation"
+        required: true
+
+      name:
+        type: text
+        label: "Nom"
+        required: true
+
+      role:
+        type: text
+        label: "Poste et entreprise"
+
+      initials:
+        type: text
+        label: "Initiales"
+        maxLength: 3

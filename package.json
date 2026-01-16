@@ -1,0 +1,50 @@
+{
+  "name": "bifrost",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Site-First Headless CMS",
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/client",
+    "packages/loader"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm run dev -w @bifrost/server",
+    "dev:client": "npm run dev -w @bifrost/client",
+    "build": "npm run build -w @bifrost/shared && npm run build -w @bifrost/server && npm run build -w @bifrost/client && npm run build -w @bifrost/loader",
+    "build:client": "npm run build -w @bifrost/client",
+    "build:server": "npm run build -w @bifrost/server",
+    "start:server": "npm run start -w @bifrost/server",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint packages/*/src --ext .ts,.tsx,.vue",
+    "lint:fix": "eslint packages/*/src --ext .ts,.tsx,.vue --fix",
+    "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,vue,css,json}\"",
+    "format:check": "prettier --check \"packages/*/src/**/*.{ts,tsx,vue,css,json}\"",
+    "db:migrate": "npm run db:migrate -w @bifrost/server",
+    "db:generate": "npm run db:generate -w @bifrost/server",
+    "db:studio": "npm run db:studio -w @bifrost/server",
+    "db:seed": "npm run db:seed -w @bifrost/server",
+    "db:reset": "npm run db:reset -w @bifrost/server",
+    "typecheck": "npm run typecheck -w @bifrost/shared && npm run typecheck -w @bifrost/server && npm run typecheck -w @bifrost/client"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-vue": "^9.26.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

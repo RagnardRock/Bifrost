@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo Bifrost CMS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    [data-bifrost]:hover {
+      outline: 2px dashed #3b82f6;
+      outline-offset: 2px;
+      cursor: pointer;
+    }
+    [data-bifrost].bifrost-editing {
+      outline: 2px solid #22c55e;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+  <!-- Hero Section -->
+  <header class="bg-gradient-to-r from-purple-900 to-indigo-900 py-20">
+    <div class="container mx-auto px-6 text-center">
+      <!-- Logo Image (editable) -->
+      <img
+        src="https://via.placeholder.com/120x120/8b5cf6/ffffff?text=Logo"
+        alt="Logo"
+        class="w-24 h-24 mx-auto mb-6 rounded-full"
+        data-bifrost="hero.logo"
+      />
+      <h1
+        class="text-5xl font-bold mb-4"
+        data-bifrost="hero.title"
+      >
+        Bienvenue sur notre site
+      </h1>
+      <p
+        class="text-xl text-gray-300 mb-8 max-w-2xl mx-auto"
+        data-bifrost="hero.subtitle"
+      >
+        Ceci est un site de demonstration pour tester le CMS Bifrost. Tous les textes sont editables !
+      </p>
+      <a
+        href="#contact"
+        class="inline-block bg-white text-purple-900 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition"
+        data-bifrost="hero.cta"
+      >
+        Contactez-nous
+      </a>
+    </div>
+  </header>
+
+  <!-- Features Section -->
+  <section class="py-20">
+    <div class="container mx-auto px-6">
+      <h2
+        class="text-3xl font-bold text-center mb-12"
+        data-bifrost="features.title"
+      >
+        Nos Services
+      </h2>
+
+      <div class="grid md:grid-cols-3 gap-8">
+        <!-- Feature 1 -->
+        <div class="bg-gray-800 rounded-xl p-6 text-center">
+          <div class="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <h3
+            class="text-xl font-semibold mb-2"
+            data-bifrost="features.feature1.title"
+          >
+            Rapide
+          </h3>
+          <p
+            class="text-gray-400"
+            data-bifrost="features.feature1.description"
+          >
+            Performance optimale pour une experience utilisateur fluide.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="bg-gray-800 rounded-xl p-6 text-center">
+          <div class="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <h3
+            class="text-xl font-semibold mb-2"
+            data-bifrost="features.feature2.title"
+          >
+            Securise
+          </h3>
+          <p
+            class="text-gray-400"
+            data-bifrost="features.feature2.description"
+          >
+            Vos donnees sont protegees avec les meilleurs standards.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="bg-gray-800 rounded-xl p-6 text-center">
+          <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+            </svg>
+          </div>
+          <h3
+            class="text-xl font-semibold mb-2"
+            data-bifrost="features.feature3.title"
+          >
+            Simple
+          </h3>
+          <p
+            class="text-gray-400"
+            data-bifrost="features.feature3.description"
+          >
+            Interface intuitive, prise en main immediate.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials Section (Collection) -->
+  <section class="py-20 bg-gray-800">
+    <div class="container mx-auto px-6">
+      <h2
+        class="text-3xl font-bold text-center mb-12"
+        data-bifrost="testimonials.title"
+      >
+        Ce que nos clients disent
+      </h2>
+
+      <div
+        class="grid md:grid-cols-2 gap-8"
+        data-bifrost-collection="testimonials"
+        data-bifrost-template="testimonial-template"
+      >
+        <!-- Template for testimonials -->
+        <template id="testimonial-template">
+          <div class="bg-gray-700 rounded-xl p-6">
+            <p class="text-gray-300 mb-4 italic" data-field="quote">"Temoignage ici"</p>
+            <div class="flex items-center">
+              <div class="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center mr-4">
+                <span class="text-xl font-bold" data-field="initials">AB</span>
+              </div>
+              <div>
+                <p class="font-semibold" data-field="name">Nom du client</p>
+                <p class="text-gray-400 text-sm" data-field="role">Poste, Entreprise</p>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Default testimonials (will be replaced by CMS data) -->
+        <div class="bg-gray-700 rounded-xl p-6">
+          <p class="text-gray-300 mb-4 italic">"Bifrost a transforme notre facon de gerer le contenu. Simple et efficace !"</p>
+          <div class="flex items-center">
+            <div class="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center mr-4">
+              <span class="text-xl font-bold">ML</span>
+            </div>
+            <div>
+              <p class="font-semibold">Marie Dupont</p>
+              <p class="text-gray-400 text-sm">CEO, TechStartup</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-gray-700 rounded-xl p-6">
+          <p class="text-gray-300 mb-4 italic">"L'integration a ete un jeu d'enfant. Je recommande vivement !"</p>
+          <div class="flex items-center">
+            <div class="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center mr-4">
+              <span class="text-xl font-bold">PL</span>
+            </div>
+            <div>
+              <p class="font-semibold">Pierre Martin</p>
+              <p class="text-gray-400 text-sm">CTO, WebAgency</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- About Section -->
+  <section class="py-20">
+    <div class="container mx-auto px-6">
+      <div class="max-w-3xl mx-auto text-center">
+        <h2
+          class="text-3xl font-bold mb-6"
+          data-bifrost="about.title"
+        >
+          A propos de nous
+        </h2>
+        <p
+          class="text-gray-400 text-lg leading-relaxed"
+          data-bifrost="about.description"
+        >
+          Nous sommes une equipe passionnee par la technologie et l'innovation.
+          Notre mission est de simplifier la gestion de contenu pour tous les sites web,
+          qu'ils soient petits ou grands. Avec Bifrost, vous gardez le controle total
+          sur votre contenu sans avoir besoin de competences techniques.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact Section -->
+  <section id="contact" class="py-20 bg-gradient-to-r from-indigo-900 to-purple-900">
+    <div class="container mx-auto px-6 text-center">
+      <h2
+        class="text-3xl font-bold mb-4"
+        data-bifrost="contact.title"
+      >
+        Pret a commencer ?
+      </h2>
+      <p
+        class="text-gray-300 mb-8"
+        data-bifrost="contact.subtitle"
+      >
+        Contactez-nous pour une demonstration personnalisee.
+      </p>
+      <a
+        href="mailto:contact@example.com"
+        class="inline-block bg-white text-purple-900 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition"
+        data-bifrost="contact.email"
+      >
+        contact@example.com
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-gray-900 py-8 border-t border-gray-800">
+    <div class="container mx-auto px-6 text-center text-gray-500">
+      <p data-bifrost="footer.copyright">
+        2024 Demo Bifrost. Tous droits reserves.
+      </p>
+    </div>
+  </footer>
+
+  <!-- Bifrost CMS Loader -->
+  <script>
+    // Get API key from URL parameter or prompt user
+    const urlParams = new URLSearchParams(window.location.search);
+    let apiKey = urlParams.get('key');
+
+    if (!apiKey) {
+      apiKey = localStorage.getItem('bifrost_demo_key');
+    }
+
+    if (!apiKey) {
+      apiKey = prompt('Entrez votre cle API Bifrost (depuis l\'admin):');
+      if (apiKey) {
+        localStorage.setItem('bifrost_demo_key', apiKey);
+      }
+    }
+
+    if (apiKey) {
+      // Dynamically load the Bifrost loader
+      const script = document.createElement('script');
+      script.src = '/loader.js';
+      script.setAttribute('data-site', apiKey);
+      document.body.appendChild(script);
+    }
+  </script>
+</body>
+</html>
