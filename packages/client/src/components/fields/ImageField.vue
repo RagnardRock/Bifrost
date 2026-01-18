@@ -94,12 +94,12 @@ function clearImage() {
     <!-- Image preview -->
     <div
       v-if="hasImage"
-      class="relative group rounded-lg overflow-hidden bg-black/20 mb-2"
+      class="relative group rounded-lg overflow-hidden bg-black/20 mb-2 p-4"
     >
       <img
         :src="value"
         :alt="label"
-        class="w-full h-48 object-cover"
+        class="max-w-full max-h-64 mx-auto object-contain"
       />
       <div
         class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
