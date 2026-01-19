@@ -2,10 +2,10 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   plugins: [vue()],
-  // Use VITE_BASE_PATH env var or default to '/'
-  base: process.env.VITE_BASE_PATH || '/',
+  // Standalone deployment uses root path
+  base: '/',
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
