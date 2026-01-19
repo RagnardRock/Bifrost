@@ -4,8 +4,8 @@ import { resolve } from 'path'
 
 export default defineConfig(({ mode }) => ({
   plugins: [vue()],
-  // In production, the client is served from /admin
-  base: mode === 'production' ? '/admin/' : '/',
+  // Use VITE_BASE_PATH env var or default to '/'
+  base: process.env.VITE_BASE_PATH || '/',
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
