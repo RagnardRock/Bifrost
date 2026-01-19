@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist",
     "db:migrate": "prisma migrate dev",
@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@bifrost/shared": "*",
+    "tsx": "^4.15.1",
     "@prisma/client": "^5.14.0",
     "bcrypt": "^5.1.1",
     "cloudinary": "^2.2.0",
@@ -47,7 +48,6 @@
     "prisma": "^5.14.0",
     "rimraf": "^5.0.7",
     "supertest": "^7.0.0",
-    "tsx": "^4.15.1",
     "typescript": "^5.4.5"
   }
 }
