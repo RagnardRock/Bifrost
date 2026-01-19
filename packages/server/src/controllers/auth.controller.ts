@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { authService } from '../services/auth.service'
 import { success } from '../utils/response'
-import type { LoginInput, ClientLoginInput } from '../validators/auth.validator'
+import type { LoginInput, ClientLoginInput, SetupInput } from '../validators/auth.validator'
 
 export const authController = {
   /**
@@ -54,6 +54,22 @@ export const authController = {
       } else {
         res.json(success({ role: user.role }))
       }
+    } catch (error) {
+      next(error)
+    }
+  },
+
+  /**
+   * POST /api/auth/setup
+   * Create first admin account (requires SETUP_TOKEN env var)
+   */
+  async setup(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, password, setupToken } = req.body as SetupInput
+
+      const result = await authService.setup(email, password, setupToken)
+
+      res.status(201).json(success(result))
     } catch (error) {
       next(error)
     }

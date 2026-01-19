@@ -19,4 +19,8 @@ export const adminRepository = {
       data: { email, passwordHash },
     })
   },
+
+  async count(): Promise<number> {
+    return prisma.admin.count()
+  },
 }

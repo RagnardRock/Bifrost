@@ -1,7 +1,7 @@
 import { adminRepository } from '../repositories/admin.repository'
 import { userRepository } from '../repositories/user.repository'
 import { siteRepository } from '../repositories/site.repository'
-import { comparePassword } from '../utils/hash'
+import { comparePassword, hashPassword } from '../utils/hash'
 import { signToken } from '../utils/jwt'
 import { Errors } from '../utils/errors'
 import type { LoginResponse, TokenPayload } from '@bifrost/shared'
@@ -125,6 +125,50 @@ export const authService = {
       siteName: site?.name,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+    }
+  },
+
+  async setup(email: string, password: string, setupToken: string): Promise<LoginResponse> {
+    // Verify setup token from environment
+    const expectedToken = process.env.SETUP_TOKEN
+    if (!expectedToken) {
+      throw Errors.forbidden('Setup désactivé (SETUP_TOKEN non configuré)')
+    }
+
+    if (setupToken !== expectedToken) {
+      throw Errors.forbidden('Token de setup invalide')
+    }
+
+    // Check if admin already exists
+    const adminCount = await adminRepository.count()
+    if (adminCount > 0) {
+      throw Errors.forbidden('Un admin existe déjà. Setup désactivé.')
+    }
+
+    // Create admin
+    const passwordHash = await hashPassword(password)
+    const admin = await adminRepository.create(email, passwordHash)
+
+    // Generate JWT and return same response as login
+    const payload: Omit<TokenPayload, 'iat' | 'exp'> = {
+      adminId: admin.id,
+      role: 'admin',
+    }
+
+    const token = signToken(payload)
+
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 7)
+
+    return {
+      token,
+      expiresAt,
+      user: {
+        id: admin.id,
+        email: admin.email,
+        createdAt: admin.createdAt,
+        updatedAt: admin.updatedAt,
+      },
     }
   },
 }
