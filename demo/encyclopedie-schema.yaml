@@ -1,0 +1,31 @@
+# Schema pour la demo Encyclopedie
+# A copier dans l'admin Bifrost > Site > Modifier le schema
+
+fields:
+  article.title:
+    type: text
+    label: "Titre de l'article"
+
+  article.subtitle:
+    type: text
+    label: "Sous-titre"
+
+collections:
+  blocks:
+    label: "Blocs de contenu"
+    fields:
+      section:
+        type: text
+        label: "Section (intro, definition, structure, details, formulas)"
+
+      level:
+        type: number
+        label: "Niveau (1=novice, 2=inter, 3=avance, 4=expert)"
+
+      mode:
+        type: text
+        label: "Mode (show=ajouter, replace=remplacer)"
+
+      content:
+        type: richtext
+        label: "Contenu"

@@ -897,7 +897,32 @@
 
   // ==================== COLLECTIONS ====================
 
-  // Load collections
+  // Load collections (public API - for display)
+  async function loadPublicCollections() {
+    try {
+      const data = await publicApi('/collections');
+      collections = data || {};
+      console.log('[Bifrost] Collections loaded:', Object.keys(collections));
+
+      // Expose collections globally for external scripts
+      window.bifrostCollections = collections;
+
+      // Render each collection in the DOM
+      for (const [type, items] of Object.entries(collections)) {
+        const container = document.querySelector(`[data-bifrost-collection="${type}"]`);
+        if (container && Array.isArray(items)) {
+          renderCollectionInDOM(type, items, container);
+        }
+      }
+
+      // Dispatch event for external scripts
+      window.dispatchEvent(new CustomEvent('bifrost:collections-loaded', { detail: collections }));
+    } catch (error) {
+      console.log('[Bifrost] No collections available');
+    }
+  }
+
+  // Load collections (client API - for editing, requires auth)
   async function loadCollections() {
     try {
       const data = await clientApi('/collections');
@@ -1001,14 +1026,36 @@
     currentCollectionModal = modal;
   }
 
+  // Build a meaningful title from item data
+  function buildItemTitle(item, fields) {
+    if (!item.data) return item.id;
+
+    // Collect non-empty text/number values (excluding richtext which is too long)
+    const parts = [];
+    for (const [fieldKey, fieldDef] of Object.entries(fields)) {
+      const type = fieldDef.type || 'text';
+      const value = item.data[fieldKey];
+
+      if (value !== undefined && value !== null && value !== '') {
+        if (type === 'text' || type === 'number') {
+          parts.push(String(value));
+        }
+      }
+
+      // Stop after 3 parts to keep title short
+      if (parts.length >= 3) break;
+    }
+
+    return parts.length > 0 ? parts.join(' - ') : item.id;
+  }
+
   // Create collection item element
   function createCollectionItemElement(item, fields, collectionType, onDelete, onUpdate) {
     const el = document.createElement('div');
     el.className = 'bifrost-collection-item';
 
-    // Get first text field for title
-    const firstField = Object.keys(fields)[0];
-    const title = item.data?.[firstField] || item.id;
+    // Build a meaningful title from item data
+    const title = buildItemTitle(item, fields);
 
     el.innerHTML = `
       <div class="bifrost-collection-item-header">
@@ -1053,15 +1100,35 @@
     form.className = 'bifrost-item-form';
 
     let fieldsHtml = '';
+    const richtextFields = [];
+
     for (const [fieldKey, fieldDef] of Object.entries(fields)) {
       const value = existingItem?.data?.[fieldKey] || '';
       const label = fieldDef.label || fieldKey;
       const type = fieldDef.type || 'text';
 
-      if (type === 'textarea') {
+      if (type === 'richtext') {
+        richtextFields.push({ key: fieldKey, value });
+        fieldsHtml += `
+          <label>${escapeHtml(label)}</label>
+          <div class="bifrost-richtext-toolbar" data-for="${escapeHtml(fieldKey)}">
+            <button type="button" data-command="bold" title="Gras"><b>G</b></button>
+            <button type="button" data-command="italic" title="Italique"><i>I</i></button>
+            <button type="button" data-command="underline" title="Souligne"><u>S</u></button>
+            <button type="button" data-command="createLink" title="Lien">🔗</button>
+            <button type="button" data-command="removeFormat" title="Supprimer formatage">✕</button>
+          </div>
+          <div class="bifrost-richtext-editor" contenteditable="true" data-field="${escapeHtml(fieldKey)}">${value}</div>
+        `;
+      } else if (type === 'textarea') {
         fieldsHtml += `
           <label>${escapeHtml(label)}</label>
           <textarea name="${escapeHtml(fieldKey)}">${escapeHtml(value)}</textarea>
+        `;
+      } else if (type === 'number') {
+        fieldsHtml += `
+          <label>${escapeHtml(label)}</label>
+          <input type="number" name="${escapeHtml(fieldKey)}" value="${escapeHtml(value)}" />
         `;
       } else {
         fieldsHtml += `
@@ -1081,14 +1148,58 @@
       </div>
     `;
 
-    form.querySelector('.cancel').onclick = () => form.remove();
+    form.querySelector('.cancel').onclick = () => {
+      form.remove();
+      if (replaceEl) {
+        replaceEl.style.display = '';
+      }
+    };
+
+    // Setup richtext toolbars
+    form.querySelectorAll('.bifrost-richtext-toolbar').forEach(toolbar => {
+      const fieldKey = toolbar.getAttribute('data-for');
+      const editorDiv = form.querySelector(`.bifrost-richtext-editor[data-field="${fieldKey}"]`);
+
+      toolbar.querySelectorAll('button').forEach(btn => {
+        btn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const command = btn.dataset.command;
+
+          if (command === 'createLink') {
+            const url = prompt('URL du lien:');
+            if (url) {
+              document.execCommand(command, false, url);
+            }
+          } else {
+            document.execCommand(command, false, null);
+          }
+
+          editorDiv.focus();
+        };
+      });
+    });
 
     form.querySelector('.save').onclick = async () => {
       const data = {};
-      for (const fieldKey of Object.keys(fields)) {
-        const input = form.querySelector(`[name="${fieldKey}"]`);
-        if (input) {
-          data[fieldKey] = input.value;
+      for (const [fieldKey, fieldDef] of Object.entries(fields)) {
+        const type = fieldDef.type || 'text';
+
+        if (type === 'richtext') {
+          const editor = form.querySelector(`.bifrost-richtext-editor[data-field="${fieldKey}"]`);
+          if (editor) {
+            data[fieldKey] = editor.innerHTML;
+          }
+        } else if (type === 'number') {
+          const input = form.querySelector(`[name="${fieldKey}"]`);
+          if (input) {
+            data[fieldKey] = input.value ? Number(input.value) : null;
+          }
+        } else {
+          const input = form.querySelector(`[name="${fieldKey}"]`);
+          if (input) {
+            data[fieldKey] = input.value;
+          }
         }
       }
 
@@ -1117,9 +1228,6 @@
     if (replaceEl) {
       replaceEl.style.display = 'none';
       replaceEl.after(form);
-      form.addEventListener('transitionend', () => {
-        replaceEl.style.display = '';
-      }, { once: true });
     } else {
       container.insertBefore(form, container.firstChild);
     }
@@ -1300,6 +1408,7 @@
     await loadSiteInfo();
     checkExistingAuth();
     await loadContent();
+    await loadPublicCollections();
     createToolbar();
     console.log('[Bifrost] Ready - ' + document.querySelectorAll('[data-bifrost]').length + ' editable elements found');
   }
