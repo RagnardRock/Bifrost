@@ -17,6 +17,8 @@
     "build:client": "npm run build -w @bifrost/client",
     "build:server": "npm run build -w @bifrost/server",
     "start:server": "npm run start -w @bifrost/server",
+    "start:prod": "npm run db:migrate:prod -w @bifrost/server && npm run start -w @bifrost/server",
+    "db:migrate:prod": "npm run db:migrate:prod -w @bifrost/server",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
