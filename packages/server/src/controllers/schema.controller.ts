@@ -9,7 +9,7 @@ export const schemaController = {
    */
   async getSchema(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId } = req.params
+      const siteId = req.params.siteId!
       const yaml = await schemaService.getSiteSchemaYaml(siteId)
       res.json(success({ yaml }))
     } catch (error) {
@@ -23,7 +23,7 @@ export const schemaController = {
    */
   async updateSchema(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId } = req.params
+      const siteId = req.params.siteId!
       const { yaml } = req.body as { yaml: string }
 
       if (typeof yaml !== 'string') {
@@ -47,7 +47,7 @@ export const schemaController = {
    */
   async clearSchema(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId } = req.params
+      const siteId = req.params.siteId!
       await schemaService.clearSiteSchema(siteId)
       res.json(success({ cleared: true }))
     } catch (error) {

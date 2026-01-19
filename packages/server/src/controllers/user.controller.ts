@@ -10,7 +10,7 @@ export const userController = {
    */
   async listBySite(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId } = req.params
+      const siteId = req.params.siteId!
       const users = await userService.listBySite(siteId)
       res.json(success(users))
     } catch (error) {
@@ -24,7 +24,7 @@ export const userController = {
    */
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = req.params.id!
       const user = await userService.getById(id)
       res.json(success(user))
     } catch (error) {
@@ -38,7 +38,7 @@ export const userController = {
    */
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId } = req.params
+      const siteId = req.params.siteId!
       const data = req.body as CreateUserDto
 
       const user = await userService.create({
@@ -59,7 +59,7 @@ export const userController = {
    */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = req.params.id!
       const data = req.body as UpdateUserDto
 
       const user = await userService.update(id, {
@@ -79,7 +79,7 @@ export const userController = {
    */
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = req.params.id!
       await userService.delete(id)
       res.json(success({ deleted: true }))
     } catch (error) {

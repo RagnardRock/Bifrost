@@ -9,7 +9,7 @@ export const historyController = {
    */
   async getSiteHistory(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId } = req.params
+      const siteId = req.params.siteId!
       const limit = parseInt(req.query.limit as string) || 50
 
       const history = await historyService.getSiteHistory(siteId, limit)
@@ -26,7 +26,8 @@ export const historyController = {
    */
   async getFieldHistory(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId, fieldKey } = req.params
+      const siteId = req.params.siteId!
+      const fieldKey = req.params.fieldKey!
       const limit = parseInt(req.query.limit as string) || 20
 
       const history = await historyService.getFieldHistory(siteId, fieldKey, limit)
@@ -43,7 +44,7 @@ export const historyController = {
    */
   async getItemHistory(req: Request, res: Response, next: NextFunction) {
     try {
-      const { itemId } = req.params
+      const itemId = req.params.itemId!
       const limit = parseInt(req.query.limit as string) || 20
 
       const history = await historyService.getItemHistory(itemId, limit)
@@ -60,7 +61,8 @@ export const historyController = {
    */
   async restore(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId, historyId } = req.params
+      const siteId = req.params.siteId!
+      const historyId = req.params.historyId!
       // Only use userId, not adminId (ContentHistory.changedBy references User table)
       const userId = req.user?.userId || undefined
 

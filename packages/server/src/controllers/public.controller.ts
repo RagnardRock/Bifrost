@@ -57,7 +57,7 @@ export const publicController = {
   async getFieldContent(req: Request, res: Response, next: NextFunction) {
     try {
       const siteId = getSiteId(req)
-      const { fieldKey } = req.params
+      const fieldKey = req.params.fieldKey!
       const value = await contentService.getFieldContent(siteId, fieldKey)
       res.json(success({ fieldKey, value }))
     } catch (error) {
@@ -86,7 +86,7 @@ export const publicController = {
   async getCollectionItems(req: Request, res: Response, next: NextFunction) {
     try {
       const siteId = getSiteId(req)
-      const { type } = req.params
+      const type = req.params.type!
       const items = await collectionService.listItems(siteId, type)
       res.json(success(items))
     } catch (error) {
@@ -100,7 +100,7 @@ export const publicController = {
    */
   async getCollectionItem(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = req.params.id!
       const item = await collectionService.getItem(id)
       res.json(success(item))
     } catch (error) {

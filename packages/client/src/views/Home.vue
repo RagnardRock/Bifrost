@@ -7,7 +7,7 @@ function toggleTheme() {
   const themes: Array<'light' | 'dark' | 'system'> = ['light', 'dark', 'system']
   const currentIndex = themes.indexOf(ui.theme)
   const nextIndex = (currentIndex + 1) % themes.length
-  ui.setTheme(themes[nextIndex])
+  ui.setTheme(themes[nextIndex]!)
 }
 </script>
 

@@ -1,5 +1,5 @@
 import { api } from './api'
-import type { LoginResponse, ApiResponse, Admin, UserWithSite } from '@bifrost/shared'
+import type { LoginResponse, ApiResponse } from '@bifrost/shared'
 
 interface AdminLoginInput {
   email: string

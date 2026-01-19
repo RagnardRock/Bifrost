@@ -4,7 +4,7 @@ import { siteRepository } from '../repositories/site.repository'
 import { comparePassword, hashPassword } from '../utils/hash'
 import { signToken } from '../utils/jwt'
 import { Errors } from '../utils/errors'
-import type { LoginResponse, TokenPayload } from '@bifrost/shared'
+import type { LoginResponse, TokenPayload, BifrostSchema } from '@bifrost/shared'
 
 export const authService = {
   async adminLogin(email: string, password: string): Promise<LoginResponse> {
@@ -102,7 +102,11 @@ export const authService = {
         id: user.id,
         email: user.email,
         siteId: user.siteId,
-        siteName: site.name,
+        site: {
+          id: site.id,
+          name: site.name,
+          schema: site.schema as BifrostSchema | null,
+        },
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },

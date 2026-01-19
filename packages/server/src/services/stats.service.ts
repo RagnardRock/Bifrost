@@ -1,4 +1,5 @@
 import { prisma } from '../config/database'
+import { Prisma } from '@prisma/client'
 
 export interface DashboardStats {
   sites: {
@@ -50,7 +51,7 @@ export const statsService = {
     ] = await Promise.all([
       // Sites stats
       prisma.site.count(),
-      prisma.site.count({ where: { schema: { not: null } } }),
+      prisma.site.count({ where: { schema: { not: Prisma.JsonNull } } }),
       prisma.site.count({ where: { webhookUrl: { not: null } } }),
 
       // Users stats
@@ -128,7 +129,7 @@ export const statsService = {
         webhooksSuccess,
         webhooksFailed,
       },
-      recentSites: recentSites.map((site) => ({
+      recentSites: recentSites.map((site: typeof recentSites[number]) => ({
         id: site.id,
         name: site.name,
         url: site.url,

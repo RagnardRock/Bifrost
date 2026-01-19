@@ -96,7 +96,6 @@ export const siteService = {
     }
 
     const newApiKey = generateApiKey()
-    const site = await siteRepository.update(id, {})
     // Need to update via raw prisma for apiKey
     const { prisma } = await import('../config/database')
     const updated = await prisma.site.update({

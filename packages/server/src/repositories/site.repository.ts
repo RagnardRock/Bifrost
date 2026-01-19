@@ -1,5 +1,5 @@
 import { prisma } from '../config/database'
-import type { Site, Prisma } from '@prisma/client'
+import type { Site } from '@prisma/client'
 
 export type CreateSiteData = {
   name: string

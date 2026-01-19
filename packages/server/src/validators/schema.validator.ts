@@ -54,7 +54,7 @@ export const bifrostSchemaSchema = z
       // Validate that group fields reference existing fields
       if (!schema.groups || !schema.fields) return true
 
-      for (const [groupKey, group] of Object.entries(schema.groups)) {
+      for (const [_groupKey, group] of Object.entries(schema.groups)) {
         for (const fieldKey of group.fields) {
           if (!schema.fields[fieldKey]) {
             return false

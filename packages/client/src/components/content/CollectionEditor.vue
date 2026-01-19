@@ -123,7 +123,9 @@ async function moveUp(index: number) {
   if (index === 0) return
 
   const itemIds = props.items.map((i) => i.id)
-  ;[itemIds[index - 1], itemIds[index]] = [itemIds[index], itemIds[index - 1]]
+  const a = itemIds[index - 1]!
+  const b = itemIds[index]!
+  ;[itemIds[index - 1], itemIds[index]] = [b, a]
 
   try {
     await collections.reorderItems(props.siteId, props.collectionType, itemIds)
@@ -137,7 +139,9 @@ async function moveDown(index: number) {
   if (index >= props.items.length - 1) return
 
   const itemIds = props.items.map((i) => i.id)
-  ;[itemIds[index], itemIds[index + 1]] = [itemIds[index + 1], itemIds[index]]
+  const a = itemIds[index]!
+  const b = itemIds[index + 1]!
+  ;[itemIds[index], itemIds[index + 1]] = [b, a]
 
   try {
     await collections.reorderItems(props.siteId, props.collectionType, itemIds)

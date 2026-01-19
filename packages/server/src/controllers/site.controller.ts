@@ -23,7 +23,7 @@ export const siteController = {
    */
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = req.params.id!
       const site = await siteService.getById(id)
       res.json(success(site))
     } catch (error) {
@@ -57,7 +57,7 @@ export const siteController = {
    */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = req.params.id!
       const data = req.body as UpdateSiteDto
 
       const site = await siteService.update(id, {
@@ -78,7 +78,7 @@ export const siteController = {
    */
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = req.params.id!
       await siteService.delete(id)
       res.json(success({ deleted: true }))
     } catch (error) {
@@ -92,7 +92,7 @@ export const siteController = {
    */
   async regenerateApiKey(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = req.params.id!
       const site = await siteService.regenerateApiKey(id)
       res.json(success(site))
     } catch (error) {

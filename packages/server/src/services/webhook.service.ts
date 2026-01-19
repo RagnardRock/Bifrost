@@ -131,7 +131,7 @@ export const webhookService = {
     const site = await siteRepository.findById(log.siteId)
     if (!site?.webhookUrl) return
 
-    await this.sendWebhook(logId, site.webhookUrl, log.payload as WebhookPayload)
+    await this.sendWebhook(logId, site.webhookUrl, log.payload as unknown as WebhookPayload)
   },
 
   /**
@@ -144,7 +144,7 @@ export const webhookService = {
     for (const log of pending) {
       const site = (log as any).site
       if (site?.webhookUrl) {
-        await this.sendWebhook(log.id, site.webhookUrl, log.payload as WebhookPayload)
+        await this.sendWebhook(log.id, site.webhookUrl, log.payload as unknown as WebhookPayload)
         processed++
       }
     }

@@ -30,3 +30,8 @@ export interface CollectionReorderInput {
  * Collection item data for frontend display (without siteId)
  */
 export type CollectionItemData = Omit<CollectionItem, 'siteId'>
+
+/**
+ * API response type for collection items
+ */
+export type CollectionItemResponse = CollectionItem

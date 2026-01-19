@@ -72,7 +72,7 @@ export const activityService = {
     ])
 
     // Transform to activity entries
-    const activityEntries: ActivityEntry[] = entries.map((entry) => {
+    const mappedEntries = entries.map((entry) => {
       let type: ActivityEntry['type'] = 'field_update'
       let summary = ''
 
@@ -106,13 +106,15 @@ export const activityService = {
         type,
         fieldKey: entry.fieldKey,
         itemId: entry.itemId,
-        collectionType: null, // Would need to join with collection_items to get this
+        collectionType: null as string | null,
         changedAt: entry.changedAt,
         changedBy: entry.changedBy,
         userEmail: entry.user?.email || null,
         summary,
       }
-    }).filter((e): e is ActivityEntry => e !== null)
+    })
+
+    const activityEntries = mappedEntries.filter((e): e is ActivityEntry => e !== null)
 
     return { entries: activityEntries, total }
   },

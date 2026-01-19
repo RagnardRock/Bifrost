@@ -9,7 +9,7 @@ export const contentController = {
    */
   async getContent(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId } = req.params
+      const siteId = req.params.siteId!
       const content = await contentService.getContentWithDefaults(siteId)
       res.json(success(content))
     } catch (error) {
@@ -23,7 +23,7 @@ export const contentController = {
    */
   async updateContent(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId } = req.params
+      const siteId = req.params.siteId!
       const data = req.body as Record<string, unknown>
 
       const content = await contentService.updateContent(siteId, data)
@@ -39,7 +39,8 @@ export const contentController = {
    */
   async getFieldContent(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId, fieldKey } = req.params
+      const siteId = req.params.siteId!
+      const fieldKey = req.params.fieldKey!
       const value = await contentService.getFieldContent(siteId, fieldKey)
       res.json(success({ fieldKey, value }))
     } catch (error) {
@@ -53,7 +54,8 @@ export const contentController = {
    */
   async updateFieldContent(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId, fieldKey } = req.params
+      const siteId = req.params.siteId!
+      const fieldKey = req.params.fieldKey!
       const { value } = req.body as { value: unknown }
 
       const updatedValue = await contentService.updateFieldContent(siteId, fieldKey, value)
@@ -69,7 +71,8 @@ export const contentController = {
    */
   async deleteFieldContent(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId, fieldKey } = req.params
+      const siteId = req.params.siteId!
+      const fieldKey = req.params.fieldKey!
       await contentService.deleteFieldContent(siteId, fieldKey)
       res.json(success({ deleted: true }))
     } catch (error) {

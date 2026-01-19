@@ -11,14 +11,6 @@ const site = ref<{ id: string; name: string; domain: string; schema: BifrostSche
 const error = ref<string | null>(null)
 
 const hasSchema = computed(() => !!site.value?.schema)
-const hasFields = computed(() => {
-  if (!site.value?.schema) return false
-  return site.value.schema.fields && Object.keys(site.value.schema.fields).length > 0
-})
-const hasCollections = computed(() => {
-  if (!site.value?.schema) return false
-  return site.value.schema.collections && Object.keys(site.value.schema.collections).length > 0
-})
 
 const fieldCount = computed(() => {
   if (!site.value?.schema?.fields) return 0

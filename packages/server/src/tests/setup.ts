@@ -1,4 +1,4 @@
-import { vi } from 'vitest'
+import { vi, beforeEach } from 'vitest'
 
 // Mock Prisma client
 vi.mock('../config/database', () => ({

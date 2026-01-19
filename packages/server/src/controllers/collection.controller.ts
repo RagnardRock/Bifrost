@@ -9,7 +9,7 @@ export const collectionController = {
    */
   async getAllCollections(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId } = req.params
+      const siteId = req.params.siteId!
       const collections = await collectionService.getAllCollections(siteId)
       res.json(success(collections))
     } catch (error) {
@@ -23,7 +23,8 @@ export const collectionController = {
    */
   async listItems(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId, type } = req.params
+      const siteId = req.params.siteId!
+      const type = req.params.type!
       const items = await collectionService.listItems(siteId, type)
       res.json(success(items))
     } catch (error) {
@@ -37,7 +38,8 @@ export const collectionController = {
    */
   async createItem(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId, type } = req.params
+      const siteId = req.params.siteId!
+      const type = req.params.type!
       const data = req.body as Record<string, unknown>
 
       const item = await collectionService.createItem(siteId, type, data)
@@ -53,7 +55,7 @@ export const collectionController = {
    */
   async getItem(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = req.params.id!
       const item = await collectionService.getItem(id)
       res.json(success(item))
     } catch (error) {
@@ -67,7 +69,7 @@ export const collectionController = {
    */
   async updateItem(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = req.params.id!
       const data = req.body as Record<string, unknown>
 
       const item = await collectionService.updateItem(id, data)
@@ -83,7 +85,7 @@ export const collectionController = {
    */
   async deleteItem(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
+      const id = req.params.id!
       await collectionService.deleteItem(id)
       res.json(success({ deleted: true }))
     } catch (error) {
@@ -97,7 +99,8 @@ export const collectionController = {
    */
   async reorderItems(req: Request, res: Response, next: NextFunction) {
     try {
-      const { siteId, type } = req.params
+      const siteId = req.params.siteId!
+      const type = req.params.type!
       const { itemIds } = req.body as { itemIds: string[] }
 
       if (!Array.isArray(itemIds)) {

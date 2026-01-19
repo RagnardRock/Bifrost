@@ -1,4 +1,5 @@
 import yaml from 'js-yaml'
+import { Prisma } from '@prisma/client'
 import { bifrostSchemaSchema } from '../validators/schema.validator'
 import { siteRepository } from '../repositories/site.repository'
 import { Errors, AppError } from '../utils/errors'
@@ -127,7 +128,7 @@ export const schemaService = {
     const { prisma } = await import('../config/database')
     await prisma.site.update({
       where: { id: siteId },
-      data: { schema: null },
+      data: { schema: Prisma.JsonNull },
     })
   },
 

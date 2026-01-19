@@ -33,7 +33,7 @@ export const statsController = {
     next: NextFunction
   ): Promise<void> {
     try {
-      const { siteId } = req.params
+      const siteId = req.params.siteId!
       const stats = await statsService.getSiteStats(siteId)
 
       res.json({

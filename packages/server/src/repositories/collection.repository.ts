@@ -65,7 +65,7 @@ export const collectionRepository = {
     })
   },
 
-  async reorder(siteId: string, collectionType: string, itemIds: string[]): Promise<void> {
+  async reorder(_siteId: string, _collectionType: string, itemIds: string[]): Promise<void> {
     const operations = itemIds.map((id, index) =>
       prisma.collectionItem.update({
         where: { id },

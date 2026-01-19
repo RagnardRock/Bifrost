@@ -69,7 +69,7 @@ export const activityController = {
     next: NextFunction
   ): Promise<void> {
     try {
-      const { siteId } = req.params
+      const siteId = req.params.siteId!
       const summary = await activityService.getSiteActivitySummary(siteId)
 
       res.json({

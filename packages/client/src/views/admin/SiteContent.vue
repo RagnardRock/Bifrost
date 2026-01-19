@@ -65,7 +65,7 @@ onBeforeUnmount(() => {
 })
 
 // Warn about unsaved changes
-onBeforeRouteLeave((to, from, next) => {
+onBeforeRouteLeave((_to, _from, next) => {
   if (contentStore.hasUnsavedChanges) {
     const answer = confirm('Vous avez des modifications non enregistrées. Voulez-vous vraiment quitter ?')
     if (!answer) {

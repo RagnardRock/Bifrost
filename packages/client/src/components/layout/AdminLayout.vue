@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { RouterView, RouterLink, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -25,7 +24,7 @@ function toggleTheme() {
   const themes: Array<'light' | 'dark' | 'system'> = ['light', 'dark', 'system']
   const currentIndex = themes.indexOf(ui.theme)
   const nextIndex = (currentIndex + 1) % themes.length
-  ui.setTheme(themes[nextIndex])
+  ui.setTheme(themes[nextIndex]!)
 }
 </script>
 
