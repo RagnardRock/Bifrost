@@ -28,9 +28,11 @@ export const config = {
     apiSecret: process.env.CLOUDINARY_API_SECRET || '',
   },
 
-  // CORS - Allow any origin in development for easier testing
-  corsOrigins: process.env.CORS_ORIGINS?.split(',') ||
-    (process.env.NODE_ENV !== 'production' ? true : ['http://localhost:5173']),
+  // CORS - Allow any origin with '*' or list specific origins
+  corsOrigins: process.env.CORS_ORIGINS === '*'
+    ? true
+    : process.env.CORS_ORIGINS?.split(',') ||
+      (process.env.NODE_ENV !== 'production' ? true : ['http://localhost:5173']),
 
   // Rate limiting
   rateLimit: {
