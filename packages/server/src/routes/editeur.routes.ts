@@ -57,7 +57,7 @@ router.use(authMiddleware, peutEditer)
 
 // État général : pages et modifications non publiées
 router.get('/', action(async (req) => {
-  const site = await prisma.site.findUnique({ where: { id: sid(req) }, select: { id: true, name: true, url: true } })
+  const site = await prisma.site.findUnique({ where: { id: sid(req) }, select: { id: true, name: true, url: true, slug: true } })
   if (!site) throw Errors.notFound('Site')
   return {
     site,

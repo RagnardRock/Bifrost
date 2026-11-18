@@ -4,7 +4,7 @@ export interface Differences { ajoutes: string[]; modifies: string[]; supprimes:
 export interface Publication extends Differences { id: string; createdAt: string; annulee: boolean; auteur: string | null }
 export type RoleSite = 'responsable' | 'redacteur'
 export interface EtatEditeur {
-  site: { id: string; name: string; url: string }
+  site: { id: string; name: string; url: string; slug: string | null }
   pages: string[]
   differences: Differences
   moi: { role: RoleSite; dev: boolean; id: string | null }
