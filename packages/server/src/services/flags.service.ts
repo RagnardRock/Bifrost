@@ -165,6 +165,27 @@ function ecrireChamp($: CheerioAPI, $el: Cheerio<Element>, valeur: string, dossi
   const cible = cibleTexte($, $el)
   cible.text(valeur)
   if (cible.is('time') && /^\d{4}-\d{2}-\d{2}$/.test(valeur)) cible.attr('datetime', valeur)
+  if (cible.is('a[href]')) suivreLien(cible, valeur)
+}
+
+/** Lien d'appel ou d'e-mail : l'adresse du lien suit le numéro ou l'adresse saisis. */
+export function suivreLien($a: Cheerio<Element>, valeur: string) {
+  const href = $a.attr('href') || ''
+  if (/^tel:/i.test(href)) {
+    const nouveau = lienTelephone(valeur, href)
+    if (nouveau) $a.attr('href', nouveau)
+  } else if (/^mailto:/i.test(href)) {
+    const email = valeur.trim()
+    if (/^[^\s@<>]+@[^\s@<>]+\.[a-z]{2,}$/i.test(email)) $a.attr('href', `mailto:${email}${href.includes('?') ? href.slice(href.indexOf('?')) : ''}`)
+  }
+}
+
+/** « 04 71 00 41 87 » -> tel:+33471004187 si l'ancien lien était au format international français, sinon tel:0471004187. */
+export function lienTelephone(valeur: string, ancien = ''): string | null {
+  const brut = valeur.replace(/[\s.\-()\/]/g, '')
+  if (!/^\+?\d{3,15}$/.test(brut)) return null
+  if (/^0\d{9}$/.test(brut) && /^tel:\+33/i.test(ancien)) return `tel:+33${brut.slice(1)}`
+  return `tel:${brut}`
 }
 
 /** Modifie un champ hors liste. Renvoie le HTML et le nombre d'éléments touchés. */
