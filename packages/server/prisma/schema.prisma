@@ -55,6 +55,7 @@ model Site {
   collectionItems CollectionItem[]
   contentHistory  ContentHistory[]
   webhookLogs     WebhookLog[]
+  publications    Publication[]
 
   @@map("sites")
 }
@@ -136,4 +137,24 @@ model WebhookLog {
 
   @@index([siteId, status])
   @@map("webhook_logs")
+}
+
+// ============================================
+// PUBLICATIONS (sites statiques, v2)
+// ============================================
+
+model Publication {
+  id        String   @id @default(uuid())
+  siteId    String   @map("site_id")
+  auteur    String?
+  ajoutes   Json     @db.JsonB
+  modifies  Json     @db.JsonB
+  supprimes Json     @db.JsonB
+  annulee   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, createdAt])
+  @@map("publications")
 }

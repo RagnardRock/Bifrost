@@ -74,7 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
       client.value = response.user as ClientUser
 
       // Redirect to client dashboard
-      router.push('/dashboard')
+      router.push(`/edition/${siteId}`)
     } catch (e: any) {
       error.value = e.response?.data?.error?.message || 'Erreur de connexion'
       throw e

@@ -72,6 +72,13 @@ export const router = createRouter({
         },
       ],
     },
+    // Éditeur sur place (v2) : dev et client
+    {
+      path: '/edition/:siteId',
+      name: 'editeur',
+      component: () => import('@/views/Editeur.vue'),
+      meta: { requiresAuth: true },
+    },
     // Catch all 404
     {
       path: '/:pathMatch(.*)*',
@@ -97,6 +104,11 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
 
+  // Éditeur : dev ou client du site
+  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+    return next({ name: 'login', query: { site: to.params.siteId as string } })
+  }
+
   // Client routes protection
   if (to.meta.requiresClient) {
     if (!auth.isClient) {
@@ -111,7 +123,8 @@ router.beforeEach(async (to, _from, next) => {
 
   // Redirect authenticated clients away from client login
   if (to.meta.clientGuest && auth.isClient) {
-    return next({ name: 'client-dashboard' })
+    const siteId = (auth.currentUser as { siteId?: string } | null)?.siteId
+    return next(siteId ? { name: 'editeur', params: { siteId } } : { name: 'client-dashboard' })
   }
 
   next()

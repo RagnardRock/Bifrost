@@ -34,6 +34,9 @@ export const config = {
     : process.env.CORS_ORIGINS?.split(',') ||
       (process.env.NODE_ENV !== 'production' ? true : ['http://localhost:5173']),
 
+  // Dossier où sont rangés les sites statiques gérés par Bifrost
+  sitesDir: path.resolve(process.env.SITES_DIR || path.resolve(__dirname, '../../../../donnees/sites')),
+
   // Rate limiting
   rateLimit: {
     public: 100,

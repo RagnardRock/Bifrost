@@ -1,0 +1,365 @@
+<script setup lang="ts">
+/**
+ * Éditeur sur place : le vrai site dans un cadre, modifiable au clic.
+ * Le script injecté dans l'aperçu (overlay.js) envoie les modifications ici ; on appelle l'API.
+ */
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { editeurService, type EtatEditeur, type Publication } from '@/services/editeur.service'
+import { useAuthStore } from '@/stores/auth.store'
+
+const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
+const siteId = computed(() => route.params.siteId as string)
+
+const etat = ref<EtatEditeur | null>(null)
+const page = ref('index.html')
+const titrePage = ref('')
+const modele = ref<string | null>(null)
+const cadre = ref<HTMLIFrameElement | null>(null)
+const cle = ref(0)
+const erreur = ref('')
+const message = ref('')
+const occupe = ref(false)
+const vueMobile = ref(false)
+
+const nbModifs = computed(() => {
+  const d = etat.value?.differences
+  return d ? d.ajoutes.length + d.modifies.length + d.supprimes.length : 0
+})
+const src = computed(() => `/apercu/${siteId.value}/${page.value}`)
+
+let minuteur: number | undefined
+function informer(t: string) {
+  message.value = t
+  clearTimeout(minuteur)
+  minuteur = window.setTimeout(() => (message.value = ''), 3500)
+}
+function echec(e: any, defaut = 'La modification n’a pas pu être enregistrée.') {
+  erreur.value = e?.response?.data?.error?.message || defaut
+}
+
+async function rafraichirEtat() {
+  etat.value = await editeurService.etat(siteId.value)
+}
+function recharger() {
+  cadre.value?.contentWindow?.postMessage({ source: 'bifrost-parent', type: 'avant-rechargement' }, '*')
+  setTimeout(() => (cle.value++), 30)
+}
+
+// ---------- messages venant de l'aperçu ----------
+const champImage = ref<{ cle: string; liste: string | null; index: number | null } | null>(null)
+const choixImage = ref<HTMLInputElement | null>(null)
+const confirmation = ref<{ texte: string; action: () => Promise<void> } | null>(null)
+
+async function surMessage(e: MessageEvent) {
+  if (e.source !== cadre.value?.contentWindow || e.data?.source !== 'bifrost') return
+  const m = e.data
+  erreur.value = ''
+  try {
+    if (m.type === 'page') {
+      page.value = m.page
+      titrePage.value = (m.titre || '').split('|')[0].trim()
+      modele.value = m.modele
+    } else if (m.type === 'champ') {
+      if (m.liste) await editeurService.operationListe(siteId.value, { page: m.page, nom: m.liste, op: 'modifier', index: m.index, cle: m.cle, valeur: m.valeur })
+      else await editeurService.modifierChamp(siteId.value, m.cle, m.valeur)
+      informer('Enregistré dans le brouillon')
+      await rafraichirEtat()
+    } else if (m.type === 'image') {
+      champImage.value = { cle: m.cle, liste: m.liste, index: m.index }
+      choixImage.value?.click()
+    } else if (m.type === 'liste') {
+      const faire = async () => {
+        await editeurService.operationListe(siteId.value, { page: m.page, nom: m.nom, op: m.op, index: m.index, vers: m.vers })
+        await rafraichirEtat()
+        recharger()
+      }
+      if (m.demanderConfirmation) confirmation.value = { texte: m.nom === modele.value || m.nom === 'actualites' ? 'Supprimer cette actualité et sa page ?' : 'Supprimer cet élément ?', action: faire }
+      else await faire()
+    } else if (m.type === 'info') {
+      informer(m.texte)
+    }
+  } catch (err) {
+    echec(err)
+  }
+}
+
+async function surImage(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const f = input.files?.[0]
+  input.value = ''
+  const c = champImage.value
+  if (!f || !c) return
+  occupe.value = true
+  try {
+    const { chemin } = await editeurService.envoyerImage(siteId.value, f)
+    if (c.liste !== null && c.index !== null) await editeurService.operationListe(siteId.value, { page: page.value, nom: c.liste, op: 'modifier', index: c.index, cle: c.cle, valeur: chemin })
+    else await editeurService.modifierChamp(siteId.value, c.cle, chemin)
+    await rafraichirEtat()
+    recharger()
+    informer('Photo remplacée')
+  } catch (err) {
+    echec(err, 'La photo n’a pas pu être envoyée.')
+  } finally {
+    occupe.value = false
+  }
+}
+
+// ---------- nouvelle actualité ----------
+const nouvelle = ref<{ titre: string; date: string; texte: string; photos: { chemin: string; apercu: string }[] } | null>(null)
+const nomCollection = computed(() => modele.value || 'actualites')
+function ouvrirNouvelle() {
+  nouvelle.value = { titre: '', date: new Date().toISOString().slice(0, 10), texte: '', photos: [] }
+}
+async function ajouterPhotos(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const fichiers = Array.from(input.files || [])
+  input.value = ''
+  occupe.value = true
+  try {
+    for (const f of fichiers) {
+      const { chemin } = await editeurService.envoyerImage(siteId.value, f)
+      nouvelle.value?.photos.push({ chemin, apercu: URL.createObjectURL(f) })
+    }
+  } catch (err) {
+    echec(err, 'Une photo n’a pas pu être envoyée.')
+  } finally {
+    occupe.value = false
+  }
+}
+async function creerNouvelle() {
+  const n = nouvelle.value
+  if (!n || !n.titre.trim()) return
+  occupe.value = true
+  try {
+    const texte = n.texte.trim() ? n.texte.trim().split(/\n{2,}/).map((p) => `<p>${p.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string)).replace(/\n/g, '<br>')}</p>`).join('') : ''
+    const { page: p } = await editeurService.nouvelElement(siteId.value, nomCollection.value, { titre: n.titre.trim(), date: n.date || undefined, texte, photos: n.photos.map((x) => x.chemin) })
+    nouvelle.value = null
+    await rafraichirEtat()
+    page.value = p
+    cle.value++
+    informer('Actualité créée. Pensez à publier.')
+  } catch (err) {
+    echec(err)
+  } finally {
+    occupe.value = false
+  }
+}
+
+// ---------- publication et historique ----------
+const historique = ref<Publication[] | null>(null)
+async function publier() {
+  occupe.value = true
+  try {
+    const { publication } = await editeurService.publier(siteId.value)
+    await rafraichirEtat()
+    informer(publication ? 'Votre site est à jour en ligne.' : 'Rien à publier.')
+  } catch (err) {
+    echec(err, 'La publication a échoué.')
+  } finally {
+    occupe.value = false
+  }
+}
+async function ouvrirHistorique() {
+  historique.value = await editeurService.publications(siteId.value)
+}
+function annulerPublication(p: Publication) {
+  confirmation.value = {
+    texte: 'Remettre le site tel qu’il était avant cette publication ?',
+    action: async () => {
+      await editeurService.annuler(siteId.value, p.id)
+      await rafraichirEtat()
+      historique.value = await editeurService.publications(siteId.value)
+      recharger()
+      informer('Publication annulée.')
+    },
+  }
+}
+function abandonner() {
+  confirmation.value = {
+    texte: 'Effacer toutes les modifications non publiées ?',
+    action: async () => {
+      await editeurService.abandonner(siteId.value)
+      await rafraichirEtat()
+      recharger()
+      informer('Modifications effacées.')
+    },
+  }
+}
+async function confirmer() {
+  const c = confirmation.value
+  confirmation.value = null
+  if (!c) return
+  try { await c.action() } catch (err) { echec(err) }
+}
+const dateLisible = (d: string) => new Date(d).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
+const nomPage = (p: string) => {
+  const n = p.replace(/\.html$/, '').replace(/^index$/, 'Accueil').replace(/[-/]/g, ' ')
+  return n.charAt(0).toUpperCase() + n.slice(1)
+}
+
+function deconnexion() {
+  auth.logout?.()
+  router.push('/login')
+}
+
+onMounted(async () => {
+  window.addEventListener('message', surMessage)
+  try {
+    await editeurService.ouvrirSession(siteId.value)
+    await rafraichirEtat()
+  } catch (err) {
+    echec(err, 'Impossible d’ouvrir l’éditeur.')
+  }
+})
+onBeforeUnmount(() => window.removeEventListener('message', surMessage))
+</script>
+
+<template>
+  <div class="ed">
+    <header class="ed-barre">
+      <div class="ed-gauche">
+        <span class="ed-logo" aria-hidden="true">ᛒ</span>
+        <div class="ed-titre">
+          <strong>{{ etat?.site.name || 'Bifrost' }}</strong>
+          <select v-if="etat" v-model="page" class="ed-pages" aria-label="Page à modifier" @change="cle++">
+            <option v-for="p in etat.pages.filter((x) => !x.includes('/'))" :key="p" :value="p">{{ nomPage(p) }}</option>
+            <option v-if="page.includes('/')" :value="page">{{ titrePage || nomPage(page) }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="ed-actions">
+        <button class="ed-btn ed-btn--clair" type="button" @click="ouvrirNouvelle">+ Actualité</button>
+        <button class="ed-btn ed-btn--icone" type="button" :aria-pressed="vueMobile" title="Voir comme sur un téléphone" @click="vueMobile = !vueMobile">📱</button>
+        <button class="ed-btn ed-btn--icone" type="button" title="Historique des publications" @click="ouvrirHistorique">🕘</button>
+        <button class="ed-btn ed-btn--publier" type="button" :disabled="!nbModifs || occupe" @click="publier">
+          {{ nbModifs ? `Publier (${nbModifs})` : 'À jour' }}
+        </button>
+      </div>
+    </header>
+
+    <div class="ed-aide">
+      Cliquez sur un texte pour le modifier, sur une photo pour la changer. Survolez une actualité pour la déplacer ou la supprimer.
+      <button v-if="nbModifs" type="button" class="ed-lien" @click="abandonner">Effacer mes modifications</button>
+      <a :href="`/sites/${siteId}/`" target="_blank" rel="noopener" class="ed-lien">Voir le site en ligne</a>
+      <button type="button" class="ed-lien" @click="deconnexion">Se déconnecter</button>
+    </div>
+
+    <main class="ed-scene" :class="{ 'ed-scene--mobile': vueMobile }">
+      <iframe v-if="etat" :key="cle" ref="cadre" :src="src" title="Votre site" class="ed-cadre" />
+    </main>
+
+    <input ref="choixImage" type="file" accept="image/*" hidden @change="surImage">
+
+    <transition name="ed-fondu">
+      <div v-if="message || erreur" class="ed-toast" :class="{ 'ed-toast--erreur': erreur }" role="status" @click="erreur = ''">
+        {{ erreur || message }}
+      </div>
+    </transition>
+    <div v-if="occupe" class="ed-occupe" aria-live="polite">Un instant…</div>
+
+    <!-- Nouvelle actualité -->
+    <div v-if="nouvelle" class="ed-fond" @click.self="nouvelle = null">
+      <form class="ed-fenetre" @submit.prevent="creerNouvelle">
+        <h2>Nouvelle actualité</h2>
+        <label>Titre<input v-model="nouvelle.titre" required maxlength="200" placeholder="Ex. : Repas de Noël avec les familles" autofocus></label>
+        <label>Date<input v-model="nouvelle.date" type="date"></label>
+        <label>Texte (facultatif)<textarea v-model="nouvelle.texte" rows="5" placeholder="Quelques lignes pour raconter le moment…" /></label>
+        <div>
+          <span class="ed-etiquette">Photos</span>
+          <div class="ed-photos">
+            <img v-for="p in nouvelle.photos" :key="p.chemin" :src="p.apercu" alt="">
+            <label class="ed-ajout-photo">+ Ajouter<input type="file" accept="image/*" multiple hidden @change="ajouterPhotos"></label>
+          </div>
+        </div>
+        <div class="ed-boutons">
+          <button type="button" class="ed-btn ed-btn--clair" @click="nouvelle = null">Annuler</button>
+          <button type="submit" class="ed-btn ed-btn--publier" :disabled="!nouvelle.titre.trim() || occupe">Créer l’actualité</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Historique -->
+    <div v-if="historique" class="ed-fond" @click.self="historique = null">
+      <div class="ed-fenetre">
+        <h2>Historique des publications</h2>
+        <p v-if="!historique.length">Aucune publication pour l’instant.</p>
+        <ul class="ed-histo">
+          <li v-for="(p, i) in historique" :key="p.id" :class="{ 'ed-annulee': p.annulee }">
+            <div>
+              <strong>{{ dateLisible(p.createdAt) }}</strong>
+              <span>{{ p.modifies.length + p.ajoutes.length + p.supprimes.length }} fichier(s) · {{ p.annulee ? 'annulée' : 'en ligne' }}</span>
+            </div>
+            <button v-if="!p.annulee && i === historique.findIndex((x) => !x.annulee)" type="button" class="ed-btn ed-btn--clair" @click="annulerPublication(p)">Revenir avant</button>
+          </li>
+        </ul>
+        <div class="ed-boutons"><button type="button" class="ed-btn ed-btn--clair" @click="historique = null">Fermer</button></div>
+      </div>
+    </div>
+
+    <!-- Confirmation -->
+    <div v-if="confirmation" class="ed-fond" @click.self="confirmation = null">
+      <div class="ed-fenetre ed-fenetre--petite">
+        <p>{{ confirmation.texte }}</p>
+        <div class="ed-boutons">
+          <button type="button" class="ed-btn ed-btn--clair" @click="confirmation = null">Annuler</button>
+          <button type="button" class="ed-btn ed-btn--danger" @click="confirmer">Confirmer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.ed { position: fixed; inset: 0; display: flex; flex-direction: column; background: #12161a; color: #f3f4f6; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.ed-barre { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; background: rgba(24, 28, 34, .85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255, 255, 255, .08); }
+.ed-gauche { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ed-logo { width: 38px; height: 38px; flex: none; border-radius: 10px; display: grid; place-items: center; font-size: 20px; background: linear-gradient(135deg, #7c3aed, #e07a4a); }
+.ed-titre { display: flex; flex-direction: column; min-width: 0; }
+.ed-titre strong { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ed-pages { background: transparent; color: #cbd5e1; border: 0; padding: 0; font: inherit; font-size: 13px; cursor: pointer; max-width: 220px; }
+.ed-pages option { color: #111; }
+.ed-actions { display: flex; align-items: center; gap: 8px; }
+.ed-btn { border: 0; border-radius: 999px; padding: 10px 16px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.ed-btn:disabled { opacity: .5; cursor: default; }
+.ed-btn--clair { background: rgba(255, 255, 255, .1); color: #fff; }
+.ed-btn--clair:hover { background: rgba(255, 255, 255, .18); }
+.ed-btn--icone { background: rgba(255, 255, 255, .06); padding: 10px 12px; }
+.ed-btn--icone[aria-pressed='true'] { background: rgba(224, 122, 74, .35); }
+.ed-btn--publier { background: #e07a4a; color: #fff; }
+.ed-btn--publier:not(:disabled):hover { background: #c96535; }
+.ed-btn--danger { background: #c0392b; color: #fff; }
+.ed-aide { font-size: 13px; color: #94a3b8; padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.ed-lien { background: none; border: 0; padding: 0; color: #f0a37e; font: inherit; cursor: pointer; text-decoration: underline; }
+.ed-scene { flex: 1; display: flex; justify-content: center; padding: 0; overflow: hidden; background: #0b0e11; }
+.ed-cadre { width: 100%; height: 100%; border: 0; background: #fff; transition: width .25s; }
+.ed-scene--mobile { padding: 20px 0; }
+.ed-scene--mobile .ed-cadre { width: 390px; border-radius: 24px; box-shadow: 0 0 0 10px #222, 0 20px 60px rgba(0, 0, 0, .5); }
+.ed-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: rgba(30, 41, 59, .95); color: #fff; padding: 12px 20px; border-radius: 999px; font-size: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); cursor: pointer; z-index: 30; max-width: calc(100% - 32px); }
+.ed-toast--erreur { background: #b91c1c; }
+.ed-occupe { position: fixed; top: 70px; right: 16px; background: rgba(30, 41, 59, .95); padding: 8px 14px; border-radius: 999px; font-size: 13px; z-index: 30; }
+.ed-fond { position: fixed; inset: 0; background: rgba(0, 0, 0, .55); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 16px; z-index: 40; }
+.ed-fenetre { width: 100%; max-width: 560px; max-height: calc(100vh - 32px); overflow: auto; background: rgba(28, 33, 40, .97); border: 1px solid rgba(255, 255, 255, .1); border-radius: 18px; padding: 24px; display: grid; gap: 14px; }
+.ed-fenetre--petite { max-width: 400px; }
+.ed-fenetre h2 { margin: 0; font-size: 20px; }
+.ed-fenetre label, .ed-etiquette { display: grid; gap: 6px; font-size: 14px; font-weight: 600; color: #cbd5e1; }
+.ed-fenetre input, .ed-fenetre textarea { background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .14); border-radius: 10px; padding: 12px; color: #fff; font: inherit; font-weight: 400; }
+.ed-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.ed-photos img { width: 84px; height: 84px; object-fit: cover; border-radius: 10px; }
+.ed-ajout-photo { width: 84px; height: 84px; border-radius: 10px; border: 2px dashed rgba(255, 255, 255, .25); display: grid !important; place-items: center; cursor: pointer; font-size: 13px; }
+.ed-boutons { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.ed-histo { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ed-histo li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); }
+.ed-histo span { display: block; font-size: 13px; color: #94a3b8; }
+.ed-annulee { opacity: .55; }
+.ed-fondu-enter-active, .ed-fondu-leave-active { transition: opacity .2s; }
+.ed-fondu-enter-from, .ed-fondu-leave-to { opacity: 0; }
+@media (max-width: 720px) {
+  .ed-barre { padding: 8px 10px; }
+  .ed-btn { padding: 9px 12px; font-size: 13px; }
+  .ed-aide { display: none; }
+  .ed-btn--icone { display: none; }
+}
+</style>
