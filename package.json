@@ -10,6 +10,7 @@
     "packages/loader"
   ],
   "scripts": {
+    "predev": "npm run build -w @bifrost/shared",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm run dev -w @bifrost/server",
     "dev:client": "npm run dev -w @bifrost/client",

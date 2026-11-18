@@ -57,8 +57,8 @@ Les images envoyées sont converties en WebP (1600 px max) dans `brouillon/media
 
 ## Essai en local
 
-1. Postgres lancé, `.env` à la racine avec `DATABASE_URL` et `JWT_SECRET`.
-2. `npm install`, puis `npx prisma migrate dev` dans `packages/server`.
+1. Postgres : `docker compose -f docker-compose.dev.yml up -d` (si le port 5432 est pris, lancer le conteneur sur 5433 et l'indiquer dans `DATABASE_URL`).
+2. Copier `.env.example` en `.env` à la racine **et** dans `packages/server` (Prisma lit ce dernier), puis `npm install` et `npx prisma migrate dev` dans `packages/server`.
 3. Importer un site et créer le compte client :
    `npm run site:importer -w @bifrost/server -- <dossier-du-site> "<Nom du site>" <email-client> <mot-de-passe>`
-4. `npm run dev`, se connecter avec le compte client : l'éditeur s'ouvre sur `/edition/<siteId>`.
+4. `npm run dev` à la racine (compile d'abord le paquet partagé), se connecter avec le compte client : l'éditeur s'ouvre sur `/edition/<siteId>`.
