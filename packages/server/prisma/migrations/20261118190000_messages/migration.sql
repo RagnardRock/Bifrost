@@ -1,3 +1,6 @@
+-- Adresses de réception des messages (vide = les responsables du site)
+ALTER TABLE "sites" ADD COLUMN "email_messages" TEXT;
+
 -- Messages reçus par les formulaires des sites (data-bf-formulaire)
 CREATE TABLE "messages" (
     "id" TEXT NOT NULL,

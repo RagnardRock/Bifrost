@@ -32,7 +32,7 @@ export interface Resultat { merci: string | null; page: string }
 
 /** Reçoit un envoi : vérifie, enregistre, prévient les responsables du site par e-mail. */
 export async function recevoir(siteId: string, nom: string, corps: Record<string, unknown>): Promise<Resultat> {
-  const site = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, name: true } })
+  const site = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, name: true, emailMessages: true } })
   if (!site) throw Errors.notFound('Site')
   const f = (await formulairesPublies(site.id)).get(nom)
   if (!f) throw Errors.notFound('Formulaire')
@@ -49,9 +49,16 @@ export async function recevoir(siteId: string, nom: string, corps: Record<string
   return resultat
 }
 
-async function prevenir(site: { id: string; name: string }, nom: string, champs: { libelle: string; valeur: string }[], email: string | null) {
+/** Adresses qui reçoivent les messages : celles réglées dans la fiche du site, sinon les responsables. */
+async function destinataires(site: { id: string; emailMessages: string | null }) {
+  const reglees = (site.emailMessages || '').split(',').map((a) => a.trim()).filter(Boolean)
+  if (reglees.length) return reglees
+  const membres = await prisma.membre.findMany({ where: { siteId: site.id, role: 'responsable' }, select: { user: { select: { email: true } } } })
+  return membres.map((m) => m.user.email)
+}
+
+async function prevenir(site: { id: string; name: string; emailMessages: string | null }, nom: string, champs: { libelle: string; valeur: string }[], email: string | null) {
   try {
-    const membres = await prisma.membre.findMany({ where: { siteId: site.id, role: 'responsable' }, select: { user: { select: { email: true } } } })
     const texte = [
       `Nouveau message reçu par le formulaire « ${nom} » du site ${site.name} :`,
       '',
@@ -59,7 +66,7 @@ async function prevenir(site: { id: string; name: string }, nom: string, champs:
       email ? 'Répondez simplement à cet e-mail pour écrire à la personne.' : '',
       'Tous les messages sont aussi dans l’éditeur Bifrost, bouton 📨.',
     ].join('\n')
-    for (const m of membres) await envoyer(m.user.email, `Nouveau message : ${site.name}`, texte, { repondreA: email || undefined })
+    for (const a of await destinataires(site)) await envoyer(a, `Nouveau message : ${site.name}`, texte, { repondreA: email || undefined })
   } catch (e) {
     logger.warn({ err: e }, 'formulaire : e-mail de notification non envoyé')
   }

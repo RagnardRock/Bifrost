@@ -63,6 +63,8 @@ model Site {
   url        String
   // Nom court dans l'adresse publique : /sites/<slug>/
   slug       String?  @unique
+  /// Adresses qui reçoivent les messages des formulaires (séparées par des virgules) ; vide = les responsables du site
+  emailMessages String? @map("email_messages")
   apiKey     String   @unique @map("api_key")
   schema     Json?    @db.JsonB
   webhookUrl String?  @map("webhook_url")

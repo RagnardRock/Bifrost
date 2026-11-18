@@ -15,7 +15,7 @@ export interface SiteSuivi {
 }
 export interface Evenement { id: string; date: string; type: string; detail: string; site: { id: string; nom: string }; auteur: string | null }
 export interface FicheSite {
-  site: { id: string; name: string; url: string; slug: string | null; createdAt: string }
+  site: { id: string; name: string; url: string; slug: string | null; emailMessages: string | null; createdAt: string }
   pages: number
   differences: Differences | null
   publications: Publication[]
@@ -48,7 +48,7 @@ export const suiviService = {
     f.append('archive', archive, 'site.zip')
     return api.post(`/admin/suivi/sites/${id}/envoi`, f, envoiOptions(progres))
   },
-  modifier: (id: string, nom: string, url: string, slug?: string) => api.put(`/admin/suivi/sites/${id}`, { nom, url, slug: slug || undefined }),
+  modifier: (id: string, nom: string, url: string, slug?: string, emailMessages?: string) => api.put(`/admin/suivi/sites/${id}`, { nom, url, slug: slug || undefined, emailMessages }),
   reimporter: (id: string, dossier: string) => api.post(`/admin/suivi/sites/${id}/importer`, { dossier }, { timeout: 120000 }),
   fiche: (id: string) => donnees<FicheSite>(api.get(`/admin/suivi/sites/${id}`)),
   activite: (site?: string, limite = 100) => donnees<Evenement[]>(api.get('/admin/suivi/activite', { params: { site, limite } })),

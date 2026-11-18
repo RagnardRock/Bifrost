@@ -66,7 +66,7 @@ Un formulaire marqué `data-bf-formulaire="nom"` envoie ses messages à Bifrost,
   Réimporter le site si `APP_URL` change.
 - Seuls les champs présents dans le formulaire **publié** sont gardés ; le libellé vient du `<label>` (ou du `placeholder`). `required` est vérifié côté serveur.
 - Le premier champ `type="email"` sert d'adresse de réponse : « Répondre » dans l'éditeur, et Répondre directement à l'e-mail de notification.
-- Chaque message est enregistré, envoyé par e-mail aux **responsables** du site, et visible dans l'éditeur (bouton 📨, avec le nombre de non lus).
+- Chaque message est enregistré, envoyé par e-mail aux **responsables** du site (ou aux adresses réglées dans la fiche du site, « Messages du formulaire envoyés à »), et visible dans l'éditeur (bouton 📨, avec le nombre de non lus).
 - Limite : 8 envois par quart d'heure et par visiteur, 5 000 caractères par champ.
 - Envoi en JavaScript (pour afficher « Merci » sans quitter la page) : `fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } })`
   répond `{ success: true }`, ou `{ success: false, error: { message } }` à afficher au visiteur.

@@ -67,13 +67,17 @@ router.put('/sites/:id', action(async (req) => {
     nom: z.string().trim().min(1).max(120),
     url: z.string().trim().max(300),
     slug: z.string().trim().toLowerCase().regex(SLUG_VALIDE, 'Nom court : lettres minuscules, chiffres et tirets').optional(),
+    emailMessages: z.string().trim().max(500).optional(),
   }).parse(req.body)
+  const adresses = b.emailMessages?.split(/[,;\s]+/).map((a) => a.trim()).filter(Boolean)
+  if (adresses?.some((a) => !z.string().email().safeParse(a).success)) throw Errors.badRequest('Adresse de réception des messages invalide')
+  if (adresses && adresses.length > 5) throw Errors.badRequest('5 adresses de réception au maximum')
   const avant = await prisma.site.findUnique({ where: { id: id(req) }, select: { slug: true } })
   if (b.slug && b.slug !== avant?.slug && await prisma.site.findFirst({ where: { slug: b.slug }, select: { id: true } })) {
     throw Errors.badRequest('Ce nom court est déjà pris par un autre site')
   }
   oublierSlug(avant?.slug)
-  return prisma.site.update({ where: { id: id(req) }, data: { name: b.nom, url: b.url, ...(b.slug ? { slug: b.slug } : {}) }, select: { id: true, name: true, url: true, slug: true } })
+  return prisma.site.update({ where: { id: id(req) }, data: { name: b.nom, url: b.url, ...(b.slug ? { slug: b.slug } : {}), ...(adresses ? { emailMessages: adresses.join(', ') || null } : {}) }, select: { id: true, name: true, url: true, slug: true, emailMessages: true } })
 }))
 
 // Réimporter le dossier du site (écrase brouillon et version en ligne)
