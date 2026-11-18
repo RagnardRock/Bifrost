@@ -317,12 +317,14 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
     </header>
 
     <div class="ed-aide">
-      Cliquez sur un texte pour le modifier, sur une photo pour la changer. Survolez une actualité pour la déplacer ou la supprimer.
-      <button v-if="nbModifs && responsable" type="button" class="ed-lien" @click="abandonner">Effacer mes modifications</button>
-      <a :href="adresseSite(etat?.site ?? { id: siteId })" target="_blank" rel="noopener" class="ed-lien">Voir le site en ligne</a>
-      <router-link v-if="etat?.moi.dev" :to="`/admin/sites/${etat?.site.slug || siteId}`" class="ed-lien">Fiche du site (dev)</router-link>
-      <button type="button" class="ed-lien" :title="`Thème : ${ui.theme === 'system' ? 'comme l’appareil' : ui.theme}`" @click="ui.basculerTheme()">{{ ui.theme === 'dark' ? '🌙 Sombre' : ui.theme === 'light' ? '☀️ Clair' : '💻 Auto' }}</button>
-      <button type="button" class="ed-lien" @click="deconnexion">Se déconnecter</button>
+      <p class="ed-astuce"><span aria-hidden="true">✎</span> Cliquez sur un texte pour le modifier, sur une photo pour la changer. Survolez une actualité pour la déplacer ou la supprimer.</p>
+      <div class="ed-raccourcis">
+        <button v-if="nbModifs && responsable" type="button" class="ed-pastille ed-pastille--danger" @click="abandonner">Effacer mes modifications</button>
+        <a :href="adresseSite(etat?.site ?? { id: siteId })" target="_blank" rel="noopener" class="ed-pastille">Voir le site <span aria-hidden="true">↗</span></a>
+        <router-link v-if="etat?.moi.dev" :to="`/admin/sites/${etat?.site.slug || siteId}`" class="ed-pastille">Fiche du site</router-link>
+        <button type="button" class="ed-pastille" :title="`Thème : ${ui.theme === 'system' ? 'comme l’appareil' : ui.theme === 'dark' ? 'sombre' : 'clair'}`" :aria-label="`Changer de thème (actuel : ${ui.theme === 'system' ? 'auto' : ui.theme === 'dark' ? 'sombre' : 'clair'})`" @click="ui.basculerTheme()">{{ ui.theme === 'dark' ? '🌙' : ui.theme === 'light' ? '☀️' : '💻' }}</button>
+        <button type="button" class="ed-pastille" @click="deconnexion">Se déconnecter</button>
+      </div>
     </div>
 
     <main class="ed-scene" :class="{ 'ed-scene--mobile': vueMobile }">
@@ -435,9 +437,9 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 
 <style scoped>
 .ed { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bf-fond); color: var(--bf-texte); }
-.ed-barre { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; background: linear-gradient(90deg, rgba(139, 92, 246, .10), rgba(224, 122, 74, .06)), var(--bf-surface); backdrop-filter: blur(18px); border-bottom: 1px solid var(--bf-bord); }
+.ed-barre { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; background: var(--bf-surface); backdrop-filter: blur(18px); border-bottom: 1px solid var(--bf-bord); }
 .ed-gauche { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.ed-logo { width: 38px; height: 38px; flex: none; border-radius: 11px; display: grid; place-items: center; font-size: 20px; color: #fff; background: var(--bf-degrade); box-shadow: 0 6px 18px rgba(139, 92, 246, .3); }
+.ed-logo { width: 38px; height: 38px; flex: none; border-radius: 11px; display: grid; place-items: center; font-size: 20px; color: #fff; background: var(--bf-degrade); font-family: 'Noto Sans Runic', 'Segoe UI Historic', sans-serif; }
 .ed-titre { display: flex; flex-direction: column; min-width: 0; }
 .ed-titre strong { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ed-pages { background: transparent; color: var(--bf-texte); border: 0; padding: 0; font: inherit; font-size: 13px; cursor: pointer; max-width: 220px; }
@@ -452,8 +454,14 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 .ed-btn--publier { background: var(--bf-degrade); color: #fff; box-shadow: 0 6px 18px rgba(139, 92, 246, .25); }
 .ed-btn--publier:not(:disabled):hover { filter: brightness(1.1); }
 .ed-btn--danger { background: #c0392b; color: #fff; }
-.ed-aide { font-size: 13px; color: var(--bf-doux); background: var(--bf-surface-legere); padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; border-bottom: 1px solid var(--bf-bord); }
-.ed-lien { background: none; border: 0; padding: 0; color: var(--bf-accent); font: inherit; cursor: pointer; text-decoration: underline; }
+.ed-aide { display: flex; align-items: center; justify-content: space-between; gap: 8px 20px; flex-wrap: wrap; padding: 6px 10px 6px 18px; font-size: 13px; color: var(--bf-doux); background: var(--bf-surface-legere); border-bottom: 1px solid var(--bf-bord); }
+.ed-astuce { margin: 0; min-width: 0; }
+.ed-astuce span { color: var(--bf-fort); margin-right: 4px; }
+.ed-raccourcis { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+.ed-pastille { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; border: 0; background: none; color: var(--bf-texte); font: inherit; font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer; white-space: nowrap; transition: background .2s, color .2s; }
+.ed-pastille:hover { background: var(--bf-verre-fort); color: var(--bf-fort); }
+.ed-pastille--danger { color: var(--bf-danger); }
+.ed-pastille--danger:hover { background: rgba(248, 113, 113, .12); color: var(--bf-danger); }
 .ed-scene { flex: 1; display: flex; justify-content: center; padding: 0; overflow: hidden; background: transparent; }
 .ed-cadre { width: 100%; height: 100%; border: 0; background: #fff; transition: width .25s; }
 .ed-scene--mobile { padding: 20px 0; }

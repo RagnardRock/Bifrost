@@ -80,17 +80,17 @@ onMounted(charger)
 </script>
 
 <template>
-  <div class="max-w-6xl">
-    <router-link to="/admin" class="text-sm text-blue-500 hover:underline">← Tous les sites</router-link>
+  <div>
+    <router-link to="/admin" class="surtitre retour">← Tous les sites</router-link>
 
     <p v-if="erreur" class="glass-card p-4 my-4 text-red-500" role="alert" @click="erreur = ''">{{ erreur }}</p>
     <p v-if="message" class="glass-card p-4 my-4 text-green-600" role="status" @click="message = ''">{{ message }}</p>
 
     <template v-if="fiche">
-      <div class="flex flex-wrap items-end justify-between gap-4 mt-3 mb-8">
+      <div class="flex flex-wrap items-end justify-between gap-4 mb-10">
         <div>
-          <h1 class="text-3xl font-bold">{{ fiche.site.name }}</h1>
-          <p class="text-sm text-gray-500 mt-1">{{ fiche.pages }} pages · créé le {{ new Date(fiche.site.createdAt).toLocaleDateString('fr-FR') }}</p>
+          <h1>{{ fiche.site.name }}</h1>
+          <p class="chapeau">{{ fiche.pages }} pages · créé le {{ new Date(fiche.site.createdAt).toLocaleDateString('fr-FR') }}</p>
         </div>
         <div class="flex gap-2">
           <a :href="fiche.site.url || adresseSite(fiche.site)" target="_blank" rel="noopener" class="glass-button">Voir en ligne</a>
@@ -173,6 +173,8 @@ onMounted(charger)
 </template>
 
 <style scoped>
+.retour { text-decoration: none; }
+.retour:hover { color: var(--bf-fort); }
 .colonnes { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 @media (max-width: 1024px) { .colonnes { grid-template-columns: minmax(0, 1fr); } }
 .bloc { padding: 20px; display: grid; gap: 12px; }

@@ -50,11 +50,12 @@ onMounted(charger)
 </script>
 
 <template>
-  <div class="max-w-6xl">
-    <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+  <div>
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-10">
       <div>
-        <h1 class="text-3xl font-bold">Sites</h1>
-        <p class="text-gray-500 text-sm mt-1">Ce que vos clients modifient, publient, et qui fait partie de chaque équipe.</p>
+        <span class="surtitre">Espace développeur</span>
+        <h1>Sites</h1>
+        <p class="chapeau">Ce que vos clients modifient, publient, et qui fait partie de chaque équipe.</p>
       </div>
       <button type="button" class="btn-primary" @click="nouveau = { nom: '', url: '', dossier: '' }">+ Nouveau site</button>
     </div>
@@ -65,7 +66,7 @@ onMounted(charger)
     <div v-else-if="!sites.length" class="glass-card p-10 text-center text-gray-500">Aucun site pour l’instant. Commencez par « Nouveau site ».</div>
 
     <div v-else class="grille">
-      <article v-for="s in sites" :key="s.id" class="glass-card carte">
+      <article v-for="s in sites" :key="s.id" class="glass-card bf-carte carte">
         <header>
           <router-link :to="`/admin/sites/${s.slug || s.id}`" class="nom">{{ s.nom }}</router-link>
           <a :href="enLigne(s)" target="_blank" rel="noopener" class="adresse">{{ s.url || `bifrost › ${s.slug || 'site'}` }}</a>
@@ -74,7 +75,7 @@ onMounted(charger)
         <div class="chiffres">
           <div :class="{ alerte: s.enAttente }">
             <strong>{{ s.enAttente ?? '–' }}</strong>
-            <span>{{ s.enAttente === 1 ? 'modification en attente' : 'modifications en attente' }}</span>
+            <span>{{ s.enAttente === 1 ? 'fichier en attente' : 'fichiers en attente' }}</span>
           </div>
           <div>
             <strong>{{ s.membres }}</strong>
@@ -106,9 +107,9 @@ onMounted(charger)
       </article>
     </div>
 
-    <section class="mt-10">
+    <section class="mt-14">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-xl font-bold">Activité récente</h2>
+        <h2 class="text-xl">Activité récente</h2>
         <router-link to="/admin/activite" class="text-sm text-blue-500 hover:underline">Tout voir</router-link>
       </div>
       <div class="glass-card p-2"><Journal :evenements="activite" avec-site /></div>
@@ -117,7 +118,7 @@ onMounted(charger)
     <!-- Nouveau site -->
     <div v-if="nouveau" class="fond" @click.self="nouveau = null; envoi = null">
       <form class="glass-card fenetre" @submit.prevent="creer">
-        <h2 class="text-xl font-bold">Nouveau site</h2>
+        <h2 class="text-xl">Nouveau site</h2>
         <label>Nom<input v-model="nouveau.nom" class="input-field" required maxlength="120" placeholder="Nom du client ou du site"></label>
         <label>Adresse en ligne (facultatif)<input v-model="nouveau.url" class="input-field" placeholder="https://exemple.fr"></label>
         <div class="champ">
@@ -140,15 +141,14 @@ onMounted(charger)
 
 <style scoped>
 .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
-.carte { padding: 20px; display: grid; gap: 16px; transition: border-color .2s, transform .2s; }
-.carte:hover { border-color: var(--bf-bord-fort); transform: translateY(-2px); }
+.carte { padding: 20px; display: grid; gap: 16px; box-shadow: none; }
 .carte header { display: grid; gap: 2px; }
-.nom { font-size: 18px; font-weight: 700; }
+.nom { font-size: 18px; font-weight: 650; color: var(--bf-fort); letter-spacing: -.01em; }
 .nom:hover { text-decoration: underline; }
 .adresse { font-size: 13px; color: var(--bf-doux); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chiffres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .chiffres div { padding: 10px; border-radius: 12px; background: var(--bf-verre); display: grid; gap: 2px; }
-.chiffres strong { font-size: 22px; line-height: 1.1; }
+.chiffres strong { font-size: 22px; line-height: 1.1; color: var(--bf-fort); font-variant-numeric: tabular-nums; }
 .chiffres span { font-size: 12px; color: var(--bf-doux); line-height: 1.3; }
 .chiffres .alerte { background: rgba(224, 122, 74, .14); box-shadow: inset 0 0 0 1px rgba(224, 122, 74, .3); }
 .chiffres .alerte strong { color: var(--bf-accent); }
