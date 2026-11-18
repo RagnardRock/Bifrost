@@ -67,13 +67,12 @@ le lien d'invitation s'affiche à la personne qui invite, à transmettre à la m
 
 ## 8. Ajouter un site client
 
-1. **Déposer le dossier du site** dans `/srv/bifrost/donnees/import/` depuis le PC (PowerShell) :
-   ```powershell
-   scp -r D:\Projets\ehpad-saintpaulien compte@vps:/srv/bifrost/donnees/import/
-   ```
-   puis sur le VPS : `sudo chown -R 1000:1000 /srv/bifrost/donnees/import`
-2. **Espace dev › Nouveau site** : dans « Dossier », juste le nom : `ehpad-saintpaulien`.
-3. **Servir le site** sous son domaine : DNS du domaine (`A` et `www`) vers l'IP du VPS, puis
+1. **Espace dev › Nouveau site** : glisser le dossier du site (ou un ZIP) dans la zone prévue,
+   ou cliquer sur « Choisir un dossier ». Le navigateur l'envoie directement, rien à faire en ligne de commande.
+   (Les envois passent par nginx : la ligne `client_max_body_size 200m;` de sa configuration fixe la taille maximale.)
+2. *(Facultatif)* Un dossier déjà présent sur le serveur, dans `/srv/bifrost/donnees/import/`, peut aussi être
+   importé : « Dossier déjà présent sur le serveur », puis son nom.
+3. *(Facultatif)* **Servir le site sous son propre domaine** (sinon il reste visible sur `/sites/<id>/`) : DNS du domaine (`A` et `www`) vers l'IP du VPS, puis
    ```bash
    sudo curl -fsSLo /etc/nginx/sites-available/ehpad https://raw.githubusercontent.com/RagnardRock/Bifrost/master/deploy/nginx-site-client.conf
    sudo nano /etc/nginx/sites-available/ehpad   # remplacer DOMAINE et ID_DU_SITE (lu dans l'adresse de sa fiche)
@@ -83,7 +82,6 @@ le lien d'invitation s'affiche à la personne qui invite, à transmettre à la m
    ```
    Chaque « Publier » du client met le site à jour aussitôt : nginx lit directement la version en ligne.
 
-Le dossier déposé peut être effacé après l'import (Bifrost en garde sa propre copie).
 
 ## Sauvegarde
 

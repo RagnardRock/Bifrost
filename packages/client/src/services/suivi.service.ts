@@ -21,11 +21,29 @@ export interface FicheSite {
 }
 
 const donnees = <T>(p: Promise<any>) => p.then((r) => r.data as T)
+const envoiOptions = (progres?: (p: number) => void) => ({
+  headers: { 'Content-Type': 'multipart/form-data' },
+  timeout: 600000,
+  onUploadProgress: (e: { loaded: number; total?: number }) => progres?.(e.total ? Math.round((e.loaded / e.total) * 100) : 0),
+})
 
 export const suiviService = {
   sites: () => donnees<SiteSuivi[]>(api.get('/admin/suivi/sites')),
   creer: (nom: string, url: string, dossier: string) =>
     donnees<{ id: string; pages: number }>(api.post('/admin/suivi/sites', { nom, url, dossier }, { timeout: 120000 })),
+  /** Envoi depuis le navigateur (ZIP). `progres` reçoit un pourcentage. */
+  creerEnvoi: (nom: string, url: string, archive: Blob, progres?: (p: number) => void) => {
+    const f = new FormData()
+    f.append('nom', nom)
+    f.append('url', url)
+    f.append('archive', archive, 'site.zip')
+    return donnees<{ id: string; pages: number }>(api.post('/admin/suivi/sites/envoi', f, envoiOptions(progres)))
+  },
+  reimporterEnvoi: (id: string, archive: Blob, progres?: (p: number) => void) => {
+    const f = new FormData()
+    f.append('archive', archive, 'site.zip')
+    return api.post(`/admin/suivi/sites/${id}/envoi`, f, envoiOptions(progres))
+  },
   modifier: (id: string, nom: string, url: string) => api.put(`/admin/suivi/sites/${id}`, { nom, url }),
   reimporter: (id: string, dossier: string) => api.post(`/admin/suivi/sites/${id}/importer`, { dossier }, { timeout: 120000 }),
   fiche: (id: string) => donnees<FicheSite>(api.get(`/admin/suivi/sites/${id}`)),
