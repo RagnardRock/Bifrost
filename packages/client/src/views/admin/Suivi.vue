@@ -118,8 +118,8 @@ onMounted(charger)
     <div v-if="nouveau" class="fond" @click.self="nouveau = null; envoi = null">
       <form class="glass-card fenetre" @submit.prevent="creer">
         <h2 class="text-xl font-bold">Nouveau site</h2>
-        <label>Nom<input v-model="nouveau.nom" class="input-field" required maxlength="120" placeholder="EHPAD Saint-Paulien"></label>
-        <label>Adresse en ligne (facultatif)<input v-model="nouveau.url" class="input-field" placeholder="https://ehpad-saintpaulien.fr"></label>
+        <label>Nom<input v-model="nouveau.nom" class="input-field" required maxlength="120" placeholder="Nom du client ou du site"></label>
+        <label>Adresse en ligne (facultatif)<input v-model="nouveau.url" class="input-field" placeholder="https://exemple.fr"></label>
         <div class="champ">
           <span>Le site</span>
           <EnvoiSite @choisi="envoi = $event" />
@@ -127,7 +127,7 @@ onMounted(charger)
         </div>
         <details v-if="!envoi" class="avance">
           <summary>Dossier déjà présent sur le serveur</summary>
-          <input v-model="nouveau.dossier" class="input-field" placeholder="ehpad-saintpaulien ou D:\Projets\ehpad-saintpaulien" aria-label="Dossier du site sur le serveur">
+          <input v-model="nouveau.dossier" class="input-field" placeholder="nom du dossier, ou chemin complet en local" aria-label="Dossier du site sur le serveur">
         </details>
         <div class="flex justify-end gap-2">
           <button type="button" class="glass-button" @click="nouveau = null; envoi = null">Annuler</button>
