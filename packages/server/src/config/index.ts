@@ -18,15 +18,7 @@ export const config = {
   jwtAdminExpiry: '7d',
   jwtClientExpiry: '24h',
 
-  // Webhook
-  webhookSecret: process.env.WEBHOOK_SECRET || 'webhook-secret-change-in-production',
 
-  // Cloudinary
-  cloudinary: {
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
-    apiKey: process.env.CLOUDINARY_API_KEY || '',
-    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
-  },
 
   // CORS - Allow any origin with '*' or list specific origins
   corsOrigins: process.env.CORS_ORIGINS === '*'
@@ -56,7 +48,7 @@ export const config = {
 
 // Validate required config in production
 if (!config.isDev) {
-  const required = ['JWT_SECRET', 'DATABASE_URL', 'WEBHOOK_SECRET']
+  const required = ['JWT_SECRET', 'DATABASE_URL']
   for (const key of required) {
     if (!process.env[key]) {
       throw new Error(`Missing required environment variable: ${key}`)

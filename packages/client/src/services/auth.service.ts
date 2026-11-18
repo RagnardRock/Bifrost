@@ -6,12 +6,6 @@ interface AdminLoginInput {
   password: string
 }
 
-interface ClientLoginInput {
-  email: string
-  password: string
-  siteId: string
-}
-
 interface MeResponse {
   role: 'admin' | 'client'
   id: string
@@ -31,13 +25,6 @@ export const authService = {
     return response.data
   },
 
-  async clientLogin(input: ClientLoginInput): Promise<LoginResponse> {
-    const response = await api.post<unknown, ApiResponse<LoginResponse>>(
-      '/auth/client/login',
-      input
-    )
-    return response.data
-  },
 
   async getMe(): Promise<MeResponse> {
     const response = await api.get<unknown, ApiResponse<MeResponse>>('/auth/me')

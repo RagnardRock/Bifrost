@@ -19,7 +19,7 @@ export const app = express()
 // Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false, // Allow loader.js to be loaded from any site
+  contentSecurityPolicy: false, // l'aperçu sert les pages des sites clients telles quelles
 }))
 app.use(
   cors({
@@ -28,11 +28,8 @@ app.use(
   })
 )
 
-// Static files (loader.js, etc.)
+// Fichiers de Bifrost servis tels quels (script de l'éditeur sur place)
 app.use(express.static(path.join(__dirname, '../public')))
-
-// Demo site (for testing)
-app.use('/demo', express.static(path.join(__dirname, '../../../demo')))
 
 // Aperçu du brouillon (dans l'éditeur) et site publié (essais en local)
 app.use(cookieParser())
@@ -55,7 +52,7 @@ app.get('/health', (_req, res) => {
 
 // API info
 app.get('/api', (_req, res) => {
-  res.json(success({ message: 'Bifrost API v1', version: '0.1.0' }))
+  res.json(success({ message: 'Bifrost API', version: '0.2.0' }))
 })
 
 // API routes
