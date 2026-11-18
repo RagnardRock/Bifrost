@@ -20,8 +20,11 @@ onMounted(async () => {
 
 <template>
   <div class="max-w-4xl">
-    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-      <h1 class="text-3xl font-bold">Activité</h1>
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-10">
+      <div>
+        <span class="surtitre">Espace développeur</span>
+        <h1>Activité</h1>
+      </div>
       <select v-model="site" class="input-field max-w-xs" aria-label="Filtrer par site">
         <option value="">Tous les sites</option>
         <option v-for="s in sites" :key="s.id" :value="s.id">{{ s.nom }}</option>
