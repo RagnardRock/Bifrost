@@ -190,6 +190,58 @@ export async function differences(siteId: string) {
   return { ajoutes, modifies, supprimes: [...p] }
 }
 
+export interface Changement { cle: string; texte: string }
+
+const libelle = (cle: string) => { const t = cle.replace(/[-_.]+/g, ' ').trim(); return t.charAt(0).toUpperCase() + t.slice(1) }
+const court = (v: string) => { const t = v.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); return t.length > 40 ? t.slice(0, 39) + '…' : t }
+const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
+
+/**
+ * Les modifications vues par le client : un champ partagé (menu, pied de page) recopié
+ * dans 56 pages compte pour une seule modification.
+ */
+export async function changements(siteId: string, diff?: { ajoutes: string[]; modifies: string[]; supprimes: string[] }): Promise<Changement[]> {
+  const d = dossiers(siteId)
+  diff ??= await differences(siteId)
+  const html = (f: string) => f.endsWith('.html')
+  const analyse = async (dossier: string, f: string) => flags.analyser(await fs.readFile(path.join(dossier, f), 'utf-8'), f)
+  const champs = new Map<string, { m: flags.ChampModifie; pages: number }>()
+  const listes = new Map<string, flags.ListeModifiee>()
+  const res: Changement[] = []
+  for (const f of diff.modifies.filter(html)) {
+    let c: ReturnType<typeof flags.comparer>
+    try { c = flags.comparer(await analyse(d.publie, f), await analyse(d.brouillon, f)) } catch { continue }
+    for (const m of c.champs) {
+      const e = champs.get(m.cle)
+      if (e) e.pages++
+      else champs.set(m.cle, { m, pages: 1 })
+    }
+    for (const l of c.listes) {
+      const e = listes.get(l.nom)
+      if (!e || (!e.complete && l.complete)) listes.set(l.nom, l)
+    }
+  }
+  for (const [f, ajout] of [...diff.ajoutes.map((f) => [f, true] as const), ...diff.supprimes.map((f) => [f, false] as const)]) {
+    if (!html(f)) continue
+    // une page d'actualité (modèle de collection) est déjà comptée avec sa liste
+    try { if ((await analyse(ajout ? d.brouillon : d.publie, f)).modele) continue } catch { /* page illisible : on la compte */ }
+    res.push({ cle: `page:${f}`, texte: `${ajout ? 'Nouvelle page' : 'Page supprimée'} : ${f}` })
+  }
+  for (const { m, pages } of champs.values()) {
+    const ou = pages > 1 ? ` (sur ${pages} pages)` : ''
+    const quoi = m.type === 'image' ? 'image changée' : m.type === 'riche' ? 'texte modifié' : `« ${court(m.avant)} » → « ${court(m.apres)} »`
+    res.unshift({ cle: `champ:${m.cle}`, texte: `${libelle(m.cle)} : ${quoi}${ou}` })
+  }
+  for (const l of listes.values()) {
+    const ecart = l.apres - l.avant
+    const quoi = ecart > 0 ? `${pluriel(ecart, 'élément')} ajouté${ecart > 1 ? 's' : ''}` : ecart < 0 ? `${pluriel(-ecart, 'élément')} retiré${ecart < -1 ? 's' : ''}` : 'modifiée'
+    res.push({ cle: `liste:${l.nom}`, texte: `${libelle(l.nom)} : ${quoi}` })
+  }
+  const total = diff.ajoutes.length + diff.modifies.length + diff.supprimes.length
+  if (!res.length && total) res.push({ cle: 'fichiers', texte: `${pluriel(total, 'fichier')} modifié${total > 1 ? 's' : ''}` })
+  return res
+}
+
 async function copier(de: string, vers: string) {
   await fs.mkdir(path.dirname(vers), { recursive: true })
   await fs.copyFile(de, vers)

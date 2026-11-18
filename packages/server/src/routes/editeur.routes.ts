@@ -14,6 +14,7 @@ import { success } from '../utils/response'
 import * as fichiers from '../services/site-fichiers.service'
 import * as comptes from '../services/comptes.service'
 import { journaliser } from '../services/suivi.service'
+import { siteParCle } from '../services/slug.service'
 
 const router = Router({ mergeParams: true })
 
@@ -48,11 +49,21 @@ declare global {
   namespace Express { interface Request { roleSite?: comptes.Role } }
 }
 
-const sid = (req: Request) => String((req.params as Record<string, string>).siteId)
+/** Identifiant du site : l'adresse peut donner le nom court ou l'uuid, résolu une fois par requête. */
+const sid = (req: Request) => (req as Request & { siteResolu?: string }).siteResolu ?? String((req.params as Record<string, string>).siteId)
 const auteur = (req: Request) => req.user?.userId || req.user?.adminId || null
 const action = (fn: (req: Request, res: Response) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res).then((d) => res.json(success(d))).catch(next)
 
+router.use((req, _res, next) => {
+  siteParCle(String((req.params as Record<string, string>).siteId))
+    .then((id) => {
+      if (!id) return next(Errors.notFound('Site'))
+      ;(req as Request & { siteResolu?: string }).siteResolu = id
+      next()
+    })
+    .catch(next)
+})
 router.use(authMiddleware, peutEditer)
 
 // État général : pages et modifications non publiées
@@ -62,7 +73,7 @@ router.get('/', action(async (req) => {
   return {
     site,
     pages: await fichiers.listerPages(site.id),
-    differences: await fichiers.differences(site.id),
+    ...await (async () => { const differences = await fichiers.differences(site.id); return { differences, changements: await fichiers.changements(site.id, differences) } })(),
     moi: { role: req.roleSite, dev: req.user?.role === 'admin', id: req.user?.userId || null },
   }
 }))
@@ -128,13 +139,15 @@ router.post('/collection/:nom', action(async (req) => {
 router.post('/publier', responsable, action(async (req) => {
   const siteId = sid(req)
   const pub = await prisma.publication.create({ data: { siteId, auteur: auteur(req), ajoutes: [], modifies: [], supprimes: [] } })
+  const avant = await fichiers.differences(siteId)
+  const changements = await fichiers.changements(siteId, avant)
   const diff = await fichiers.publier(siteId, pub.id)
   if (!diff.ajoutes.length && !diff.modifies.length && !diff.supprimes.length) {
     await prisma.publication.delete({ where: { id: pub.id } })
     return { publication: null }
   }
-  journaliser(siteId, auteur(req), 'publication', `${diff.ajoutes.length + diff.modifies.length + diff.supprimes.length} fichier(s)`)
-  return { publication: await prisma.publication.update({ where: { id: pub.id }, data: diff }) }
+  journaliser(siteId, auteur(req), 'publication', `${changements.length} modification(s)`)
+  return { publication: await prisma.publication.update({ where: { id: pub.id }, data: { ...diff, changements: changements as never } }) }
 }))
 
 router.post('/abandonner', responsable, action(async (req) => {

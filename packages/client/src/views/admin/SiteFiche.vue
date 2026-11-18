@@ -1,14 +1,16 @@
 <script setup lang="ts">
 /** Fiche d'un site côté dev : en attente, publications, équipe, journal, réglages. */
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import Journal from '@/components/suivi/Journal.vue'
 import EnvoiSite, { type Envoi } from '@/components/suivi/EnvoiSite.vue'
 import { suiviService, adresseSite, ilYa, type FicheSite, type Evenement } from '@/services/suivi.service'
 import { editeurService, type Membre, type Invitation } from '@/services/editeur.service'
 
 const route = useRoute()
-const id = computed(() => route.params.id as string)
+const router = useRouter()
+// L'adresse donne le nom court (ou l'uuid des anciens liens) ; une fois la fiche chargée on travaille avec l'identifiant
+const id = computed(() => fiche.value?.site.id ?? (route.params.id as string))
 
 const fiche = ref<FicheSite | null>(null)
 const equipe = ref<{ membres: Membre[]; invitations: Invitation[] } | null>(null)
@@ -30,9 +32,10 @@ const enAttente = computed(() => {
 
 async function charger() {
   try {
-    const [f, j] = await Promise.all([suiviService.fiche(id.value), suiviService.activite(id.value, 50)])
+    const f = await suiviService.fiche(id.value)
     fiche.value = f
-    journal.value = j
+    if (f.site.slug && route.params.id !== f.site.slug) router.replace(`/admin/sites/${f.site.slug}`)
+    journal.value = await suiviService.activite(f.site.id, 50)
     reglages.value = { nom: f.site.name, url: f.site.url, slug: f.site.slug || '' }
     equipe.value = await editeurService.equipe(id.value).catch(() => null)
   } catch (e: any) {
@@ -91,7 +94,7 @@ onMounted(charger)
         </div>
         <div class="flex gap-2">
           <a :href="fiche.site.url || adresseSite(fiche.site)" target="_blank" rel="noopener" class="glass-button">Voir en ligne</a>
-          <a :href="`/edition/${fiche.site.id}`" target="_blank" rel="noopener" class="btn-primary">Ouvrir l’éditeur</a>
+          <a :href="`/edition/${fiche.site.slug || fiche.site.id}`" target="_blank" rel="noopener" class="btn-primary">Ouvrir l’éditeur</a>
         </div>
       </div>
 
@@ -134,7 +137,7 @@ onMounted(charger)
           <section class="glass-card bloc">
             <div class="flex items-center justify-between">
               <h2>Équipe</h2>
-              <a :href="`/edition/${fiche.site.id}`" target="_blank" rel="noopener" class="text-sm text-blue-500 hover:underline" title="L’équipe se gère depuis le bouton 👥 de l’éditeur">Gérer</a>
+              <a :href="`/edition/${fiche.site.slug || fiche.site.id}`" target="_blank" rel="noopener" class="text-sm text-blue-500 hover:underline" title="L’équipe se gère depuis le bouton 👥 de l’éditeur">Gérer</a>
             </div>
             <p v-if="equipe && !equipe.membres.length" class="text-sm text-gray-500">Personne pour l’instant. Invitez le client depuis l’éditeur (👥).</p>
             <ul v-if="equipe" class="lignes">
