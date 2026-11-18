@@ -89,6 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function logout() {
+    const etaitDev = role.value === 'admin' || router.currentRoute.value.path.startsWith('/admin')
     token.value = null
     role.value = null
     admin.value = null
@@ -96,8 +97,8 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('token')
     localStorage.removeItem('role')
 
-    // Redirect based on previous role
-    router.push('/login')
+    // Le dev revient sur sa page de connexion, le client sur la sienne
+    router.push(etaitDev ? '/admin/login' : '/login')
   }
 
   // Listen for unauthorized events

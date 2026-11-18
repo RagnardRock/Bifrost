@@ -23,7 +23,9 @@ api.interceptors.response.use(
   (response) => response.data, // Unwrap to get { success, data }
   (error: AxiosError<ApiErrorResponse>) => {
     // Handle 401 - redirect to login
-    if (error.response?.status === 401) {
+    // (sauf pour une tentative de connexion : l'erreur s'affiche alors sur le formulaire)
+    const connexion = /\/(auth\/admin\/login|comptes\/)/.test(error.config?.url || '')
+    if (error.response?.status === 401 && !connexion) {
       localStorage.removeItem('token')
       // Will be handled by auth store
       window.dispatchEvent(new CustomEvent('auth:unauthorized'))
