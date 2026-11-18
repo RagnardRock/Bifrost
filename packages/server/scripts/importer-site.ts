@@ -23,10 +23,16 @@ async function main() {
   const { pages } = await importer(site.id, path.resolve(dossier))
   console.log(`Site « ${nom} » : ${site.id} (${pages.length} pages)`)
   if (email && motDePasse) {
-    await prisma.user.upsert({
-      where: { siteId_email: { siteId: site.id, email } },
+    const e = email.trim().toLowerCase()
+    const user = await prisma.user.upsert({
+      where: { email: e },
       update: { passwordHash: await hashPassword(motDePasse) },
-      create: { siteId: site.id, email, passwordHash: await hashPassword(motDePasse) },
+      create: { email: e, passwordHash: await hashPassword(motDePasse) },
+    })
+    await prisma.membre.upsert({
+      where: { userId_siteId: { userId: user.id, siteId: site.id } },
+      update: {},
+      create: { userId: user.id, siteId: site.id },
     })
     console.log(`Compte client : ${email}`)
   }

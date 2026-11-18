@@ -34,7 +34,7 @@ export const authController = {
         const admin = await authService.getAdminById(user.adminId)
         res.json(success({ ...admin, role: 'admin' }))
       } else if (user.role === 'client' && user.userId) {
-        const client = await authService.getUserById(user.userId)
+        const client = await authService.getUserById(user.userId, user.siteId)
         res.json(success({ ...client, role: 'client' }))
       } else {
         res.json(success({ role: user.role }))

@@ -42,7 +42,7 @@ export async function sites() {
     orderBy: { name: 'asc' },
     select: {
       id: true, name: true, url: true, slug: true, createdAt: true,
-      _count: { select: { users: true } },
+      _count: { select: { membres: true } },
       publications: { where: { annulee: false }, orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true, auteur: true } },
       evenements: { orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true, auteur: true, type: true } },
       jetons: { where: { type: 'invitation', utiliseLe: null, expireLe: { gt: new Date() } }, select: { id: true } },
@@ -61,7 +61,7 @@ export async function sites() {
       slug: s.slug,
       pages,
       enAttente: await nbDifferences(s.id),
-      membres: s._count.users,
+      membres: s._count.membres,
       invitations: s.jetons.length,
       dernierePublication: pub ? { date: pub.createdAt, auteur: pub.auteur ? qui.get(pub.auteur) || null : null } : null,
       derniereActivite: ev ? { date: ev.createdAt, type: ev.type, auteur: ev.auteur ? qui.get(ev.auteur) || null : null } : null,

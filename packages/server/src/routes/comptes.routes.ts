@@ -7,8 +7,24 @@ import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import { success } from '../utils/response'
 import * as comptes from '../services/comptes.service'
+import { authMiddleware } from '../middleware/auth.middleware'
+import { Errors } from '../utils/errors'
 
 const router = Router()
+
+const action = (fn: (req: Request) => Promise<unknown>) =>
+  (req: Request, res: Response, next: NextFunction) => fn(req).then((d) => res.json(success(d))).catch(next)
+
+// Client connecté : ses sites, et passer de l'un à l'autre sans retaper son mot de passe
+const client = (req: Request) => {
+  if (req.user?.role !== 'client' || !req.user.userId) throw Errors.forbidden('Réservé aux comptes clients')
+  return req.user.userId
+}
+router.get('/mes-sites', authMiddleware, action(async (req) => comptes.mesSites(client(req))))
+router.post('/changer-site', authMiddleware, action(async (req) =>
+  comptes.changerDeSite(client(req), z.object({ site: z.string().min(1).max(80) }).parse(req.body).site)))
+
+// Le reste est public : nombre de tentatives limité
 
 router.use(rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -18,13 +34,10 @@ router.use(rateLimit({
   message: { success: false, error: { code: 'RATE_LIMITED', message: 'Trop de tentatives. Réessayez dans un quart d’heure.' } },
 }))
 
-const action = (fn: (req: Request) => Promise<unknown>) =>
-  (req: Request, res: Response, next: NextFunction) => fn(req).then((d) => res.json(success(d))).catch(next)
-
 export const motDePasse = z.string().min(10, 'Le mot de passe doit faire au moins 10 caractères').max(200)
 
 router.post('/connexion', action(async (req) => {
-  const b = z.object({ email: z.string().email(), motDePasse: z.string().min(1).max(200), siteId: z.string().uuid().optional() }).parse(req.body)
+  const b = z.object({ email: z.string().email(), motDePasse: z.string().min(1).max(200), siteId: z.string().min(1).max(80).optional() }).parse(req.body)
   return comptes.connexion(b.email, b.motDePasse, b.siteId)
 }))
 

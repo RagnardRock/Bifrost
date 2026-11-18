@@ -21,21 +21,36 @@ model Admin {
   @@map("admins")
 }
 
+/// Une personne (client) : un seul compte et un seul mot de passe, quel que soit le nombre de sites
 model User {
   id           String   @id @default(uuid())
-  email        String
+  /// toujours en minuscules
+  email        String   @unique
   passwordHash String   @map("password_hash")
-  siteId       String   @map("site_id")
-  /// responsable (publie, gère l'équipe) ou redacteur (modifie le brouillon)
-  role         String   @default("responsable")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  site           Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  membres        Membre[]
   contentHistory ContentHistory[] @relation("ChangedBy")
 
-  @@unique([siteId, email])
   @@map("users")
+}
+
+/// Une personne dans l'équipe d'un site
+model Membre {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  siteId    String   @map("site_id")
+  /// responsable (publie, gère l'équipe) ou redacteur (modifie le brouillon)
+  role      String   @default("responsable")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, siteId])
+  @@index([siteId])
+  @@map("membres")
 }
 
 // ============================================
@@ -54,7 +69,7 @@ model Site {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  users           User[]
+  membres         Membre[]
   contents        Content[]
   collectionItems CollectionItem[]
   contentHistory  ContentHistory[]
