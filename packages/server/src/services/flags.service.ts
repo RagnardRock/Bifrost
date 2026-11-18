@@ -344,3 +344,27 @@ export function slugifier(s: string): string {
   return s.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'page'
 }
+
+// ---------- comparaison (pour résumer les modifications au client) ----------
+
+export interface ChampModifie { cle: string; type: TypeChamp; avant: string; apres: string }
+export interface ListeModifiee { nom: string; complete: boolean; avant: number; apres: number }
+
+/** Champs et listes qui diffèrent entre deux versions d'une même page. */
+export function comparer(avant: AnalysePage, apres: AnalysePage): { champs: ChampModifie[]; listes: ListeModifiee[] } {
+  const champs: ChampModifie[] = []
+  const anciens = new Map(avant.champs.map((c) => [c.cle, c]))
+  for (const c of apres.champs) {
+    const a = anciens.get(c.cle)
+    if (a && a.valeur !== c.valeur) champs.push({ cle: c.cle, type: c.type, avant: a.valeur, apres: c.valeur })
+  }
+  const listes: ListeModifiee[] = []
+  const anciennes = new Map(avant.listes.map((l) => [l.nom, l]))
+  for (const l of apres.listes) {
+    const a = anciennes.get(l.nom)
+    if (a && JSON.stringify(a.elements) !== JSON.stringify(l.elements)) {
+      listes.push({ nom: l.nom, complete: l.limite === null, avant: a.elements.length, apres: l.elements.length })
+    }
+  }
+  return { champs, listes }
+}

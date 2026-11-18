@@ -14,9 +14,10 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const ui = useUIStore()
-const siteId = computed(() => route.params.siteId as string)
 
 const etat = ref<EtatEditeur | null>(null)
+// L'adresse donne le nom court (ou l'uuid des anciens liens) ; une fois l'état chargé on travaille avec l'identifiant
+const siteId = computed(() => etat.value?.site.id ?? (route.params.siteId as string))
 const page = ref('index.html')
 const titrePage = ref('')
 const modele = ref<string | null>(null)
@@ -27,10 +28,12 @@ const message = ref('')
 const occupe = ref(false)
 const vueMobile = ref(false)
 
-const nbModifs = computed(() => {
-  const d = etat.value?.differences
-  return d ? d.ajoutes.length + d.modifies.length + d.supprimes.length : 0
-})
+const nbModifs = computed(() => etat.value?.changements.length ?? 0)
+const detailModifs = computed(() => (etat.value?.changements ?? []).map((c) => `• ${c.texte}`).join('\n'))
+const modifsTexte = (n: number) => `${n} modification${n > 1 ? 's' : ''}`
+const resumePublication = (p: Publication) => p.changements?.length
+  ? modifsTexte(p.changements.length)
+  : `${p.modifies.length + p.ajoutes.length + p.supprimes.length} fichier(s)`
 const responsable = computed(() => etat.value?.moi.role === 'responsable')
 const src = computed(() => `/apercu/${siteId.value}/${page.value}`)
 
@@ -46,6 +49,8 @@ function echec(e: any, defaut = 'La modification n’a pas pu être enregistrée
 
 async function rafraichirEtat() {
   etat.value = await editeurService.etat(siteId.value)
+  const slug = etat.value.site.slug
+  if (slug && route.params.siteId !== slug) router.replace({ params: { siteId: slug }, query: route.query })
 }
 function recharger() {
   cadre.value?.contentWindow?.postMessage({ source: 'bifrost-parent', type: 'avant-rechargement' }, '*')
@@ -277,12 +282,12 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
         <template v-if="responsable">
           <button class="ed-btn ed-btn--icone" type="button" title="Équipe : qui peut modifier le site" @click="ouvrirEquipe">👥</button>
           <button class="ed-btn ed-btn--icone" type="button" title="Historique des publications" @click="ouvrirHistorique">🕘</button>
-          <button class="ed-btn ed-btn--publier" type="button" :disabled="!nbModifs || occupe" @click="publier">
+          <button class="ed-btn ed-btn--publier" type="button" :disabled="!nbModifs || occupe" :title="detailModifs" @click="publier">
             {{ nbModifs ? `Publier (${nbModifs})` : 'À jour' }}
           </button>
         </template>
-        <span v-else-if="etat" class="ed-attente" :title="nbModifs ? 'Un responsable du site publiera vos modifications.' : ''">
-          {{ nbModifs ? `${nbModifs} modification(s) en attente de publication` : 'Tout est publié' }}
+        <span v-else-if="etat" class="ed-attente" :title="nbModifs ? `${detailModifs}\n\nUn responsable du site publiera vos modifications.` : ''">
+          {{ nbModifs ? `${modifsTexte(nbModifs)} en attente de publication` : 'Tout est publié' }}
         </span>
       </div>
     </header>
@@ -291,7 +296,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
       Cliquez sur un texte pour le modifier, sur une photo pour la changer. Survolez une actualité pour la déplacer ou la supprimer.
       <button v-if="nbModifs && responsable" type="button" class="ed-lien" @click="abandonner">Effacer mes modifications</button>
       <a :href="adresseSite(etat?.site ?? { id: siteId })" target="_blank" rel="noopener" class="ed-lien">Voir le site en ligne</a>
-      <router-link v-if="etat?.moi.dev" :to="`/admin/sites/${siteId}`" class="ed-lien">Fiche du site (dev)</router-link>
+      <router-link v-if="etat?.moi.dev" :to="`/admin/sites/${etat?.site.slug || siteId}`" class="ed-lien">Fiche du site (dev)</router-link>
       <button type="button" class="ed-lien" :title="`Thème : ${ui.theme === 'system' ? 'comme l’appareil' : ui.theme}`" @click="ui.basculerTheme()">{{ ui.theme === 'dark' ? '🌙 Sombre' : ui.theme === 'light' ? '☀️ Clair' : '💻 Auto' }}</button>
       <button type="button" class="ed-lien" @click="deconnexion">Se déconnecter</button>
     </div>
@@ -339,7 +344,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
           <li v-for="(p, i) in historique" :key="p.id" :class="{ 'ed-annulee': p.annulee }">
             <div>
               <strong>{{ dateLisible(p.createdAt) }}</strong>
-              <span>{{ p.modifies.length + p.ajoutes.length + p.supprimes.length }} fichier(s) · {{ p.annulee ? 'annulée' : 'en ligne' }}</span>
+              <span :title="p.changements?.map((c) => `• ${c.texte}`).join('\n')">{{ resumePublication(p) }} · {{ p.annulee ? 'annulée' : 'en ligne' }}</span>
             </div>
             <button v-if="!p.annulee && i === historique.findIndex((x) => !x.annulee)" type="button" class="ed-btn ed-btn--clair" @click="annulerPublication(p)">Revenir avant</button>
           </li>

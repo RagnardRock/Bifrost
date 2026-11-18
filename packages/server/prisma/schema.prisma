@@ -156,6 +156,7 @@ model Publication {
   ajoutes   Json     @db.JsonB
   modifies  Json     @db.JsonB
   supprimes Json     @db.JsonB
+  changements Json   @default("[]") @db.JsonB
   annulee   Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
 

@@ -1,12 +1,14 @@
 import { api } from './api'
 
 export interface Differences { ajoutes: string[]; modifies: string[]; supprimes: string[] }
-export interface Publication extends Differences { id: string; createdAt: string; annulee: boolean; auteur: string | null }
+export interface Changement { cle: string; texte: string }
+export interface Publication extends Differences { changements?: Changement[]; id: string; createdAt: string; annulee: boolean; auteur: string | null }
 export type RoleSite = 'responsable' | 'redacteur'
 export interface EtatEditeur {
   site: { id: string; name: string; url: string; slug: string | null }
   pages: string[]
   differences: Differences
+  changements: Changement[]
   moi: { role: RoleSite; dev: boolean; id: string | null }
 }
 export interface Membre { id: string; email: string; role: RoleSite; createdAt: string }

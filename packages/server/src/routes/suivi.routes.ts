@@ -11,7 +11,7 @@ import { Errors } from '../utils/errors'
 import { success } from '../utils/response'
 import * as suivi from '../services/suivi.service'
 import * as fichiers from '../services/site-fichiers.service'
-import { slugLibre, SLUG_VALIDE, oublierSlug } from '../services/slug.service'
+import { slugLibre, SLUG_VALIDE, oublierSlug, siteParCle } from '../services/slug.service'
 
 const router = Router()
 router.use(authMiddleware, adminMiddleware)
@@ -89,7 +89,8 @@ router.post('/sites/:id/importer', action(async (req) => {
 }))
 
 router.get('/sites/:id', action(async (req) => {
-  const f = await suivi.site(id(req))
+  const cle = await siteParCle(id(req))
+  const f = cle ? await suivi.site(cle) : null
   if (!f) throw Errors.notFound('Site')
   return f
 }))

@@ -67,7 +67,7 @@ onMounted(charger)
     <div v-else class="grille">
       <article v-for="s in sites" :key="s.id" class="glass-card carte">
         <header>
-          <router-link :to="`/admin/sites/${s.id}`" class="nom">{{ s.nom }}</router-link>
+          <router-link :to="`/admin/sites/${s.slug || s.id}`" class="nom">{{ s.nom }}</router-link>
           <a :href="enLigne(s)" target="_blank" rel="noopener" class="adresse">{{ s.url || `bifrost › ${s.slug || 'site'}` }}</a>
         </header>
 
@@ -100,8 +100,8 @@ onMounted(charger)
         </dl>
 
         <footer>
-          <a :href="`/edition/${s.id}`" target="_blank" rel="noopener" class="btn-primary">Éditer</a>
-          <router-link :to="`/admin/sites/${s.id}`" class="glass-button">Fiche</router-link>
+          <a :href="`/edition/${s.slug || s.id}`" target="_blank" rel="noopener" class="btn-primary">Éditer</a>
+          <router-link :to="`/admin/sites/${s.slug || s.id}`" class="glass-button">Fiche</router-link>
         </footer>
       </article>
     </div>
