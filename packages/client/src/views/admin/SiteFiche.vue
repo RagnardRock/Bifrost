@@ -17,7 +17,7 @@ const equipe = ref<{ membres: Membre[]; invitations: Invitation[] } | null>(null
 const journal = ref<Evenement[]>([])
 const erreur = ref('')
 const message = ref('')
-const reglages = ref({ nom: '', url: '', slug: '' })
+const reglages = ref({ nom: '', url: '', slug: '', emailMessages: '' })
 const dossier = ref('')
 const voirFichiers = ref(false)
 const occupe = ref(false)
@@ -36,7 +36,7 @@ async function charger() {
     fiche.value = f
     if (f.site.slug && route.params.id !== f.site.slug) router.replace(`/admin/sites/${f.site.slug}`)
     journal.value = await suiviService.activite(f.site.id, 50)
-    reglages.value = { nom: f.site.name, url: f.site.url, slug: f.site.slug || '' }
+    reglages.value = { nom: f.site.name, url: f.site.url, slug: f.site.slug || '', emailMessages: f.site.emailMessages || '' }
     equipe.value = await editeurService.equipe(id.value).catch(() => null)
   } catch (e: any) {
     erreur.value = e?.response?.data?.error?.message || 'Impossible de charger ce site.'
@@ -45,7 +45,7 @@ async function charger() {
 
 async function enregistrer() {
   try {
-    await suiviService.modifier(id.value, reglages.value.nom, reglages.value.url, reglages.value.slug)
+    await suiviService.modifier(id.value, reglages.value.nom, reglages.value.url, reglages.value.slug, reglages.value.emailMessages)
     message.value = 'Enregistré'
     await charger()
   } catch (e: any) {
@@ -153,6 +153,10 @@ onMounted(charger)
               <span class="adresse-courte"><span>/sites/</span><input v-model="reglages.slug" class="input-field" pattern="[a-z0-9](?:[a-z0-9\-]{0,58}[a-z0-9])?" placeholder="mon-site" title="Lettres minuscules, chiffres et tirets"><span>/</span></span>
             </label>
             <label>Adresse de son propre domaine (facultatif)<input v-model="reglages.url" class="input-field" placeholder="https://…"></label>
+            <label>Messages du formulaire envoyés à
+              <input v-model="reglages.emailMessages" class="input-field" placeholder="vide = les responsables du site" maxlength="500">
+              <span class="aide">Une ou plusieurs adresses, séparées par des virgules.</span>
+            </label>
             <button type="submit" class="btn-primary justify-self-start">Enregistrer</button>
           </form>
 
@@ -191,6 +195,7 @@ onMounted(charger)
 .ajout { color: var(--bf-ok); }
 .modif { color: var(--bf-accent); }
 .suppr { color: var(--bf-danger); }
+.aide { font-size: 12.5px; font-weight: 400; color: var(--bf-doux); }
 .avance { font-size: 13px; color: var(--bf-doux); }
 .avance summary { cursor: pointer; margin-bottom: 8px; }
 </style>

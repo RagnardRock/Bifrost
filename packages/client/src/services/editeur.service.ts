@@ -10,7 +10,9 @@ export interface EtatEditeur {
   differences: Differences
   changements: Changement[]
   moi: { role: RoleSite; dev: boolean; id: string | null }
+  messagesNonLus: number
 }
+export interface Message { id: string; formulaire: string; champs: { nom: string; libelle: string; valeur: string }[]; email: string | null; lu: boolean; createdAt: string }
 export interface Membre { id: string; email: string; role: RoleSite; createdAt: string }
 export interface Invitation { id: string; email: string; role: RoleSite; expireLe: string }
 
@@ -39,4 +41,7 @@ export const editeurService = {
   annulerInvitation: (siteId: string, id: string) => api.delete(`${base(siteId)}/equipe/invitations/${id}`),
   changerRole: (siteId: string, id: string, role: RoleSite) => api.put(`${base(siteId)}/equipe/membres/${id}`, { role }),
   retirer: (siteId: string, id: string) => api.delete(`${base(siteId)}/equipe/membres/${id}`),
+  messages: (siteId: string) => donnees<Message[]>(api.get(`${base(siteId)}/messages`)),
+  marquerLu: (siteId: string, id: string, lu: boolean) => api.put(`${base(siteId)}/messages/${id}`, { lu }),
+  supprimerMessage: (siteId: string, id: string) => api.delete(`${base(siteId)}/messages/${id}`),
 }

@@ -140,8 +140,14 @@
       if (/^(https?:|mailto:|tel:)/i.test(href)) { e.preventDefault(); envoyer({ type: 'info', texte: 'Les liens externes sont désactivés pendant la modification.' }) }
     }
     // les boutons « Envoyer » des formulaires ne doivent rien envoyer pendant l'édition
-    if (e.target.closest && e.target.closest('form button, form [type=submit]')) e.preventDefault()
+    if (e.target.closest && e.target.closest('form button, form [type=submit]')) {
+      e.preventDefault()
+      if (e.target.closest('form[data-bf-formulaire]')) envoyer({ type: 'info', texte: 'Le formulaire marche sur le site en ligne. Les messages arrivent dans 📨 Messages.' })
+    }
   }, true)
+
+  // aucun formulaire ne part pendant l'édition (touche Entrée dans un champ, par exemple)
+  document.addEventListener('submit', function (e) { e.preventDefault() }, true)
 
   document.addEventListener('keydown', function (e) {
     if (!enCours) return
