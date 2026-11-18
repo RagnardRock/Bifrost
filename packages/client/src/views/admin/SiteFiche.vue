@@ -157,16 +157,16 @@ onMounted(charger)
 <style scoped>
 .colonnes { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 @media (max-width: 1024px) { .colonnes { grid-template-columns: minmax(0, 1fr); } }
-.bloc { padding: 20px; border-radius: 16px; display: grid; gap: 12px; }
+.bloc { padding: 20px; display: grid; gap: 12px; }
 .bloc h2 { font-size: 16px; font-weight: 700; margin: 0; }
 .bloc label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
 .lignes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.lignes li { padding: 10px 12px; border-radius: 10px; background: rgba(127, 127, 127, .08); }
+.lignes li { padding: 10px 12px; border-radius: 10px; background: var(--bf-verre); }
 .lignes strong { display: block; font-size: 14px; overflow-wrap: anywhere; }
-.lignes span { font-size: 12.5px; color: #6b7280; }
+.lignes span { font-size: 12.5px; color: var(--bf-doux); }
 .fichiers { list-style: none; margin: 0; padding: 0; font-family: ui-monospace, monospace; font-size: 12.5px; display: grid; gap: 4px; max-height: 260px; overflow: auto; }
 .fichiers span { display: inline-block; width: 70px; font-family: system-ui, sans-serif; font-size: 11px; font-weight: 600; }
-.ajout { color: #16a34a; }
-.modif { color: #c2410c; }
-.suppr { color: #dc2626; }
+.ajout { color: var(--bf-ok); }
+.modif { color: var(--bf-accent); }
+.suppr { color: var(--bf-danger); }
 </style>

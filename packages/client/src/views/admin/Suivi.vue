@@ -125,25 +125,25 @@ onMounted(charger)
 
 <style scoped>
 .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
-.carte { padding: 20px; display: grid; gap: 16px; border-radius: 16px; }
+.carte { padding: 20px; display: grid; gap: 16px; transition: border-color .2s, transform .2s; }
+.carte:hover { border-color: var(--bf-bord-fort); transform: translateY(-2px); }
 .carte header { display: grid; gap: 2px; }
 .nom { font-size: 18px; font-weight: 700; }
 .nom:hover { text-decoration: underline; }
-.adresse { font-size: 13px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adresse { font-size: 13px; color: var(--bf-doux); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chiffres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.chiffres div { padding: 10px; border-radius: 12px; background: rgba(127, 127, 127, .08); display: grid; gap: 2px; }
+.chiffres div { padding: 10px; border-radius: 12px; background: var(--bf-verre); display: grid; gap: 2px; }
 .chiffres strong { font-size: 22px; line-height: 1.1; }
-.chiffres span { font-size: 12px; color: #6b7280; line-height: 1.3; }
-.chiffres .alerte { background: rgba(224, 122, 74, .16); }
-.chiffres .alerte strong { color: #c2410c; }
+.chiffres span { font-size: 12px; color: var(--bf-doux); line-height: 1.3; }
+.chiffres .alerte { background: rgba(224, 122, 74, .14); box-shadow: inset 0 0 0 1px rgba(224, 122, 74, .3); }
+.chiffres .alerte strong { color: var(--bf-accent); }
 .dates { display: grid; gap: 4px; margin: 0; font-size: 13px; }
 .dates div { display: flex; gap: 8px; }
-.dates dt { width: 64px; flex: none; color: #6b7280; }
+.dates dt { width: 64px; flex: none; color: var(--bf-doux); }
 .dates dd { margin: 0; overflow-wrap: anywhere; }
 .carte footer { display: flex; gap: 8px; }
-.fond { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 16px; z-index: 40; }
-.fenetre { width: 100%; max-width: 520px; padding: 24px; display: grid; gap: 14px; border-radius: 18px; background: var(--fond-fenetre, rgba(255, 255, 255, .92)); }
-:global(.dark) .fenetre { --fond-fenetre: rgba(17, 24, 39, .95); }
+.fond { position: fixed; inset: 0; background: var(--bf-voile); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 16px; z-index: 40; }
+.fenetre { width: 100%; max-width: 520px; padding: 24px; display: grid; gap: 14px; background: var(--bf-surface); }
 .fenetre label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
 .fenetre input { font-weight: 400; }
 </style>

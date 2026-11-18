@@ -59,7 +59,7 @@ async function demanderLien() {
   <div class="min-h-screen flex items-center justify-center p-4 sm:p-8">
     <div class="glass-card p-6 sm:p-8 max-w-md w-full">
       <div class="text-center mb-8">
-        <div class="logo" aria-hidden="true">ᛒ</div>
+        <div class="bf-logo bf-logo--grand mx-auto mb-5" aria-hidden="true">ᛒ</div>
         <h1 class="text-3xl font-bold mb-2">{{ mode === 'connexion' ? 'Modifier mon site' : 'Mot de passe oublié' }}</h1>
         <p class="text-gray-600 dark:text-gray-300">
           {{ mode === 'connexion' ? 'Connectez-vous pour modifier votre site.' : 'Recevez un lien pour choisir un nouveau mot de passe.' }}
@@ -108,6 +108,3 @@ async function demanderLien() {
   </div>
 </template>
 
-<style scoped>
-.logo { width: 52px; height: 52px; margin: 0 auto 16px; border-radius: 14px; display: grid; place-items: center; font-size: 28px; color: #fff; background: linear-gradient(135deg, #7c3aed, #e07a4a); }
-</style>
