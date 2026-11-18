@@ -20,8 +20,8 @@ describe('API Basic Routes', () => {
 
       expect(response.status).toBe(200)
       expect(response.body.success).toBe(true)
-      expect(response.body.data.message).toBe('Bifrost API v1')
-      expect(response.body.data.version).toBe('0.1.0')
+      expect(response.body.data.message).toBe('Bifrost API')
+      expect(response.body.data.version).toBe('0.2.0')
     })
   })
 
@@ -75,20 +75,18 @@ describe('Auth Routes - Input Validation', () => {
     })
   })
 
-  describe('POST /api/auth/client/login', () => {
+  describe('POST /api/comptes/connexion', () => {
     it('should reject empty body', async () => {
-      const response = await request(app)
-        .post('/api/auth/client/login')
-        .send({})
+      const response = await request(app).post('/api/comptes/connexion').send({})
 
       expect(response.status).toBe(400)
       expect(response.body.success).toBe(false)
     })
 
-    it('should reject missing siteId', async () => {
+    it('should reject invalid email format', async () => {
       const response = await request(app)
-        .post('/api/auth/client/login')
-        .send({ email: 'client@test.com', password: 'password123' })
+        .post('/api/comptes/connexion')
+        .send({ email: 'pas-un-email', motDePasse: 'x' })
 
       expect(response.status).toBe(400)
       expect(response.body.success).toBe(false)
@@ -97,9 +95,9 @@ describe('Auth Routes - Input Validation', () => {
 })
 
 describe('Protected Routes - Authentication', () => {
-  describe('GET /api/admin/sites', () => {
+  describe('GET /api/admin/suivi/sites', () => {
     it('should reject request without token', async () => {
-      const response = await request(app).get('/api/admin/sites')
+      const response = await request(app).get('/api/admin/suivi/sites')
 
       expect(response.status).toBe(401)
       expect(response.body.success).toBe(false)
@@ -107,7 +105,7 @@ describe('Protected Routes - Authentication', () => {
 
     it('should reject request with invalid token', async () => {
       const response = await request(app)
-        .get('/api/admin/sites')
+        .get('/api/admin/suivi/sites')
         .set('Authorization', 'Bearer invalid-token')
 
       expect(response.status).toBe(401)
@@ -116,7 +114,7 @@ describe('Protected Routes - Authentication', () => {
 
     it('should reject malformed authorization header', async () => {
       const response = await request(app)
-        .get('/api/admin/sites')
+        .get('/api/admin/suivi/sites')
         .set('Authorization', 'NotBearer token')
 
       expect(response.status).toBe(401)
@@ -124,41 +122,20 @@ describe('Protected Routes - Authentication', () => {
     })
   })
 
-  describe('GET /api/admin/stats', () => {
+  describe('GET /api/editeur/:siteId', () => {
     it('should reject request without token', async () => {
-      const response = await request(app).get('/api/admin/stats')
+      const response = await request(app).get('/api/editeur/00000000-0000-0000-0000-000000000000')
 
       expect(response.status).toBe(401)
       expect(response.body.success).toBe(false)
     })
   })
 
-  describe('GET /api/client/content', () => {
-    it('should reject request without token', async () => {
-      const response = await request(app).get('/api/client/content')
+  describe('GET /apercu/:siteId', () => {
+    it('should reject preview without cookie', async () => {
+      const response = await request(app).get('/apercu/00000000-0000-0000-0000-000000000000/index.html')
 
       expect(response.status).toBe(401)
-      expect(response.body.success).toBe(false)
-    })
-  })
-})
-
-describe('Public API - Authentication', () => {
-  describe('GET /api/public/content', () => {
-    it('should reject request without API key', async () => {
-      const response = await request(app).get('/api/public/content')
-
-      expect(response.status).toBe(401)
-      expect(response.body.success).toBe(false)
-    })
-
-    it('should reject request with empty API key', async () => {
-      const response = await request(app)
-        .get('/api/public/content')
-        .set('X-API-Key', '')
-
-      expect(response.status).toBe(401)
-      expect(response.body.success).toBe(false)
     })
   })
 })

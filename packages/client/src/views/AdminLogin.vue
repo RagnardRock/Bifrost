@@ -18,11 +18,12 @@ async function handleLogin() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center p-8">
-    <div class="glass-card p-8 max-w-md w-full">
+  <div class="min-h-screen flex items-center justify-center p-4 sm:p-8">
+    <div class="glass-card p-6 sm:p-8 max-w-md w-full">
       <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold mb-2">Admin Bifrost</h1>
-        <p class="text-gray-600 dark:text-gray-300">Espace administrateur</p>
+        <div class="bf-logo bf-logo--grand mx-auto mb-5" aria-hidden="true">ᛒ</div>
+        <h1 class="text-3xl font-bold mb-2">Espace développeur</h1>
+        <p class="text-gray-600">Vos sites, vos clients, ce qui s'y passe.</p>
       </div>
 
       <form @submit.prevent="handleLogin" class="space-y-6">
@@ -35,7 +36,7 @@ async function handleLogin() {
             required
             autocomplete="email"
             class="input-field"
-            placeholder="admin@bifrost.local"
+            placeholder="vous@exemple.com"
           />
         </div>
 
@@ -69,8 +70,8 @@ async function handleLogin() {
       </form>
 
       <div class="mt-6 text-center">
-        <router-link to="/" class="text-blue-500 hover:underline text-sm">
-          Retour à l'accueil
+        <router-link to="/login" class="text-blue-500 hover:underline text-sm">
+          Espace client
         </router-link>
       </div>
     </div>

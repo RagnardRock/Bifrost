@@ -1,20 +1,19 @@
 {
   "name": "bifrost",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Site-First Headless CMS",
+  "description": "CMS d’édition sur place pour les sites de vos clients",
   "workspaces": [
     "packages/shared",
     "packages/server",
-    "packages/client",
-    "packages/loader"
+    "packages/client"
   ],
   "scripts": {
     "predev": "npm run build -w @bifrost/shared",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm run dev -w @bifrost/server",
     "dev:client": "npm run dev -w @bifrost/client",
-    "build": "npm run build -w @bifrost/shared && npm run build -w @bifrost/server && npm run build -w @bifrost/client && npm run build -w @bifrost/loader",
+    "build": "npm run build -w @bifrost/shared && npm run build -w @bifrost/server && npm run build -w @bifrost/client",
     "build:client": "npm run build -w @bifrost/client",
     "build:server": "npm run build -w @bifrost/server",
     "start:server": "npm run start -w @bifrost/server",
@@ -30,7 +29,6 @@
     "db:migrate": "npm run db:migrate -w @bifrost/server",
     "db:generate": "npm run db:generate -w @bifrost/server",
     "db:studio": "npm run db:studio -w @bifrost/server",
-    "db:seed": "npm run db:seed -w @bifrost/server",
     "db:reset": "npm run db:reset -w @bifrost/server",
     "typecheck": "npm run typecheck -w @bifrost/shared && npm run typecheck -w @bifrost/server && npm run typecheck -w @bifrost/client"
   },

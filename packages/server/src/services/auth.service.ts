@@ -4,7 +4,7 @@ import { siteRepository } from '../repositories/site.repository'
 import { comparePassword, hashPassword } from '../utils/hash'
 import { signToken } from '../utils/jwt'
 import { Errors } from '../utils/errors'
-import type { LoginResponse, TokenPayload, BifrostSchema } from '@bifrost/shared'
+import type { LoginResponse, TokenPayload } from '@bifrost/shared'
 
 export const authService = {
   async adminLogin(email: string, password: string): Promise<LoginResponse> {
@@ -61,57 +61,6 @@ export const authService = {
     }
   },
 
-  async clientLogin(email: string, password: string, siteId: string): Promise<LoginResponse> {
-    // Find user by email and site
-    const user = await userRepository.findByEmailAndSite(email, siteId)
-
-    if (!user) {
-      throw Errors.unauthorized('Email ou mot de passe incorrect')
-    }
-
-    // Verify password
-    const isValid = await comparePassword(password, user.passwordHash)
-
-    if (!isValid) {
-      throw Errors.unauthorized('Email ou mot de passe incorrect')
-    }
-
-    // Get site info
-    const site = await siteRepository.findById(siteId)
-    if (!site) {
-      throw Errors.notFound('Site')
-    }
-
-    // Generate JWT (24h for clients)
-    const payload: Omit<TokenPayload, 'iat' | 'exp'> = {
-      userId: user.id,
-      siteId: user.siteId,
-      role: 'client',
-    }
-
-    const token = signToken(payload)
-
-    // Calculate expiry (24h from now)
-    const expiresAt = new Date()
-    expiresAt.setHours(expiresAt.getHours() + 24)
-
-    return {
-      token,
-      expiresAt,
-      user: {
-        id: user.id,
-        email: user.email,
-        siteId: user.siteId,
-        site: {
-          id: site.id,
-          name: site.name,
-          schema: site.schema as BifrostSchema | null,
-        },
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
-    }
-  },
 
   async getUserById(id: string) {
     const user = await userRepository.findById(id)

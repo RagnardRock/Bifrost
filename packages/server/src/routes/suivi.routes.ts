@@ -28,9 +28,9 @@ router.post('/sites', action(async (req) => {
     const { pages } = await fichiers.importer(site.id, b.dossier)
     suivi.journaliser(site.id, req.user?.adminId, 'import', `${pages.length} pages`)
     return { id: site.id, pages: pages.length }
-  } catch {
+  } catch (e: any) {
     await prisma.site.delete({ where: { id: site.id } })
-    throw Errors.badRequest('Dossier introuvable ou illisible sur le serveur')
+    throw Errors.badRequest(e?.message?.startsWith('Le dossier') || e?.message?.startsWith('Dossier') ? e.message : 'Dossier illisible sur le serveur')
   }
 }))
 
@@ -46,8 +46,8 @@ router.post('/sites/:id/importer', action(async (req) => {
     const r = await fichiers.importer(id(req), dossier)
     suivi.journaliser(id(req), req.user?.adminId, 'import', `${r.pages.length} pages (réimport)`)
     return r
-  } catch {
-    throw Errors.badRequest('Dossier introuvable ou illisible sur le serveur')
+  } catch (e: any) {
+    throw Errors.badRequest(e?.message?.startsWith('Le dossier') || e?.message?.startsWith('Dossier') ? e.message : 'Dossier illisible sur le serveur')
   }
 }))
 

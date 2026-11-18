@@ -45,7 +45,7 @@ async function valider() {
 <template>
   <div class="min-h-screen flex items-center justify-center p-4 sm:p-8">
     <div class="glass-card p-6 sm:p-8 max-w-md w-full">
-      <div class="logo" aria-hidden="true">ᛒ</div>
+      <div class="bf-logo bf-logo--grand mx-auto mb-5" aria-hidden="true">ᛒ</div>
 
       <div v-if="invalide" class="text-center space-y-4">
         <h1 class="text-2xl font-bold">Lien expiré</h1>
@@ -82,6 +82,3 @@ async function valider() {
   </div>
 </template>
 
-<style scoped>
-.logo { width: 52px; height: 52px; margin: 0 auto 20px; border-radius: 14px; display: grid; place-items: center; font-size: 28px; color: #fff; background: linear-gradient(135deg, #7c3aed, #e07a4a); }
-</style>

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { authService } from '../services/auth.service'
 import { success } from '../utils/response'
-import type { LoginInput, ClientLoginInput, SetupInput } from '../validators/auth.validator'
+import type { LoginInput, SetupInput } from '../validators/auth.validator'
 
 export const authController = {
   /**
@@ -20,21 +20,6 @@ export const authController = {
     }
   },
 
-  /**
-   * POST /api/auth/client/login
-   * Client login - returns JWT valid for 24 hours
-   */
-  async clientLogin(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { email, password, siteId } = req.body as ClientLoginInput
-
-      const result = await authService.clientLogin(email, password, siteId)
-
-      res.json(success(result))
-    } catch (error) {
-      next(error)
-    }
-  },
 
   /**
    * GET /api/auth/me

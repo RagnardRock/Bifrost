@@ -1,0 +1,47 @@
+# Met Bifrost à jour sur le VPS à chaque modification de master (ou à la main :
+# onglet Actions › Déployer Bifrost › Run workflow).
+#
+# Secrets à créer dans Settings › Secrets and variables › Actions (voir deploy/LISEZMOI.md) :
+#   VPS_HOTE   l'adresse du VPS          VPS_UTILISATEUR  le compte SSH
+#   VPS_CLE    la clé SSH privée          VPS_PORT         (facultatif) le port SSH, 22 par défaut
+# Tant qu'ils n'existent pas, rien n'est envoyé.
+
+name: Déployer Bifrost
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploiement
+  cancel-in-progress: false
+
+jobs:
+  deployer:
+    runs-on: ubuntu-latest
+    env:
+      VPS_HOTE: ${{ secrets.VPS_HOTE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Envoyer le code et relancer
+        if: ${{ env.VPS_HOTE != '' }}
+        env:
+          VPS_UTILISATEUR: ${{ secrets.VPS_UTILISATEUR }}
+          VPS_CLE: ${{ secrets.VPS_CLE }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_CLE" > ~/.ssh/cle
+          chmod 600 ~/.ssh/cle
+          ssh-keyscan -p "$VPS_PORT" "$VPS_HOTE" >> ~/.ssh/known_hosts 2>/dev/null
+          SSH="ssh -i ~/.ssh/cle -p $VPS_PORT"
+          # Le code seulement : .env et donnees/ (sites des clients) restent intacts sur le VPS
+          rsync -az --delete --exclude .git --exclude .env --exclude donnees/ --exclude node_modules/ \
+            -e "$SSH" ./ "$VPS_UTILISATEUR@$VPS_HOTE:/srv/bifrost/"
+          $SSH "$VPS_UTILISATEUR@$VPS_HOTE" 'cd /srv/bifrost && docker compose up -d --build && docker image prune -f'
+
+      - name: Pas encore de secrets
+        if: ${{ env.VPS_HOTE == '' }}
+        run: echo "Secrets VPS absents : rien n'est envoyé (voir deploy/LISEZMOI.md)."

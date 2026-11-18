@@ -16,10 +16,13 @@ import { apercuRouter } from './routes/apercu.routes'
 
 export const app = express()
 
+// En ligne, Bifrost est derrière nginx : l'adresse du visiteur vient de X-Forwarded-For (limites de débit)
+if (!config.isDev) app.set('trust proxy', 1)
+
 // Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false, // Allow loader.js to be loaded from any site
+  contentSecurityPolicy: false, // l'aperçu sert les pages des sites clients telles quelles
 }))
 app.use(
   cors({
@@ -28,11 +31,8 @@ app.use(
   })
 )
 
-// Static files (loader.js, etc.)
+// Fichiers de Bifrost servis tels quels (script de l'éditeur sur place)
 app.use(express.static(path.join(__dirname, '../public')))
-
-// Demo site (for testing)
-app.use('/demo', express.static(path.join(__dirname, '../../../demo')))
 
 // Aperçu du brouillon (dans l'éditeur) et site publié (essais en local)
 app.use(cookieParser())
@@ -55,27 +55,18 @@ app.get('/health', (_req, res) => {
 
 // API info
 app.get('/api', (_req, res) => {
-  res.json(success({ message: 'Bifrost API v1', version: '0.1.0' }))
+  res.json(success({ message: 'Bifrost API', version: '0.2.0' }))
 })
 
 // API routes
 app.use('/api', routes)
 
-// Serve admin client in production
+// En production, le serveur sert aussi l'interface (application Vue) : toute adresse
+// qui n'est ni l'API, ni un aperçu, ni un site renvoie index.html et Vue affiche la bonne page.
 if (config.nodeEnv === 'production') {
-  const clientPath = path.join(__dirname, '../../../client/dist')
-
-  // Serve static assets
-  app.use('/admin', express.static(clientPath))
-
-  // SPA fallback - serve index.html for any admin route
-  app.get('/admin/*', (_req, res) => {
-    res.sendFile(path.join(clientPath, 'index.html'))
-  })
-
-  // Redirect root to admin
-  app.get('/', (_req, res) => {
-    res.redirect('/admin')
+  app.use(express.static(config.clientDir, { index: false }))
+  app.get(/^\/(?!api\/|apercu\/|sites\/|editeur\/|health$).*/, (_req, res) => {
+    res.sendFile(path.join(config.clientDir, 'index.html'))
   })
 }
 

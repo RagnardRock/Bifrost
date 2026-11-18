@@ -26,6 +26,12 @@ export const useUIStore = defineStore('ui', () => {
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme)
   }
 
+  /** Sombre → clair → comme l'appareil */
+  function basculerTheme() {
+    const ordre: Theme[] = ['dark', 'light', 'system']
+    setTheme(ordre[(ordre.indexOf(theme.value) + 1) % ordre.length]!)
+  }
+
   function toggleSidebar() {
     sidebarOpen.value = !sidebarOpen.value
   }
@@ -35,6 +41,7 @@ export const useUIStore = defineStore('ui', () => {
     sidebarOpen,
     setTheme,
     initTheme,
+    basculerTheme,
     toggleSidebar,
   }
 })
