@@ -159,14 +159,23 @@ router.post('/abandonner', responsable, action(async (req) => {
 router.get('/publications', action(async (req) =>
   prisma.publication.findMany({ where: { siteId: sid(req) }, orderBy: { createdAt: 'desc' }, take: 30 })))
 
-// Revenir en arrière : seule la dernière publication encore active peut être annulée (sinon les fichiers se mélangent)
+// Revenir en arrière : remet le site tel qu'il était avant cette publication,
+// en annulant aussi toutes les publications qui ont suivi (de la plus récente à la plus ancienne)
 router.post('/publications/:id/annuler', responsable, action(async (req) => {
   const siteId = sid(req)
-  const derniere = await prisma.publication.findFirst({ where: { siteId, annulee: false }, orderBy: { createdAt: 'desc' } })
-  if (!derniere || derniere.id !== String((req.params as Record<string, string>).id)) throw Errors.badRequest('Seule la dernière publication peut être annulée')
-  await fichiers.annulerPublication(siteId, derniere.id, derniere as never)
-  journaliser(siteId, auteur(req), 'annulation', `publication du ${derniere.createdAt.toLocaleString('fr-FR')}`)
-  return prisma.publication.update({ where: { id: derniere.id }, data: { annulee: true } })
+  const cible = await prisma.publication.findFirst({ where: { id: String((req.params as Record<string, string>).id), siteId, annulee: false } })
+  if (!cible) throw Errors.badRequest('Cette publication est déjà annulée')
+  const aAnnuler = await prisma.publication.findMany({
+    where: { siteId, annulee: false, createdAt: { gte: cible.createdAt } },
+    orderBy: { createdAt: 'desc' },
+  })
+  for (const p of aAnnuler) {
+    await fichiers.annulerPublication(siteId, p.id, p as never)
+    await prisma.publication.update({ where: { id: p.id }, data: { annulee: true } })
+  }
+  const n = aAnnuler.length
+  journaliser(siteId, auteur(req), 'annulation', `publication du ${cible.createdAt.toLocaleString('fr-FR')}${n > 1 ? ` (et les ${n - 1} suivantes)` : ''}`)
+  return { annulees: n }
 }))
 
 // Équipe du site : membres, rôles, invitations
