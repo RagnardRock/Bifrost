@@ -227,15 +227,18 @@ async function publier() {
 async function ouvrirHistorique() {
   historique.value = await editeurService.publications(siteId.value)
 }
-function annulerPublication(p: Publication) {
+function annulerPublication(p: Publication, i: number) {
+  const suivantes = historique.value?.slice(0, i).filter((x) => !x.annulee).length ?? 0
   confirmation.value = {
-    texte: 'Remettre le site tel qu’il était avant cette publication ?',
+    texte: suivantes
+      ? `Remettre le site tel qu’il était avant cette publication ? Les ${suivantes + 1} dernières publications seront annulées.`
+      : 'Remettre le site tel qu’il était avant cette publication ?',
     action: async () => {
       await editeurService.annuler(siteId.value, p.id)
       await rafraichirEtat()
       historique.value = await editeurService.publications(siteId.value)
       recharger()
-      informer('Publication annulée.')
+      informer(suivantes ? `${suivantes + 1} publications annulées.` : 'Publication annulée.')
     },
   }
 }
@@ -367,7 +370,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
               <strong>{{ dateLisible(p.createdAt) }}</strong>
               <span :title="p.changements?.map((c) => `• ${c.texte}`).join('\n')">{{ resumePublication(p) }} · {{ p.annulee ? 'annulée' : 'en ligne' }}</span>
             </div>
-            <button v-if="!p.annulee && i === historique.findIndex((x) => !x.annulee)" type="button" class="ed-btn ed-btn--clair" @click="annulerPublication(p)">Revenir avant</button>
+            <button v-if="!p.annulee" type="button" class="ed-btn ed-btn--clair" @click="annulerPublication(p, i)">Revenir avant</button>
           </li>
         </ul>
         <div class="ed-boutons"><button type="button" class="ed-btn ed-btn--clair" @click="historique = null">Fermer</button></div>
