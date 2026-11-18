@@ -43,3 +43,7 @@ demo
 # OS files
 .DS_Store
 Thumbs.db
+
+# Données des sites (montées en volume, jamais dans l'image)
+donnees
+deploy

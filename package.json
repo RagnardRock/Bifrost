@@ -29,7 +29,6 @@
     "db:migrate": "npm run db:migrate -w @bifrost/server",
     "db:generate": "npm run db:generate -w @bifrost/server",
     "db:studio": "npm run db:studio -w @bifrost/server",
-    "db:seed": "npm run db:seed -w @bifrost/server",
     "db:reset": "npm run db:reset -w @bifrost/server",
     "typecheck": "npm run typecheck -w @bifrost/shared && npm run typecheck -w @bifrost/server && npm run typecheck -w @bifrost/client"
   },

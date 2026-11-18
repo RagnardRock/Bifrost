@@ -1,59 +1,46 @@
-version: '3.8'
+# Bifrost en ligne : la base Postgres et le serveur.
+# Les réglages viennent du fichier .env posé à côté (voir deploy/LISEZMOI.md).
 
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
     container_name: bifrost-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
-      POSTGRES_DB: ${DB_NAME:-bifrost}
+      POSTGRES_USER: bifrost
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD manquant dans .env}
+      POSTGRES_DB: bifrost
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      test: ['CMD-SHELL', 'pg_isready -U bifrost']
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - bifrost-network
 
-  # Bifrost API Server
   bifrost:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     container_name: bifrost-server
     restart: unless-stopped
+    # Seulement sur la machine : c'est nginx qui reçoit le public (HTTPS) et renvoie ici
     ports:
-      - "${PORT:-3000}:3000"
+      - '127.0.0.1:${PORT_LOCAL:-3100}:3000'
     environment:
-      NODE_ENV: production
-      PORT: 3000
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/${DB_NAME:-bifrost}?schema=public
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      CORS_ORIGINS: ${CORS_ORIGINS:-*}
-      # Cloudinary (for image uploads)
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      DATABASE_URL: postgresql://bifrost:${DB_PASSWORD}@postgres:5432/bifrost?schema=public
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET manquant dans .env}
+      APP_URL: ${APP_URL:?APP_URL manquant dans .env}
+      CORS_ORIGINS: ${APP_URL}
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      # Les fichiers des sites (brouillon, version en ligne, historique) : nginx sert « publie » directement
+      - ${SITES_DIR:-./donnees/sites}:/data/sites
+      # Les dossiers déposés pour un import ou un réimport
+      - ${IMPORT_DIR:-./donnees/import}:/data/import
     depends_on:
       postgres:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - bifrost-network
 
 volumes:
   postgres_data:
-
-networks:
-  bifrost-network:
-    driver: bridge

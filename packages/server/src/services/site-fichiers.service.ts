@@ -226,7 +226,22 @@ export async function abandonnerBrouillon(siteId: string) {
 }
 
 /** Importe un dossier de site (première mise en place). */
-export async function importer(siteId: string, source: string) {
+/**
+ * Dossier à importer. Avec IMPORT_DIR (en ligne), on n'accepte que ses sous-dossiers :
+ * « ehpad-saintpaulien » désigne IMPORT_DIR/ehpad-saintpaulien.
+ */
+function dossierImport(dossier: string) {
+  if (!config.importDir) return path.resolve(dossier)
+  const chemin = path.resolve(config.importDir, dossier)
+  const rel = path.relative(config.importDir, chemin)
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) throw new Error("Le dossier doit être déposé dans le dossier d’import du serveur (indiquez seulement son nom)")
+  return chemin
+}
+
+export async function importer(siteId: string, dossier: string) {
+  const source = dossierImport(dossier)
+  const info = await fs.stat(source).catch(() => null)
+  if (!info?.isDirectory()) throw new Error(`Dossier introuvable sur le serveur : ${dossier}`)
   const d = dossiers(siteId)
   await fs.rm(d.racine, { recursive: true, force: true })
   const filtre = (s: string) => !/(^|[\\/])(\.git|node_modules|ancien-site|outils)([\\/]|$)/.test(path.relative(source, s))

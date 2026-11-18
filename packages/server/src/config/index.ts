@@ -32,6 +32,12 @@ export const config = {
   // Adresse de l'interface Bifrost (liens d'invitation et de mot de passe oublié)
   appUrl: (process.env.APP_URL || 'http://localhost:5173').replace(/\/+$/, ''),
 
+  // En ligne : dossier où l'on dépose les sites à importer (vide = n'importe quel chemin, pour les essais en local)
+  importDir: process.env.IMPORT_DIR ? path.resolve(process.env.IMPORT_DIR) : '',
+
+  // Interface construite (servie par le serveur en production)
+  clientDir: path.resolve(process.env.CLIENT_DIR || path.resolve(__dirname, '../../../client/dist')),
+
   // E-mails : sans SMTP_URL, les liens sont affichés dans la console du serveur (et à la personne qui invite)
   smtpUrl: process.env.SMTP_URL || '',
   mailFrom: process.env.MAIL_FROM || 'Bifrost <no-reply@localhost>',

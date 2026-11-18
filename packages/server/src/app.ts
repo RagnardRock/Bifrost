@@ -16,6 +16,9 @@ import { apercuRouter } from './routes/apercu.routes'
 
 export const app = express()
 
+// En ligne, Bifrost est derrière nginx : l'adresse du visiteur vient de X-Forwarded-For (limites de débit)
+if (!config.isDev) app.set('trust proxy', 1)
+
 // Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -58,21 +61,12 @@ app.get('/api', (_req, res) => {
 // API routes
 app.use('/api', routes)
 
-// Serve admin client in production
+// En production, le serveur sert aussi l'interface (application Vue) : toute adresse
+// qui n'est ni l'API, ni un aperçu, ni un site renvoie index.html et Vue affiche la bonne page.
 if (config.nodeEnv === 'production') {
-  const clientPath = path.join(__dirname, '../../../client/dist')
-
-  // Serve static assets
-  app.use('/admin', express.static(clientPath))
-
-  // SPA fallback - serve index.html for any admin route
-  app.get('/admin/*', (_req, res) => {
-    res.sendFile(path.join(clientPath, 'index.html'))
-  })
-
-  // Redirect root to admin
-  app.get('/', (_req, res) => {
-    res.redirect('/admin')
+  app.use(express.static(config.clientDir, { index: false }))
+  app.get(/^\/(?!api\/|apercu\/|sites\/|editeur\/|health$).*/, (_req, res) => {
+    res.sendFile(path.join(config.clientDir, 'index.html'))
   })
 }
 

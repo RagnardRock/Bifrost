@@ -14,10 +14,10 @@
     "db:migrate:prod": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset",
     "site:importer": "tsx scripts/importer-site.ts",
-    "admin:creer": "tsx scripts/creer-admin.ts"
+    "admin:creer": "tsx scripts/creer-admin.ts",
+    "start:prod": "prisma migrate deploy && tsx src/index.ts"
   },
   "dependencies": {
     "@bifrost/shared": "*",
@@ -36,6 +36,7 @@
     "nodemailer": "^6.9.16",
     "pino": "^9.1.0",
     "pino-pretty": "^11.1.0",
+    "prisma": "^5.14.0",
     "sanitize-html": "^2.13.1",
     "sharp": "^0.33.5",
     "tsx": "^4.15.1",
@@ -52,7 +53,6 @@
     "@types/nodemailer": "^6.4.17",
     "@types/sanitize-html": "^2.13.0",
     "@types/supertest": "^6.0.2",
-    "prisma": "^5.14.0",
     "rimraf": "^5.0.7",
     "supertest": "^7.0.0",
     "typescript": "^5.4.5"

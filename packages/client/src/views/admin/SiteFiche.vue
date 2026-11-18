@@ -145,7 +145,7 @@ onMounted(charger)
           <form class="glass-card bloc" @submit.prevent="reimporter">
             <h2>Réimporter le dossier</h2>
             <p class="text-xs text-gray-500">Après une refonte faite par le dev. Remplace le brouillon et la version en ligne.</p>
-            <input v-model="dossier" class="input-field" placeholder="D:\Projets\mon-site" aria-label="Dossier du site sur le serveur">
+            <input v-model="dossier" class="input-field" placeholder="nom du dossier déposé (ou chemin en local)" aria-label="Dossier du site sur le serveur">
             <button type="submit" class="glass-button justify-self-start text-red-500" :disabled="occupe || !dossier.trim()">{{ occupe ? 'Import…' : 'Réimporter' }}</button>
           </form>
         </div>

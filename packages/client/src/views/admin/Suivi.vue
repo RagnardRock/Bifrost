@@ -112,8 +112,8 @@ onMounted(charger)
         <h2 class="text-xl font-bold">Nouveau site</h2>
         <label>Nom<input v-model="nouveau.nom" class="input-field" required maxlength="120" placeholder="EHPAD Saint-Paulien"></label>
         <label>Adresse en ligne (facultatif)<input v-model="nouveau.url" class="input-field" placeholder="https://ehpad-saintpaulien.fr"></label>
-        <label>Dossier du site sur le serveur<input v-model="nouveau.dossier" class="input-field" required placeholder="D:\Projets\ehpad-saintpaulien"></label>
-        <p class="text-xs text-gray-500">Le dossier est copié (brouillon + version en ligne). Les dossiers .git, node_modules, outils et ancien-site sont ignorés.</p>
+        <label>Dossier du site sur le serveur<input v-model="nouveau.dossier" class="input-field" required placeholder="ehpad-saintpaulien"></label>
+        <p class="text-xs text-gray-500">En ligne : le nom du dossier déposé dans le dossier d’import du serveur. En local : son chemin complet. Le dossier est copié (brouillon + version en ligne). Les dossiers .git, node_modules, outils et ancien-site sont ignorés.</p>
         <div class="flex justify-end gap-2">
           <button type="button" class="glass-button" @click="nouveau = null">Annuler</button>
           <button type="submit" class="btn-primary" :disabled="occupe">{{ occupe ? 'Import…' : 'Créer et importer' }}</button>
