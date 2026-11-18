@@ -11,6 +11,7 @@ import { Errors } from '../utils/errors'
 import { success } from '../utils/response'
 import * as suivi from '../services/suivi.service'
 import * as fichiers from '../services/site-fichiers.service'
+import { slugLibre, SLUG_VALIDE, oublierSlug } from '../services/slug.service'
 
 const router = Router()
 router.use(authMiddleware, adminMiddleware)
@@ -28,7 +29,7 @@ const messageImport = (e: any) => /^(Le dossier|Dossier|Ce fichier|Aucune page)/
 router.post('/sites/envoi', envoi, action(async (req) => {
   if (!req.file) throw Errors.badRequest('Aucun fichier reçu')
   const b = z.object({ nom: z.string().trim().min(1).max(120), url: z.string().trim().max(300).default('') }).parse(req.body)
-  const site = await prisma.site.create({ data: { name: b.nom, url: b.url, apiKey: `bf_${nanoid(32)}` } })
+  const site = await prisma.site.create({ data: { name: b.nom, url: b.url, slug: await slugLibre(b.nom), apiKey: `bf_${nanoid(32)}` } })
   try {
     const { pages } = await fichiers.importerZip(site.id, req.file.buffer)
     suivi.journaliser(site.id, req.user?.adminId, 'import', `${pages.length} pages`)
@@ -50,7 +51,7 @@ router.post('/sites/:id/envoi', envoi, action(async (req) => {
 // Nouveau site : on le crée et on importe son dossier (chemin sur la machine qui fait tourner le serveur)
 router.post('/sites', action(async (req) => {
   const b = z.object({ nom: z.string().trim().min(1).max(120), url: z.string().trim().max(300).default(''), dossier: z.string().trim().min(1) }).parse(req.body)
-  const site = await prisma.site.create({ data: { name: b.nom, url: b.url, apiKey: `bf_${nanoid(32)}` } })
+  const site = await prisma.site.create({ data: { name: b.nom, url: b.url, slug: await slugLibre(b.nom), apiKey: `bf_${nanoid(32)}` } })
   try {
     const { pages } = await fichiers.importer(site.id, b.dossier)
     suivi.journaliser(site.id, req.user?.adminId, 'import', `${pages.length} pages`)
@@ -62,8 +63,17 @@ router.post('/sites', action(async (req) => {
 }))
 
 router.put('/sites/:id', action(async (req) => {
-  const b = z.object({ nom: z.string().trim().min(1).max(120), url: z.string().trim().max(300) }).parse(req.body)
-  return prisma.site.update({ where: { id: id(req) }, data: { name: b.nom, url: b.url }, select: { id: true, name: true, url: true } })
+  const b = z.object({
+    nom: z.string().trim().min(1).max(120),
+    url: z.string().trim().max(300),
+    slug: z.string().trim().toLowerCase().regex(SLUG_VALIDE, 'Nom court : lettres minuscules, chiffres et tirets').optional(),
+  }).parse(req.body)
+  const avant = await prisma.site.findUnique({ where: { id: id(req) }, select: { slug: true } })
+  if (b.slug && b.slug !== avant?.slug && await prisma.site.findFirst({ where: { slug: b.slug }, select: { id: true } })) {
+    throw Errors.badRequest('Ce nom court est déjà pris par un autre site')
+  }
+  oublierSlug(avant?.slug)
+  return prisma.site.update({ where: { id: id(req) }, data: { name: b.nom, url: b.url, ...(b.slug ? { slug: b.slug } : {}) }, select: { id: true, name: true, url: true, slug: true } })
 }))
 
 // Réimporter le dossier du site (écrase brouillon et version en ligne)

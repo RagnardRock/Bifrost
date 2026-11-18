@@ -41,7 +41,7 @@ export async function sites() {
   const liste = await prisma.site.findMany({
     orderBy: { name: 'asc' },
     select: {
-      id: true, name: true, url: true, createdAt: true,
+      id: true, name: true, url: true, slug: true, createdAt: true,
       _count: { select: { users: true } },
       publications: { where: { annulee: false }, orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true, auteur: true } },
       evenements: { orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true, auteur: true, type: true } },
@@ -58,6 +58,7 @@ export async function sites() {
       id: s.id,
       nom: s.name,
       url: s.url,
+      slug: s.slug,
       pages,
       enAttente: await nbDifferences(s.id),
       membres: s._count.users,
@@ -86,7 +87,7 @@ export async function activite(siteId?: string, limite = 100) {
 
 /** Fiche d'un site : modifications en attente (détail), publications avec leur auteur. */
 export async function site(siteId: string) {
-  const s = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, name: true, url: true, createdAt: true } })
+  const s = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, name: true, url: true, slug: true, createdAt: true } })
   if (!s) return null
   const pubs = await prisma.publication.findMany({ where: { siteId }, orderBy: { createdAt: 'desc' }, take: 30 })
   const qui = await emails(pubs.map((p) => p.auteur))
