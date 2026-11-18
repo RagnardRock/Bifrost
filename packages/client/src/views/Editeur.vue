@@ -7,6 +7,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { editeurService, type EtatEditeur, type Publication, type Membre, type Invitation, type RoleSite } from '@/services/editeur.service'
 import { adresseSite } from '@/services/suivi.service'
+import { comptesService, type MonSite } from '@/services/comptes.service'
 import { useAuthStore } from '@/stores/auth.store'
 import { useUIStore } from '@/stores/ui.store'
 
@@ -45,6 +46,21 @@ function informer(t: string) {
 }
 function echec(e: any, defaut = 'La modification n’a pas pu être enregistrée.') {
   erreur.value = e?.response?.data?.error?.message || defaut
+}
+
+// Plusieurs sites : menu pour passer de l'un à l'autre (clients seulement ; le dev a son espace)
+const mesSites = ref<MonSite[]>([])
+async function chargerMesSites() {
+  if (auth.role !== 'client') return
+  try { mesSites.value = await comptesService.mesSites() } catch { mesSites.value = [] }
+}
+async function changerDeSite(id: string) {
+  const s = mesSites.value.find((x) => x.id === id)
+  if (!s || s.id === etat.value?.site.id) return
+  try {
+    auth.ouvrirSession(await comptesService.changerSite(s.id), false)
+    window.location.assign(`/edition/${s.slug || s.id}`)
+  } catch (err) { echec(err, 'Impossible d’ouvrir ce site.') }
 }
 
 async function rafraichirEtat() {
@@ -160,7 +176,7 @@ async function creerNouvelle() {
 // ---------- équipe ----------
 const equipe = ref<{ membres: Membre[]; invitations: Invitation[] } | null>(null)
 const invitation = ref<{ email: string; role: RoleSite }>({ email: '', role: 'redacteur' })
-const lienInvitation = ref<{ email: string; lien: string; envoye: boolean } | null>(null)
+const lienInvitation = ref<{ email: string; lien: string; envoye: boolean; ajoute: boolean } | null>(null)
 const ROLES: Record<RoleSite, string> = { responsable: 'Responsable', redacteur: 'Rédacteur' }
 async function ouvrirEquipe() {
   lienInvitation.value = null
@@ -256,6 +272,7 @@ onMounted(async () => {
   try {
     await editeurService.ouvrirSession(siteId.value)
     await rafraichirEtat()
+    void chargerMesSites()
   } catch (err) {
     echec(err, 'Impossible d’ouvrir l’éditeur.')
   }
@@ -269,7 +286,11 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
       <div class="ed-gauche">
         <span class="ed-logo" aria-hidden="true">ᛒ</span>
         <div class="ed-titre">
-          <strong>{{ etat?.site.name || 'Bifrost' }}</strong>
+          <select v-if="etat && mesSites.length > 1" class="ed-sites" aria-label="Changer de site" :value="etat.site.id"
+            @change="changerDeSite(($event.target as HTMLSelectElement).value)">
+            <option v-for="s in mesSites" :key="s.id" :value="s.id">{{ s.nom }}</option>
+          </select>
+          <strong v-else>{{ etat?.site.name || 'Bifrost' }}</strong>
           <select v-if="etat" v-model="page" class="ed-pages" aria-label="Page à modifier" @change="cle++">
             <option v-for="p in etat.pages.filter((x) => !x.includes('/'))" :key="p" :value="p">{{ nomPage(p) }}</option>
             <option v-if="page.includes('/')" :value="page">{{ titrePage || nomPage(page) }}</option>
@@ -384,7 +405,8 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
           </div>
         </form>
         <div v-if="lienInvitation" class="ed-lien-invit">
-          <p v-if="lienInvitation.envoye">Un e-mail est parti pour <strong>{{ lienInvitation.email }}</strong>. Vous pouvez aussi lui transmettre ce lien (valable 7 jours) :</p>
+          <p v-if="lienInvitation.ajoute"><strong>{{ lienInvitation.email }}</strong> avait déjà un compte Bifrost : la personne fait maintenant partie de l’équipe{{ lienInvitation.envoye ? ' et a reçu un e-mail' : '' }}. Elle se connecte avec son mot de passe habituel :</p>
+          <p v-else-if="lienInvitation.envoye">Un e-mail est parti pour <strong>{{ lienInvitation.email }}</strong>. Vous pouvez aussi lui transmettre ce lien (valable 7 jours) :</p>
           <p v-else>Envoyez ce lien à <strong>{{ lienInvitation.email }}</strong> (valable 7 jours) :</p>
           <div class="ed-ligne">
             <input :value="lienInvitation.lien" readonly aria-label="Lien d’invitation" @focus="($event.target as HTMLInputElement).select()">
@@ -416,7 +438,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 .ed-titre { display: flex; flex-direction: column; min-width: 0; }
 .ed-titre strong { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ed-pages { background: transparent; color: var(--bf-texte); border: 0; padding: 0; font: inherit; font-size: 13px; cursor: pointer; max-width: 220px; }
-.ed-pages option { color: var(--bf-texte); background: var(--bf-fond); }
+.ed-pages option, .ed-sites option { color: var(--bf-texte); background: var(--bf-fond); }
 .ed-actions { display: flex; align-items: center; gap: 8px; }
 .ed-btn { border: 0; border-radius: 999px; padding: 10px 16px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .ed-btn:disabled { opacity: .5; cursor: default; }
@@ -450,6 +472,8 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 .ed-histo li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: var(--bf-verre); }
 .ed-histo span { display: block; font-size: 13px; color: var(--bf-doux); }
 .ed-annulee { opacity: .55; }
+.ed-sites { font: inherit; font-weight: 700; color: inherit; background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 2px 4px; margin-left: -4px; cursor: pointer; max-width: 100%; }
+.ed-sites:hover, .ed-sites:focus-visible { background: var(--bf-verre); border-color: var(--bf-bord-fort); }
 .ed-attente { font-size: 13px; color: var(--bf-texte); background: var(--bf-verre); padding: 10px 14px; border-radius: 999px; }
 .ed-note { margin: 0; font-size: 14px; color: var(--bf-doux); }
 .ed-ligne { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

@@ -62,19 +62,19 @@ export const authService = {
   },
 
 
-  async getUserById(id: string) {
+  async getUserById(id: string, siteId?: string) {
     const user = await userRepository.findById(id)
 
     if (!user) {
       throw Errors.notFound('Utilisateur')
     }
 
-    const site = await siteRepository.findById(user.siteId)
+    const site = siteId ? await siteRepository.findById(siteId) : null
 
     return {
       id: user.id,
       email: user.email,
-      siteId: user.siteId,
+      siteId: site?.id,
       siteName: site?.name,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,

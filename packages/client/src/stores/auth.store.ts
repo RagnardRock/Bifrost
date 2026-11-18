@@ -59,13 +59,13 @@ export const useAuthStore = defineStore('auth', () => {
 
 
   /** Session ouverte par la connexion v2 (e-mail seul) ou par un lien d'invitation / de mot de passe oublié. */
-  function ouvrirSession(s: { token: string; user: { id: string; email: string; siteId: string; site: { name: string } } }) {
+  function ouvrirSession(s: { token: string; user: { id: string; email: string; siteId: string; site: { name: string; slug?: string | null } } }, aller = true) {
     token.value = s.token
     role.value = 'client'
     localStorage.setItem('token', s.token)
     localStorage.setItem('role', 'client')
     client.value = { id: s.user.id, email: s.user.email, siteId: s.user.siteId, siteName: s.user.site.name, createdAt: new Date(), updatedAt: new Date() }
-    router.push(`/edition/${s.user.siteId}`)
+    if (aller) router.push(`/edition/${s.user.site.slug || s.user.siteId}`)
   }
 
   async function checkAuth() {

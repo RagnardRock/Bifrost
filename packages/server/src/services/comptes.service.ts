@@ -1,7 +1,7 @@
 /**
  * Comptes des clients (v2) : connexion par e-mail, invitations dans l'équipe d'un site, mot de passe oublié.
  *
- * Un compte = une personne sur un site. Rôles :
+ * Un compte = une personne (un e-mail, un mot de passe), membre d'un ou plusieurs sites. Rôle par site :
  * - responsable : modifie, publie, annule une publication, gère l'équipe
  * - redacteur   : modifie le brouillon ; un responsable publie
  */
@@ -13,6 +13,7 @@ import { signToken } from '../utils/jwt'
 import { Errors } from '../utils/errors'
 import { envoyer } from './mail.service'
 import { journaliser } from './suivi.service'
+import { siteParCle } from './slug.service'
 
 export type Role = 'responsable' | 'redacteur'
 export const ROLES: Role[] = ['responsable', 'redacteur']
@@ -20,26 +21,36 @@ const DUREE = { invitation: 7 * 24 * 3600 * 1000, reinitialisation: 3600 * 1000 
 
 const empreinte = (jeton: string) => crypto.createHash('sha256').update(jeton).digest('hex')
 const normaliser = (email: string) => email.trim().toLowerCase()
+const parEmail = (email: string) => prisma.user.findUnique({ where: { email: normaliser(email) } })
 
-function session(user: { id: string; email: string; siteId: string; role: string }, site: { id: string; name: string }) {
-  const token = signToken({ userId: user.id, siteId: user.siteId, role: 'client' })
-  return { token, user: { id: user.id, email: user.email, siteId: user.siteId, role: user.role, site: { id: site.id, name: site.name } } }
+/** Les sites d'une personne, pour la connexion et le menu de l'éditeur. */
+export async function mesSites(userId: string) {
+  const m = await prisma.membre.findMany({
+    where: { userId },
+    include: { site: { select: { id: true, name: true, slug: true } } },
+    orderBy: { site: { name: 'asc' } },
+  })
+  return m.map((x) => ({ id: x.site.id, nom: x.site.name, slug: x.site.slug, role: x.role as Role }))
+}
+
+function session(user: { id: string; email: string }, site: { id: string; nom: string; slug: string | null; role: Role }) {
+  const token = signToken({ userId: user.id, siteId: site.id, role: 'client' })
+  return { token, user: { id: user.id, email: user.email, siteId: site.id, role: site.role, site: { id: site.id, name: site.nom, slug: site.slug } } }
 }
 
 /**
  * Connexion par e-mail et mot de passe, sans identifiant de site.
- * Si la personne a un compte sur plusieurs sites avec ce mot de passe, on renvoie la liste pour qu'elle choisisse.
+ * Si la personne fait partie de plusieurs sites, on renvoie la liste pour qu'elle choisisse.
  */
-export async function connexion(email: string, motDePasse: string, siteId?: string) {
-  const comptes = await prisma.user.findMany({
-    where: { email: { equals: normaliser(email), mode: 'insensitive' }, ...(siteId ? { siteId } : {}) },
-    include: { site: { select: { id: true, name: true } } },
-  })
-  const valides = []
-  for (const c of comptes) if (await comparePassword(motDePasse, c.passwordHash)) valides.push(c)
-  if (!valides.length) throw Errors.unauthorized('E-mail ou mot de passe incorrect')
-  if (valides.length > 1) return { sites: valides.map((c) => ({ id: c.site.id, nom: c.site.name })) }
-  return session(valides[0]!, valides[0]!.site)
+export async function connexion(email: string, motDePasse: string, cle?: string) {
+  const user = await parEmail(email)
+  if (!user || !(await comparePassword(motDePasse, user.passwordHash))) throw Errors.unauthorized('E-mail ou mot de passe incorrect')
+  const sites = await mesSites(user.id)
+  if (!sites.length) throw Errors.forbidden('Ce compte ne fait plus partie d’aucune équipe')
+  const voulu = cle ? await siteParCle(cle) : null
+  const site = sites.find((s) => s.id === voulu) ?? (sites.length === 1 ? sites[0] : null)
+  if (!site) return { sites: sites.map(({ id, nom }) => ({ id, nom })) }
+  return session(user, site)
 }
 
 async function creerJeton(type: 'invitation' | 'reinitialisation', siteId: string, email: string, role: Role = 'redacteur') {
@@ -50,13 +61,26 @@ async function creerJeton(type: 'invitation' | 'reinitialisation', siteId: strin
   return `${config.appUrl}/acces/${jeton}`
 }
 
-/** Invite une personne dans l'équipe d'un site. Renvoie le lien (à transmettre soi-même si l'e-mail n'est pas configuré). */
+/**
+ * Invite une personne dans l'équipe d'un site. Renvoie le lien (à transmettre soi-même si l'e-mail n'est pas configuré).
+ * Si elle a déjà un compte Bifrost (autre site), elle est ajoutée tout de suite et garde son mot de passe.
+ */
 export async function inviter(siteId: string, email: string, role: Role, invitePar: string) {
   const site = await prisma.site.findUnique({ where: { id: siteId } })
   if (!site) throw Errors.notFound('Site')
   const e = normaliser(email)
-  if (await prisma.user.findFirst({ where: { siteId, email: { equals: e, mode: 'insensitive' } } })) {
+  const existant = await parEmail(e)
+  if (existant && await prisma.membre.findUnique({ where: { userId_siteId: { userId: existant.id, siteId } } })) {
     throw Errors.conflict('Cette personne fait déjà partie de l’équipe')
+  }
+  if (existant) {
+    await prisma.membre.create({ data: { userId: existant.id, siteId, role } })
+    journaliser(siteId, existant.id, 'arrivee', existant.email)
+    const lien = `${config.appUrl}/edition/${site.slug || site.id}`
+    const envoye = await envoyer(e, `Vous pouvez modifier le site ${site.name}`,
+      `Bonjour,\n\n${invitePar} vous a ajouté à l'équipe du site « ${site.name} » sur Bifrost.\n\n` +
+      `Connectez-vous avec votre compte habituel :\n${lien}\n`)
+    return { lien, envoye, ajoute: true }
   }
   // une seule invitation en cours par adresse
   await prisma.jeton.deleteMany({ where: { siteId, email: e, type: 'invitation', utiliseLe: null } })
@@ -65,26 +89,24 @@ export async function inviter(siteId: string, email: string, role: Role, inviteP
     `Bonjour,\n\n${invitePar} vous invite à modifier le site « ${site.name} » avec Bifrost.\n\n` +
     `Choisissez votre mot de passe en ouvrant ce lien (valable 7 jours) :\n${lien}\n\n` +
     `Si vous ne vous attendiez pas à ce message, ignorez-le.`)
-  return { lien, envoye }
+  return { lien, envoye, ajoute: false }
 }
 
-/** Mot de passe oublié : un lien par site où l'adresse a un compte. Toujours la même réponse, pour ne rien révéler. */
+/** Mot de passe oublié : un seul lien, valable pour tous les sites. Toujours la même réponse, pour ne rien révéler. */
 export async function oubli(email: string) {
-  const comptes = await prisma.user.findMany({
-    where: { email: { equals: normaliser(email), mode: 'insensitive' } },
-    include: { site: { select: { name: true } } },
-  })
-  for (const c of comptes) {
-    const lien = await creerJeton('reinitialisation', c.siteId, c.email)
-    await envoyer(c.email, `Nouveau mot de passe pour ${c.site.name}`,
-      `Bonjour,\n\nPour choisir un nouveau mot de passe sur Bifrost (site « ${c.site.name} »), ouvrez ce lien, valable 1 heure :\n${lien}\n\n` +
+  const user = await parEmail(email)
+  const site = user ? (await mesSites(user.id))[0] : undefined
+  if (user && site) {
+    const lien = await creerJeton('reinitialisation', site.id, user.email)
+    await envoyer(user.email, 'Nouveau mot de passe Bifrost',
+      `Bonjour,\n\nPour choisir un nouveau mot de passe sur Bifrost, ouvrez ce lien, valable 1 heure :\n${lien}\n\n` +
       `Si vous n'avez rien demandé, ignorez ce message : votre mot de passe reste le même.`)
   }
   return { ok: true }
 }
 
 async function jetonValide(jeton: string) {
-  const j = await prisma.jeton.findUnique({ where: { hash: empreinte(jeton) }, include: { site: { select: { id: true, name: true } } } })
+  const j = await prisma.jeton.findUnique({ where: { hash: empreinte(jeton) }, include: { site: { select: { id: true, name: true, slug: true } } } })
   if (!j || j.utiliseLe || j.expireLe < new Date()) throw Errors.badRequest('Ce lien n’est plus valable. Demandez-en un nouveau.')
   return j
 }
@@ -98,55 +120,76 @@ export async function lireJeton(jeton: string) {
 export async function utiliserJeton(jeton: string, motDePasse: string) {
   const j = await jetonValide(jeton)
   const passwordHash = await hashPassword(motDePasse)
+  const email = normaliser(j.email)
   let user
   if (j.type === 'invitation') {
-    user = await prisma.user.upsert({
-      where: { siteId_email: { siteId: j.siteId, email: j.email } },
-      update: { passwordHash },
-      create: { siteId: j.siteId, email: j.email, passwordHash, role: j.role },
+    user = await prisma.user.upsert({ where: { email }, update: { passwordHash }, create: { email, passwordHash } })
+    await prisma.membre.upsert({
+      where: { userId_siteId: { userId: user.id, siteId: j.siteId } },
+      update: {},
+      create: { userId: user.id, siteId: j.siteId, role: j.role },
     })
   } else {
-    const existant = await prisma.user.findFirst({ where: { siteId: j.siteId, email: { equals: j.email, mode: 'insensitive' } } })
+    const existant = await parEmail(email)
     if (!existant) throw Errors.badRequest('Ce lien n’est plus valable. Demandez-en un nouveau.')
     user = await prisma.user.update({ where: { id: existant.id }, data: { passwordHash } })
   }
   await prisma.jeton.update({ where: { id: j.id }, data: { utiliseLe: new Date() } })
   journaliser(j.siteId, user.id, j.type === 'invitation' ? 'arrivee' : 'mot-de-passe', user.email)
-  return session(user, j.site)
+  const sites = await mesSites(user.id)
+  const site = sites.find((s) => s.id === j.siteId) ?? sites[0]
+  if (!site) throw Errors.forbidden('Ce compte ne fait plus partie d’aucune équipe')
+  return session(user, site)
+}
+
+/** Changer de site sans retaper son mot de passe. */
+export async function changerDeSite(userId: string, cle: string) {
+  const id = await siteParCle(cle)
+  const site = (await mesSites(userId)).find((s) => s.id === id)
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!site || !user) throw Errors.forbidden('Vous ne faites pas partie de l’équipe de ce site')
+  return session(user, site)
 }
 
 // ---------- équipe d'un site ----------
+// L'identifiant d'un membre, côté éditeur, est celui de la personne (userId).
 
 export async function equipe(siteId: string) {
   const [membres, invitations] = await Promise.all([
-    prisma.user.findMany({ where: { siteId }, select: { id: true, email: true, role: true, createdAt: true }, orderBy: { createdAt: 'asc' } }),
+    prisma.membre.findMany({ where: { siteId }, include: { user: { select: { email: true } } }, orderBy: { createdAt: 'asc' } }),
     prisma.jeton.findMany({
       where: { siteId, type: 'invitation', utiliseLe: null, expireLe: { gt: new Date() } },
       select: { id: true, email: true, role: true, expireLe: true }, orderBy: { createdAt: 'desc' },
     }),
   ])
-  return { membres, invitations }
+  return { membres: membres.map((m) => ({ id: m.userId, email: m.user.email, role: m.role, createdAt: m.createdAt })), invitations }
 }
 
 async function resteUnResponsable(siteId: string, sauf: string) {
-  return (await prisma.user.count({ where: { siteId, role: 'responsable', id: { not: sauf } } })) > 0
+  return (await prisma.membre.count({ where: { siteId, role: 'responsable', userId: { not: sauf } } })) > 0
 }
+
+const membre = (siteId: string, userId: string) =>
+  prisma.membre.findUnique({ where: { userId_siteId: { userId, siteId } }, include: { user: { select: { email: true } } } })
 
 export async function changerRole(siteId: string, id: string, role: Role) {
-  const u = await prisma.user.findFirst({ where: { id, siteId } })
-  if (!u) throw Errors.notFound('Membre')
-  if (u.role === 'responsable' && role !== 'responsable' && !(await resteUnResponsable(siteId, id))) {
+  const m = await membre(siteId, id)
+  if (!m) throw Errors.notFound('Membre')
+  if (m.role === 'responsable' && role !== 'responsable' && !(await resteUnResponsable(siteId, id))) {
     throw Errors.badRequest('Il faut garder au moins un responsable')
   }
-  return prisma.user.update({ where: { id }, data: { role }, select: { id: true, email: true, role: true } })
+  await prisma.membre.update({ where: { id: m.id }, data: { role } })
+  return { id, email: m.user.email, role }
 }
 
+/** Retire la personne de l'équipe du site ; son compte disparaît s'il ne sert plus à aucun site. */
 export async function retirer(siteId: string, id: string, moi: string | null) {
   if (id === moi) throw Errors.badRequest('Vous ne pouvez pas vous retirer vous-même')
-  const u = await prisma.user.findFirst({ where: { id, siteId } })
-  if (!u) throw Errors.notFound('Membre')
-  if (u.role === 'responsable' && !(await resteUnResponsable(siteId, id))) throw Errors.badRequest('Il faut garder au moins un responsable')
-  await prisma.user.delete({ where: { id } })
+  const m = await membre(siteId, id)
+  if (!m) throw Errors.notFound('Membre')
+  if (m.role === 'responsable' && !(await resteUnResponsable(siteId, id))) throw Errors.badRequest('Il faut garder au moins un responsable')
+  await prisma.membre.delete({ where: { id: m.id } })
+  if (!(await prisma.membre.count({ where: { userId: id } }))) await prisma.user.delete({ where: { id } })
   return { ok: true }
 }
 

@@ -24,14 +24,14 @@ const envoi = multer({
   fileFilter: (_req, f, cb) => cb(null, /^image\/(jpeg|png|webp|gif|heic|heif|avif)$/.test(f.mimetype)),
 }).single('image')
 
-/** Admin (dev) : tous les sites. Client : seulement un membre de l'équipe du site, rôle relu en base à chaque requête. */
+/** Admin (dev) : tous les sites. Client : les sites dont il fait partie de l'équipe, rôle relu en base à chaque requête. */
 function peutEditer(req: Request, _res: Response, next: NextFunction) {
   const u = req.user
   if (u?.role === 'admin') { req.roleSite = 'responsable'; return next() }
-  if (u?.role !== 'client' || !u.userId || u.siteId !== sid(req)) return next(Errors.forbidden('Vous ne pouvez pas modifier ce site'))
-  prisma.user.findFirst({ where: { id: u.userId, siteId: sid(req) }, select: { role: true } })
+  if (u?.role !== 'client' || !u.userId) return next(Errors.forbidden('Vous ne pouvez pas modifier ce site'))
+  prisma.membre.findUnique({ where: { userId_siteId: { userId: u.userId, siteId: sid(req) } }, select: { role: true } })
     .then((m) => {
-      if (!m) return next(Errors.forbidden('Vous ne faites plus partie de l’équipe de ce site'))
+      if (!m) return next(Errors.forbidden('Vous ne faites pas partie de l’équipe de ce site'))
       req.roleSite = m.role as comptes.Role
       next()
     })
@@ -187,7 +187,7 @@ router.put('/equipe/membres/:id', responsable, action(async (req) => {
   return m
 }))
 router.delete('/equipe/membres/:id', responsable, action(async (req) => {
-  const email = (await prisma.user.findFirst({ where: { id: param(req, 'id'), siteId: sid(req) }, select: { email: true } }))?.email
+  const email = (await prisma.user.findUnique({ where: { id: param(req, 'id') }, select: { email: true } }))?.email
   const r = await comptes.retirer(sid(req), param(req, 'id'), req.user?.userId || null)
   journaliser(sid(req), auteur(req), 'retrait', email || '')
   return r

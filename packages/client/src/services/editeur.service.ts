@@ -35,7 +35,7 @@ export const editeurService = {
   annuler: (siteId: string, id: string) => api.post(`${base(siteId)}/publications/${id}/annuler`),
   equipe: (siteId: string) => donnees<{ membres: Membre[]; invitations: Invitation[] }>(api.get(`${base(siteId)}/equipe`)),
   inviter: (siteId: string, email: string, role: RoleSite) =>
-    donnees<{ lien: string; envoye: boolean }>(api.post(`${base(siteId)}/equipe/invitations`, { email, role })),
+    donnees<{ lien: string; envoye: boolean; ajoute: boolean }>(api.post(`${base(siteId)}/equipe/invitations`, { email, role })),
   annulerInvitation: (siteId: string, id: string) => api.delete(`${base(siteId)}/equipe/invitations/${id}`),
   changerRole: (siteId: string, id: string, role: RoleSite) => api.put(`${base(siteId)}/equipe/membres/${id}`, { role }),
   retirer: (siteId: string, id: string) => api.delete(`${base(siteId)}/equipe/membres/${id}`),
