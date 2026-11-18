@@ -5,6 +5,7 @@ export interface SiteSuivi {
   id: string
   nom: string
   url: string
+  slug: string | null
   pages: number | null
   enAttente: number | null
   membres: number
@@ -14,11 +15,14 @@ export interface SiteSuivi {
 }
 export interface Evenement { id: string; date: string; type: string; detail: string; site: { id: string; nom: string }; auteur: string | null }
 export interface FicheSite {
-  site: { id: string; name: string; url: string; createdAt: string }
+  site: { id: string; name: string; url: string; slug: string | null; createdAt: string }
   pages: number
   differences: Differences | null
   publications: Publication[]
 }
+
+/** Adresse publique d'un site hébergé par Bifrost. */
+export const adresseSite = (s: { id: string; slug?: string | null }) => `/sites/${s.slug || s.id}/`
 
 const donnees = <T>(p: Promise<any>) => p.then((r) => r.data as T)
 const envoiOptions = (progres?: (p: number) => void) => ({
@@ -44,7 +48,7 @@ export const suiviService = {
     f.append('archive', archive, 'site.zip')
     return api.post(`/admin/suivi/sites/${id}/envoi`, f, envoiOptions(progres))
   },
-  modifier: (id: string, nom: string, url: string) => api.put(`/admin/suivi/sites/${id}`, { nom, url }),
+  modifier: (id: string, nom: string, url: string, slug?: string) => api.put(`/admin/suivi/sites/${id}`, { nom, url, slug: slug || undefined }),
   reimporter: (id: string, dossier: string) => api.post(`/admin/suivi/sites/${id}/importer`, { dossier }, { timeout: 120000 }),
   fiche: (id: string) => donnees<FicheSite>(api.get(`/admin/suivi/sites/${id}`)),
   activite: (site?: string, limite = 100) => donnees<Evenement[]>(api.get('/admin/suivi/activite', { params: { site, limite } })),

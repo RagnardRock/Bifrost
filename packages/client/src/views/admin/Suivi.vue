@@ -4,7 +4,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Journal from '@/components/suivi/Journal.vue'
 import EnvoiSite, { type Envoi } from '@/components/suivi/EnvoiSite.vue'
-import { suiviService, ilYa, type SiteSuivi, type Evenement } from '@/services/suivi.service'
+import { suiviService, adresseSite, ilYa, type SiteSuivi, type Evenement } from '@/services/suivi.service'
 
 const router = useRouter()
 const sites = ref<SiteSuivi[] | null>(null)
@@ -44,7 +44,7 @@ async function creer() {
   }
 }
 
-const enLigne = (s: SiteSuivi) => s.url || `/sites/${s.id}/`
+const enLigne = (s: SiteSuivi) => s.url || adresseSite(s)
 
 onMounted(charger)
 </script>
@@ -68,7 +68,7 @@ onMounted(charger)
       <article v-for="s in sites" :key="s.id" class="glass-card carte">
         <header>
           <router-link :to="`/admin/sites/${s.id}`" class="nom">{{ s.nom }}</router-link>
-          <a :href="enLigne(s)" target="_blank" rel="noopener" class="adresse">{{ s.url || 'aperçu local' }}</a>
+          <a :href="enLigne(s)" target="_blank" rel="noopener" class="adresse">{{ s.url || `bifrost › ${s.slug || 'site'}` }}</a>
         </header>
 
         <div class="chiffres">

@@ -9,6 +9,7 @@ import path from 'path'
 import jwt from 'jsonwebtoken'
 import { config } from '../config'
 import { dossiers, cheminSur } from '../services/site-fichiers.service'
+import { siteParCle } from '../services/slug.service'
 
 export const apercuRouter = Router()
 
@@ -35,8 +36,11 @@ apercuRouter.get(['/apercu/:siteId', '/apercu/:siteId/*'], async (req, res) => {
   }
 })
 
-apercuRouter.use('/sites/:siteId', (req, res, next) => {
+// /sites/<nom court ou identifiant>/…
+apercuRouter.use('/sites/:cle', async (req, res, next) => {
+  const id = await siteParCle(req.params.cle).catch(() => null)
+  if (!id) return res.status(404).send('Site introuvable')
   let racine: string
-  try { racine = dossiers(req.params.siteId).publie } catch { return res.status(400).end() }
+  try { racine = dossiers(id).publie } catch { return res.status(400).end() }
   express.static(path.resolve(racine))(req, res, next)
 })

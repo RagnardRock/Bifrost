@@ -46,6 +46,8 @@ model Site {
   id         String   @id @default(uuid())
   name       String
   url        String
+  // Nom court dans l'adresse publique : /sites/<slug>/
+  slug       String?  @unique
   apiKey     String   @unique @map("api_key")
   schema     Json?    @db.JsonB
   webhookUrl String?  @map("webhook_url")

@@ -4,7 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import Journal from '@/components/suivi/Journal.vue'
 import EnvoiSite, { type Envoi } from '@/components/suivi/EnvoiSite.vue'
-import { suiviService, ilYa, type FicheSite, type Evenement } from '@/services/suivi.service'
+import { suiviService, adresseSite, ilYa, type FicheSite, type Evenement } from '@/services/suivi.service'
 import { editeurService, type Membre, type Invitation } from '@/services/editeur.service'
 
 const route = useRoute()
@@ -15,7 +15,7 @@ const equipe = ref<{ membres: Membre[]; invitations: Invitation[] } | null>(null
 const journal = ref<Evenement[]>([])
 const erreur = ref('')
 const message = ref('')
-const reglages = ref({ nom: '', url: '' })
+const reglages = ref({ nom: '', url: '', slug: '' })
 const dossier = ref('')
 const voirFichiers = ref(false)
 const occupe = ref(false)
@@ -33,7 +33,7 @@ async function charger() {
     const [f, j] = await Promise.all([suiviService.fiche(id.value), suiviService.activite(id.value, 50)])
     fiche.value = f
     journal.value = j
-    reglages.value = { nom: f.site.name, url: f.site.url }
+    reglages.value = { nom: f.site.name, url: f.site.url, slug: f.site.slug || '' }
     equipe.value = await editeurService.equipe(id.value).catch(() => null)
   } catch (e: any) {
     erreur.value = e?.response?.data?.error?.message || 'Impossible de charger ce site.'
@@ -42,7 +42,7 @@ async function charger() {
 
 async function enregistrer() {
   try {
-    await suiviService.modifier(id.value, reglages.value.nom, reglages.value.url)
+    await suiviService.modifier(id.value, reglages.value.nom, reglages.value.url, reglages.value.slug)
     message.value = 'Enregistré'
     await charger()
   } catch (e: any) {
@@ -90,7 +90,7 @@ onMounted(charger)
           <p class="text-sm text-gray-500 mt-1">{{ fiche.pages }} pages · créé le {{ new Date(fiche.site.createdAt).toLocaleDateString('fr-FR') }}</p>
         </div>
         <div class="flex gap-2">
-          <a :href="fiche.site.url || `/sites/${fiche.site.id}/`" target="_blank" rel="noopener" class="glass-button">Voir en ligne</a>
+          <a :href="fiche.site.url || adresseSite(fiche.site)" target="_blank" rel="noopener" class="glass-button">Voir en ligne</a>
           <a :href="`/edition/${fiche.site.id}`" target="_blank" rel="noopener" class="btn-primary">Ouvrir l’éditeur</a>
         </div>
       </div>
@@ -146,7 +146,10 @@ onMounted(charger)
           <form class="glass-card bloc" @submit.prevent="enregistrer">
             <h2>Réglages</h2>
             <label>Nom<input v-model="reglages.nom" class="input-field" required maxlength="120"></label>
-            <label>Adresse en ligne<input v-model="reglages.url" class="input-field" placeholder="https://…"></label>
+            <label>Nom court dans l’adresse Bifrost
+              <span class="adresse-courte"><span>/sites/</span><input v-model="reglages.slug" class="input-field" pattern="[a-z0-9](?:[a-z0-9\-]{0,58}[a-z0-9])?" placeholder="mon-site" title="Lettres minuscules, chiffres et tirets"><span>/</span></span>
+            </label>
+            <label>Adresse de son propre domaine (facultatif)<input v-model="reglages.url" class="input-field" placeholder="https://…"></label>
             <button type="submit" class="btn-primary justify-self-start">Enregistrer</button>
           </form>
 
@@ -172,6 +175,8 @@ onMounted(charger)
 .bloc { padding: 20px; display: grid; gap: 12px; }
 .bloc h2 { font-size: 16px; font-weight: 700; margin: 0; }
 .bloc label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
+.adresse-courte { display: flex; align-items: center; gap: 6px; font-weight: 400; color: var(--bf-doux); }
+.adresse-courte input { flex: 1; min-width: 0; }
 .lignes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .lignes li { padding: 10px 12px; border-radius: 10px; background: var(--bf-verre); }
 .lignes strong { display: block; font-size: 14px; overflow-wrap: anywhere; }

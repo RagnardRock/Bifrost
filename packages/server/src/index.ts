@@ -2,12 +2,14 @@ import { app } from './app'
 import { config } from './config'
 import { logger } from './utils/logger'
 import { prisma } from './config/database'
+import { completerSlugs } from './services/slug.service'
 
 async function main() {
   try {
     // Test database connection
     await prisma.$connect()
     logger.info('Database connected')
+    await completerSlugs().catch((e) => logger.warn(e, 'Noms courts des sites non complétés'))
 
     // Start server
     app.listen(config.port, () => {
