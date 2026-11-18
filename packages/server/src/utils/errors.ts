@@ -15,6 +15,7 @@ export const Errors = {
   badRequest: (message = 'Requête invalide') => new AppError('BAD_REQUEST', message, 400),
   unauthorized: (message = 'Non autorisé') => new AppError('UNAUTHORIZED', message, 401),
   forbidden: (message = 'Accès interdit') => new AppError('FORBIDDEN', message, 403),
+  conflict: (message = 'Conflit') => new AppError('CONFLICT', message, 409),
   notFound: (resource = 'Ressource') => new AppError('NOT_FOUND', `${resource} non trouvé`, 404),
   validation: (details: Record<string, unknown>) =>
     new AppError('VALIDATION_ERROR', 'Données invalides', 400, details),

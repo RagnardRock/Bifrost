@@ -16,6 +16,11 @@ export const router = createRouter({
       meta: { guest: true, clientGuest: true },
     },
     {
+      path: '/acces/:jeton',
+      name: 'acces',
+      component: () => import('@/views/Acces.vue'),
+    },
+    {
       path: '/admin/login',
       name: 'admin-login',
       component: () => import('@/views/AdminLogin.vue'),

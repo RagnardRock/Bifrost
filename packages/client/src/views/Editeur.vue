@@ -5,7 +5,7 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { editeurService, type EtatEditeur, type Publication } from '@/services/editeur.service'
+import { editeurService, type EtatEditeur, type Publication, type Membre, type Invitation, type RoleSite } from '@/services/editeur.service'
 import { useAuthStore } from '@/stores/auth.store'
 
 const route = useRoute()
@@ -28,6 +28,7 @@ const nbModifs = computed(() => {
   const d = etat.value?.differences
   return d ? d.ajoutes.length + d.modifies.length + d.supprimes.length : 0
 })
+const responsable = computed(() => etat.value?.moi.role === 'responsable')
 const src = computed(() => `/apercu/${siteId.value}/${page.value}`)
 
 let minuteur: number | undefined
@@ -148,6 +149,43 @@ async function creerNouvelle() {
   }
 }
 
+// ---------- équipe ----------
+const equipe = ref<{ membres: Membre[]; invitations: Invitation[] } | null>(null)
+const invitation = ref<{ email: string; role: RoleSite }>({ email: '', role: 'redacteur' })
+const lienInvitation = ref<{ email: string; lien: string; envoye: boolean } | null>(null)
+const ROLES: Record<RoleSite, string> = { responsable: 'Responsable', redacteur: 'Rédacteur' }
+async function ouvrirEquipe() {
+  lienInvitation.value = null
+  equipe.value = await editeurService.equipe(siteId.value)
+}
+async function inviter() {
+  const email = invitation.value.email.trim()
+  if (!email) return
+  try {
+    const r = await editeurService.inviter(siteId.value, email, invitation.value.role)
+    lienInvitation.value = { email, ...r }
+    invitation.value.email = ''
+    equipe.value = await editeurService.equipe(siteId.value)
+  } catch (err) {
+    echec(err, 'L’invitation n’a pas pu être créée.')
+  }
+}
+async function copier(t: string) {
+  try { await navigator.clipboard.writeText(t); informer('Lien copié') } catch { informer('Sélectionnez le lien pour le copier') }
+}
+async function changerRole(m: Membre, role: RoleSite) {
+  try { await editeurService.changerRole(siteId.value, m.id, role); m.role = role; informer('Rôle modifié') } catch (err) { echec(err); equipe.value = await editeurService.equipe(siteId.value) }
+}
+function retirer(m: Membre) {
+  confirmation.value = {
+    texte: `Retirer ${m.email} de l’équipe ? Cette personne ne pourra plus modifier le site.`,
+    action: async () => { await editeurService.retirer(siteId.value, m.id); equipe.value = await editeurService.equipe(siteId.value) },
+  }
+}
+async function annulerInvitation(i: Invitation) {
+  try { await editeurService.annulerInvitation(siteId.value, i.id); equipe.value = await editeurService.equipe(siteId.value) } catch (err) { echec(err) }
+}
+
 // ---------- publication et historique ----------
 const historique = ref<Publication[] | null>(null)
 async function publier() {
@@ -233,16 +271,22 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
       <div class="ed-actions">
         <button class="ed-btn ed-btn--clair" type="button" @click="ouvrirNouvelle">+ Actualité</button>
         <button class="ed-btn ed-btn--icone" type="button" :aria-pressed="vueMobile" title="Voir comme sur un téléphone" @click="vueMobile = !vueMobile">📱</button>
-        <button class="ed-btn ed-btn--icone" type="button" title="Historique des publications" @click="ouvrirHistorique">🕘</button>
-        <button class="ed-btn ed-btn--publier" type="button" :disabled="!nbModifs || occupe" @click="publier">
-          {{ nbModifs ? `Publier (${nbModifs})` : 'À jour' }}
-        </button>
+        <template v-if="responsable">
+          <button class="ed-btn ed-btn--icone" type="button" title="Équipe : qui peut modifier le site" @click="ouvrirEquipe">👥</button>
+          <button class="ed-btn ed-btn--icone" type="button" title="Historique des publications" @click="ouvrirHistorique">🕘</button>
+          <button class="ed-btn ed-btn--publier" type="button" :disabled="!nbModifs || occupe" @click="publier">
+            {{ nbModifs ? `Publier (${nbModifs})` : 'À jour' }}
+          </button>
+        </template>
+        <span v-else-if="etat" class="ed-attente" :title="nbModifs ? 'Un responsable du site publiera vos modifications.' : ''">
+          {{ nbModifs ? `${nbModifs} modification(s) en attente de publication` : 'Tout est publié' }}
+        </span>
       </div>
     </header>
 
     <div class="ed-aide">
       Cliquez sur un texte pour le modifier, sur une photo pour la changer. Survolez une actualité pour la déplacer ou la supprimer.
-      <button v-if="nbModifs" type="button" class="ed-lien" @click="abandonner">Effacer mes modifications</button>
+      <button v-if="nbModifs && responsable" type="button" class="ed-lien" @click="abandonner">Effacer mes modifications</button>
       <a :href="`/sites/${siteId}/`" target="_blank" rel="noopener" class="ed-lien">Voir le site en ligne</a>
       <button type="button" class="ed-lien" @click="deconnexion">Se déconnecter</button>
     </div>
@@ -296,6 +340,48 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
           </li>
         </ul>
         <div class="ed-boutons"><button type="button" class="ed-btn ed-btn--clair" @click="historique = null">Fermer</button></div>
+      </div>
+    </div>
+
+    <!-- Équipe -->
+    <div v-if="equipe" class="ed-fond" @click.self="equipe = null">
+      <div class="ed-fenetre">
+        <h2>Équipe du site</h2>
+        <p class="ed-note">Les <strong>responsables</strong> publient et gèrent l’équipe. Les <strong>rédacteurs</strong> modifient le site ; un responsable publie ensuite.</p>
+        <ul class="ed-histo">
+          <li v-for="m in equipe.membres" :key="m.id">
+            <div><strong>{{ m.email }}</strong><span v-if="m.id === etat?.moi.id">C’est vous</span></div>
+            <div class="ed-ligne">
+              <select :value="m.role" class="ed-select" :disabled="m.id === etat?.moi.id" aria-label="Rôle" @change="changerRole(m, ($event.target as HTMLSelectElement).value as RoleSite)">
+                <option v-for="(lib, r) in ROLES" :key="r" :value="r">{{ lib }}</option>
+              </select>
+              <button v-if="m.id !== etat?.moi.id" type="button" class="ed-btn ed-btn--clair" title="Retirer de l’équipe" @click="retirer(m)">✕</button>
+            </div>
+          </li>
+          <li v-for="i in equipe.invitations" :key="i.id" class="ed-annulee">
+            <div><strong>{{ i.email }}</strong><span>Invitation envoyée · {{ ROLES[i.role] }}</span></div>
+            <button type="button" class="ed-btn ed-btn--clair" @click="annulerInvitation(i)">Annuler</button>
+          </li>
+        </ul>
+        <form class="ed-inviter" @submit.prevent="inviter">
+          <span class="ed-etiquette">Inviter quelqu’un</span>
+          <div class="ed-ligne">
+            <input v-model="invitation.email" type="email" required placeholder="adresse e-mail" aria-label="Adresse e-mail">
+            <select v-model="invitation.role" class="ed-select" aria-label="Rôle">
+              <option v-for="(lib, r) in ROLES" :key="r" :value="r">{{ lib }}</option>
+            </select>
+            <button type="submit" class="ed-btn ed-btn--publier">Inviter</button>
+          </div>
+        </form>
+        <div v-if="lienInvitation" class="ed-lien-invit">
+          <p v-if="lienInvitation.envoye">Un e-mail est parti pour <strong>{{ lienInvitation.email }}</strong>. Vous pouvez aussi lui transmettre ce lien (valable 7 jours) :</p>
+          <p v-else>Envoyez ce lien à <strong>{{ lienInvitation.email }}</strong> (valable 7 jours) :</p>
+          <div class="ed-ligne">
+            <input :value="lienInvitation.lien" readonly aria-label="Lien d’invitation" @focus="($event.target as HTMLInputElement).select()">
+            <button type="button" class="ed-btn ed-btn--clair" @click="copier(lienInvitation.lien)">Copier</button>
+          </div>
+        </div>
+        <div class="ed-boutons"><button type="button" class="ed-btn ed-btn--clair" @click="equipe = null">Fermer</button></div>
       </div>
     </div>
 
@@ -354,6 +440,15 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 .ed-histo li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); }
 .ed-histo span { display: block; font-size: 13px; color: #94a3b8; }
 .ed-annulee { opacity: .55; }
+.ed-attente { font-size: 13px; color: #cbd5e1; background: rgba(255, 255, 255, .06); padding: 10px 14px; border-radius: 999px; }
+.ed-note { margin: 0; font-size: 14px; color: #94a3b8; }
+.ed-ligne { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ed-ligne input { flex: 1 1 200px; min-width: 0; }
+.ed-select { background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .14); border-radius: 10px; padding: 10px; color: #fff; font: inherit; }
+.ed-select option { color: #111; }
+.ed-inviter { display: grid; gap: 8px; }
+.ed-lien-invit { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: rgba(224, 122, 74, .12); font-size: 14px; }
+.ed-lien-invit p { margin: 0; }
 .ed-fondu-enter-active, .ed-fondu-leave-active { transition: opacity .2s; }
 .ed-fondu-enter-from, .ed-fondu-leave-to { opacity: 0; }
 @media (max-width: 720px) {

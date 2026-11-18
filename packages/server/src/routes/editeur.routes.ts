@@ -12,6 +12,7 @@ import { authMiddleware, adminMiddleware } from '../middleware/auth.middleware'
 import { Errors } from '../utils/errors'
 import { success } from '../utils/response'
 import * as fichiers from '../services/site-fichiers.service'
+import * as comptes from '../services/comptes.service'
 
 const router = Router({ mergeParams: true })
 
@@ -21,11 +22,29 @@ const envoi = multer({
   fileFilter: (_req, f, cb) => cb(null, /^image\/(jpeg|png|webp|gif|heic|heif|avif)$/.test(f.mimetype)),
 }).single('image')
 
+/** Admin (dev) : tous les sites. Client : seulement un membre de l'équipe du site, rôle relu en base à chaque requête. */
 function peutEditer(req: Request, _res: Response, next: NextFunction) {
   const u = req.user
-  if (u?.role === 'admin') return next()
-  if (u?.role === 'client' && u.siteId === sid(req)) return next()
-  next(Errors.forbidden('Vous ne pouvez pas modifier ce site'))
+  if (u?.role === 'admin') { req.roleSite = 'responsable'; return next() }
+  if (u?.role !== 'client' || !u.userId || u.siteId !== sid(req)) return next(Errors.forbidden('Vous ne pouvez pas modifier ce site'))
+  prisma.user.findFirst({ where: { id: u.userId, siteId: sid(req) }, select: { role: true } })
+    .then((m) => {
+      if (!m) return next(Errors.forbidden('Vous ne faites plus partie de l’équipe de ce site'))
+      req.roleSite = m.role as comptes.Role
+      next()
+    })
+    .catch(next)
+}
+
+/** Publier, revenir en arrière, gérer l'équipe : responsables et dev seulement. */
+function responsable(req: Request, _res: Response, next: NextFunction) {
+  if (req.roleSite === 'responsable') return next()
+  next(Errors.forbidden('Seul un responsable du site peut faire cela'))
+}
+
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express { interface Request { roleSite?: comptes.Role } }
 }
 
 const sid = (req: Request) => String((req.params as Record<string, string>).siteId)
@@ -39,7 +58,12 @@ router.use(authMiddleware, peutEditer)
 router.get('/', action(async (req) => {
   const site = await prisma.site.findUnique({ where: { id: sid(req) }, select: { id: true, name: true, url: true } })
   if (!site) throw Errors.notFound('Site')
-  return { site, pages: await fichiers.listerPages(site.id), differences: await fichiers.differences(site.id) }
+  return {
+    site,
+    pages: await fichiers.listerPages(site.id),
+    differences: await fichiers.differences(site.id),
+    moi: { role: req.roleSite, dev: req.user?.role === 'admin', id: req.user?.userId || null },
+  }
 }))
 
 // Jeton d'aperçu : cookie lu par /apercu/<siteId>/… (l'iframe ne peut pas envoyer d'en-tête)
@@ -90,7 +114,7 @@ const schemaElement = z.object({
 })
 router.post('/collection/:nom', action(async (req) => fichiers.nouvelElement(sid(req), String((req.params as Record<string, string>).nom), schemaElement.parse(req.body))))
 
-router.post('/publier', action(async (req) => {
+router.post('/publier', responsable, action(async (req) => {
   const siteId = sid(req)
   const pub = await prisma.publication.create({ data: { siteId, auteur: auteur(req), ajoutes: [], modifies: [], supprimes: [] } })
   const diff = await fichiers.publier(siteId, pub.id)
@@ -101,19 +125,32 @@ router.post('/publier', action(async (req) => {
   return { publication: await prisma.publication.update({ where: { id: pub.id }, data: diff }) }
 }))
 
-router.post('/abandonner', action(async (req) => { await fichiers.abandonnerBrouillon(sid(req)); return { ok: true } }))
+router.post('/abandonner', responsable, action(async (req) => { await fichiers.abandonnerBrouillon(sid(req)); return { ok: true } }))
 
 router.get('/publications', action(async (req) =>
   prisma.publication.findMany({ where: { siteId: sid(req) }, orderBy: { createdAt: 'desc' }, take: 30 })))
 
 // Revenir en arrière : seule la dernière publication encore active peut être annulée (sinon les fichiers se mélangent)
-router.post('/publications/:id/annuler', action(async (req) => {
+router.post('/publications/:id/annuler', responsable, action(async (req) => {
   const siteId = sid(req)
   const derniere = await prisma.publication.findFirst({ where: { siteId, annulee: false }, orderBy: { createdAt: 'desc' } })
   if (!derniere || derniere.id !== String((req.params as Record<string, string>).id)) throw Errors.badRequest('Seule la dernière publication peut être annulée')
   await fichiers.annulerPublication(siteId, derniere.id, derniere as never)
   return prisma.publication.update({ where: { id: derniere.id }, data: { annulee: true } })
 }))
+
+// Équipe du site : membres, rôles, invitations
+const param = (req: Request, nom: string) => String((req.params as Record<string, string>)[nom])
+const schemaRole = z.enum(['responsable', 'redacteur'])
+router.get('/equipe', responsable, action(async (req) => comptes.equipe(sid(req))))
+router.post('/equipe/invitations', responsable, action(async (req) => {
+  const b = z.object({ email: z.string().email(), role: schemaRole }).parse(req.body)
+  const qui = req.user?.role === 'admin' ? 'Votre développeur' : 'Un membre de votre équipe'
+  return comptes.inviter(sid(req), b.email, b.role, qui)
+}))
+router.delete('/equipe/invitations/:id', responsable, action(async (req) => comptes.annulerInvitation(sid(req), param(req, 'id'))))
+router.put('/equipe/membres/:id', responsable, action(async (req) => comptes.changerRole(sid(req), param(req, 'id'), z.object({ role: schemaRole }).parse(req.body).role)))
+router.delete('/equipe/membres/:id', responsable, action(async (req) => comptes.retirer(sid(req), param(req, 'id'), req.user?.userId || null)))
 
 // Dev uniquement : importer un dossier de site présent sur le serveur
 router.post('/importer', adminMiddleware, action(async (req) => {

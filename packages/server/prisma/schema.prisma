@@ -26,6 +26,8 @@ model User {
   email        String
   passwordHash String   @map("password_hash")
   siteId       String   @map("site_id")
+  /// responsable (publie, gère l'équipe) ou redacteur (modifie le brouillon)
+  role         String   @default("responsable")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -56,6 +58,7 @@ model Site {
   contentHistory  ContentHistory[]
   webhookLogs     WebhookLog[]
   publications    Publication[]
+  jetons          Jeton[]
 
   @@map("sites")
 }
@@ -157,4 +160,22 @@ model Publication {
 
   @@index([siteId, createdAt])
   @@map("publications")
+}
+
+/// Lien à usage unique envoyé par e-mail : invitation dans l'équipe d'un site, ou mot de passe oublié.
+model Jeton {
+  id        String    @id @default(uuid())
+  type      String
+  email     String
+  siteId    String    @map("site_id")
+  role      String    @default("redacteur")
+  hash      String    @unique
+  expireLe  DateTime  @map("expire_le")
+  utiliseLe DateTime? @map("utilise_le")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, type])
+  @@map("jetons")
 }

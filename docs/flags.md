@@ -61,4 +61,14 @@ Les images envoyées sont converties en WebP (1600 px max) dans `brouillon/media
 2. Copier `.env.example` en `.env` à la racine **et** dans `packages/server` (Prisma lit ce dernier), puis `npm install` et `npx prisma migrate dev` dans `packages/server`.
 3. Importer un site et créer le compte client :
    `npm run site:importer -w @bifrost/server -- <dossier-du-site> "<Nom du site>" <email-client> <mot-de-passe>`
-4. `npm run dev` à la racine (compile d'abord le paquet partagé), se connecter avec le compte client : l'éditeur s'ouvre sur `/edition/<siteId>`.
+4. `npm run dev` à la racine (compile d'abord le paquet partagé), puis se connecter sur `http://localhost:5173/login` avec l'e-mail et le mot de passe : l'éditeur s'ouvre directement.
+
+## Comptes et équipe
+
+- Connexion par e-mail et mot de passe, sans identifiant de site (si une personne gère plusieurs sites, elle choisit).
+- Rôles : **responsable** (modifie, publie, revient en arrière, gère l'équipe) et **rédacteur** (modifie le brouillon ; un responsable publie).
+- Bouton 👥 dans l'éditeur : inviter par e-mail, changer un rôle, retirer quelqu'un. L'invitation est un lien valable 7 jours ;
+  la personne choisit son mot de passe et arrive dans l'éditeur. Il reste toujours au moins un responsable.
+- Mot de passe oublié : lien valable 1 heure.
+- Sans `SMTP_URL`, aucun e-mail ne part : le lien d'invitation s'affiche pour être copié, et les liens sont écrits dans la console du serveur.
+- Le dev (compte admin) ouvre l'éditeur de n'importe quel site depuis la liste des sites (bouton « Éditer ») et y a les droits d'un responsable.

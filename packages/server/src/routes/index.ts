@@ -13,6 +13,7 @@ import clientRoutes from './client.routes'
 import publicRoutes from './public.routes'
 import uploadRoutes from './upload.routes'
 import editeurRoutes from './editeur.routes'
+import comptesRoutes from './comptes.routes'
 import { schemaController } from '../controllers/schema.controller'
 import { statsController } from '../controllers/stats.controller'
 import { activityController } from '../controllers/activity.controller'
@@ -44,6 +45,7 @@ router.get('/admin/sites/:siteId/activity', authMiddleware, adminMiddleware, act
 
 // Éditeur sur place (v2) : dev et client
 router.use('/editeur/:siteId', editeurRoutes)
+router.use('/comptes', comptesRoutes)
 
 // Client routes (siteId from JWT token)
 router.use('/client', clientRoutes)

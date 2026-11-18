@@ -1,95 +1,113 @@
 <script setup lang="ts">
+/**
+ * Connexion des clients : e-mail et mot de passe, sans identifiant de site.
+ * Si la personne gère plusieurs sites, elle choisit lequel ouvrir.
+ */
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
+import { comptesService, type ChoixSites } from '@/services/comptes.service'
 
 const route = useRoute()
-const authStore = useAuthStore()
+const auth = useAuthStore()
 
-// Get siteId from query params (e.g., /login?site=xxx)
-const siteId = ref((route.query.site as string) || '')
+const mode = ref<'connexion' | 'oubli' | 'oubli-envoye'>('connexion')
 const email = ref('')
-const password = ref('')
-const error = ref('')
+const motDePasse = ref('')
+const erreur = ref('')
+const occupe = ref(false)
+const choix = ref<ChoixSites['sites'] | null>(null)
 
-async function handleLogin() {
-  error.value = ''
-
-  if (!siteId.value) {
-    error.value = 'Identifiant du site requis'
-    return
-  }
-
+async function seConnecter(siteId?: string) {
+  erreur.value = ''
+  occupe.value = true
   try {
-    await authStore.loginClient(email.value, password.value, siteId.value)
-  } catch {
-    error.value = authStore.error || 'Email ou mot de passe incorrect'
+    const r = await comptesService.connexion(email.value, motDePasse.value, siteId || (route.query.site as string) || undefined)
+    if ('sites' in r) choix.value = r.sites
+    else auth.ouvrirSession(r)
+  } catch (e: any) {
+    // un ?site= ancien ne doit pas bloquer : on réessaie sans
+    if (!siteId && route.query.site && e?.response?.status === 401) {
+      try {
+        const r = await comptesService.connexion(email.value, motDePasse.value)
+        if ('sites' in r) choix.value = r.sites
+        else auth.ouvrirSession(r)
+        return
+      } catch { /* même message ci-dessous */ }
+    }
+    erreur.value = e?.response?.data?.error?.message || 'E-mail ou mot de passe incorrect'
+  } finally {
+    occupe.value = false
+  }
+}
+
+async function demanderLien() {
+  erreur.value = ''
+  occupe.value = true
+  try {
+    await comptesService.oubli(email.value)
+    mode.value = 'oubli-envoye'
+  } catch (e: any) {
+    erreur.value = e?.response?.data?.error?.message || 'Impossible d’envoyer le lien pour l’instant.'
+  } finally {
+    occupe.value = false
   }
 }
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center p-8">
-    <div class="glass-card p-8 max-w-md w-full">
+  <div class="min-h-screen flex items-center justify-center p-4 sm:p-8">
+    <div class="glass-card p-6 sm:p-8 max-w-md w-full">
       <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold mb-2">Connexion Client</h1>
-        <p class="text-gray-600 dark:text-gray-300">Accédez à votre espace de gestion</p>
+        <div class="logo" aria-hidden="true">ᛒ</div>
+        <h1 class="text-3xl font-bold mb-2">{{ mode === 'connexion' ? 'Modifier mon site' : 'Mot de passe oublié' }}</h1>
+        <p class="text-gray-600 dark:text-gray-300">
+          {{ mode === 'connexion' ? 'Connectez-vous pour modifier votre site.' : 'Recevez un lien pour choisir un nouveau mot de passe.' }}
+        </p>
       </div>
 
-      <form @submit.prevent="handleLogin" class="space-y-6">
+      <!-- Choix du site -->
+      <div v-if="choix" class="space-y-3">
+        <p class="text-sm text-center">Vous gérez plusieurs sites. Lequel voulez-vous ouvrir ?</p>
+        <button v-for="s in choix" :key="s.id" type="button" class="btn-primary w-full" :disabled="occupe" @click="seConnecter(s.id)">{{ s.nom }}</button>
+      </div>
+
+      <form v-else-if="mode === 'connexion'" class="space-y-6" @submit.prevent="seConnecter()">
         <div>
-          <label for="siteId" class="block text-sm font-medium mb-2">Identifiant du site</label>
-          <input
-            id="siteId"
-            v-model="siteId"
-            type="text"
-            required
-            class="input-field"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-          />
+          <label for="email" class="block text-sm font-medium mb-2">E-mail</label>
+          <input id="email" v-model="email" type="email" required autocomplete="email" class="input-field" placeholder="vous@exemple.com">
         </div>
-
         <div>
-          <label for="email" class="block text-sm font-medium mb-2">Email</label>
-          <input
-            id="email"
-            v-model="email"
-            type="email"
-            required
-            class="input-field"
-            placeholder="vous@exemple.com"
-          />
+          <label for="mdp" class="block text-sm font-medium mb-2">Mot de passe</label>
+          <input id="mdp" v-model="motDePasse" type="password" required autocomplete="current-password" class="input-field">
         </div>
-
-        <div>
-          <label for="password" class="block text-sm font-medium mb-2">Mot de passe</label>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            required
-            class="input-field"
-            placeholder="••••••••"
-          />
-        </div>
-
-        <div v-if="error" class="text-red-500 text-sm text-center">
-          {{ error }}
-        </div>
-
-        <button type="submit" :disabled="authStore.isLoading" class="btn-primary w-full">
-          {{ authStore.isLoading ? 'Connexion...' : 'Se connecter' }}
-        </button>
+        <div v-if="erreur" class="text-red-500 text-sm text-center" role="alert">{{ erreur }}</div>
+        <button type="submit" :disabled="occupe" class="btn-primary w-full">{{ occupe ? 'Connexion…' : 'Se connecter' }}</button>
+        <button type="button" class="block mx-auto text-sm text-blue-500 hover:underline" @click="mode = 'oubli'; erreur = ''">Mot de passe oublié ?</button>
       </form>
 
-      <div class="mt-6 text-center space-y-2">
-        <router-link to="/admin/login" class="block text-blue-500 hover:underline text-sm">
-          Connexion administrateur
-        </router-link>
-        <router-link to="/" class="block text-gray-500 hover:underline text-sm">
-          Retour à l'accueil
-        </router-link>
+      <form v-else-if="mode === 'oubli'" class="space-y-6" @submit.prevent="demanderLien">
+        <div>
+          <label for="email2" class="block text-sm font-medium mb-2">E-mail</label>
+          <input id="email2" v-model="email" type="email" required autocomplete="email" class="input-field" placeholder="vous@exemple.com">
+        </div>
+        <div v-if="erreur" class="text-red-500 text-sm text-center" role="alert">{{ erreur }}</div>
+        <button type="submit" :disabled="occupe" class="btn-primary w-full">Recevoir le lien</button>
+        <button type="button" class="block mx-auto text-sm text-blue-500 hover:underline" @click="mode = 'connexion'">Retour</button>
+      </form>
+
+      <div v-else class="space-y-6 text-center">
+        <p>Si un compte existe pour <strong>{{ email }}</strong>, un e-mail vient de partir avec un lien valable une heure.</p>
+        <button type="button" class="text-sm text-blue-500 hover:underline" @click="mode = 'connexion'">Retour à la connexion</button>
+      </div>
+
+      <div class="mt-8 text-center">
+        <router-link to="/admin/login" class="text-gray-500 hover:underline text-xs">Espace développeur</router-link>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.logo { width: 52px; height: 52px; margin: 0 auto 16px; border-radius: 14px; display: grid; place-items: center; font-size: 28px; color: #fff; background: linear-gradient(135deg, #7c3aed, #e07a4a); }
+</style>
