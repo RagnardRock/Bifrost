@@ -77,6 +77,7 @@ model Site {
   publications    Publication[]
   jetons          Jeton[]
   evenements      Evenement[]
+  messages        Message[]
 
   @@map("sites")
 }
@@ -213,4 +214,22 @@ model Evenement {
   @@index([siteId, createdAt])
   @@index([createdAt])
   @@map("evenements")
+}
+
+/// Message envoyé par un visiteur depuis un formulaire du site (data-bf-formulaire).
+model Message {
+  id         String   @id @default(uuid())
+  siteId     String   @map("site_id")
+  formulaire String
+  /// [{ nom, libelle, valeur }] dans l'ordre du formulaire
+  champs     Json     @db.JsonB
+  /// Adresse du visiteur si le formulaire en demande une (pour répondre)
+  email      String?
+  lu         Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, createdAt])
+  @@map("messages")
 }

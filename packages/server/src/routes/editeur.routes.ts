@@ -15,6 +15,7 @@ import * as fichiers from '../services/site-fichiers.service'
 import * as comptes from '../services/comptes.service'
 import { journaliser } from '../services/suivi.service'
 import { siteParCle } from '../services/slug.service'
+import * as formulaires from '../services/formulaires.service'
 
 const router = Router({ mergeParams: true })
 
@@ -75,6 +76,7 @@ router.get('/', action(async (req) => {
     pages: await fichiers.listerPages(site.id),
     ...await (async () => { const differences = await fichiers.differences(site.id); return { differences, changements: await fichiers.changements(site.id, differences) } })(),
     moi: { role: req.roleSite, dev: req.user?.role === 'admin', id: req.user?.userId || null },
+    messagesNonLus: req.roleSite === 'responsable' ? await formulaires.nonLus(site.id) : 0,
   }
 }))
 
@@ -201,6 +203,15 @@ router.delete('/equipe/membres/:id', responsable, action(async (req) => {
   journaliser(sid(req), auteur(req), 'retrait', email || '')
   return r
 }))
+
+// Messages reçus par les formulaires du site : responsables et dev
+router.get('/messages', responsable, action(async (req) => formulaires.lister(sid(req))))
+router.put('/messages/:id', responsable, action(async (req) => {
+  const { lu } = z.object({ lu: z.boolean() }).parse(req.body)
+  await formulaires.marquerLu(sid(req), param(req, 'id'), lu)
+  return { lu }
+}))
+router.delete('/messages/:id', responsable, action(async (req) => formulaires.supprimer(sid(req), param(req, 'id'))))
 
 // Dev uniquement : importer un dossier de site présent sur le serveur
 router.post('/importer', adminMiddleware, action(async (req) => {

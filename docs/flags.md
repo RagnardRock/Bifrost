@@ -44,6 +44,33 @@ les listes limitées sont recalculées. Supprimer une carte supprime aussi sa pa
 <article data-bf-page="actualites">…</article>
 ```
 
+## Formulaires
+
+Un formulaire marqué `data-bf-formulaire="nom"` envoie ses messages à Bifrost, sans rien à installer côté site.
+
+| Attribut | Rôle |
+|---|---|
+| `data-bf-formulaire="contact"` | Le formulaire à brancher (lettres, chiffres, tirets). |
+| `data-bf-merci="merci.html"` | Facultatif : page affichée après l'envoi (sinon une page « Message envoyé » de Bifrost, avec un lien de retour). |
+
+```html
+<form data-bf-formulaire="contact">
+  <label>Nom <input name="nom" required></label>
+  <label>E-mail <input type="email" name="email" required></label>
+  <label>Message <textarea name="message" required></textarea></label>
+  <button type="submit">Envoyer</button>
+</form>
+```
+
+- À l'import, Bifrost ajoute `action` (son adresse `APP_URL/api/formulaires/<site>/<nom>`), `method="post"` et un champ piège invisible contre les robots.
+  Réimporter le site si `APP_URL` change.
+- Seuls les champs présents dans le formulaire **publié** sont gardés ; le libellé vient du `<label>` (ou du `placeholder`). `required` est vérifié côté serveur.
+- Le premier champ `type="email"` sert d'adresse de réponse : « Répondre » dans l'éditeur, et Répondre directement à l'e-mail de notification.
+- Chaque message est enregistré, envoyé par e-mail aux **responsables** du site, et visible dans l'éditeur (bouton 📨, avec le nombre de non lus).
+- Limite : 8 envois par quart d'heure et par visiteur, 5 000 caractères par champ.
+- Envoi en JavaScript (pour afficher « Merci » sans quitter la page) : `fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } })`
+  répond `{ success: true }`, ou `{ success: false, error: { message } }` à afficher au visiteur.
+
 ## Fichiers
 
 ```

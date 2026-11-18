@@ -9,11 +9,11 @@ const transport = config.smtpUrl ? nodemailer.createTransport(config.smtpUrl) : 
 
 export const mailActif = () => !!transport
 
-export async function envoyer(a: string, sujet: string, texte: string) {
+export async function envoyer(a: string, sujet: string, texte: string, options: { repondreA?: string } = {}) {
   if (!transport) {
     logger.info(`[e-mail non envoyé, SMTP_URL absent] À : ${a} | ${sujet}\n${texte}`)
     return false
   }
-  await transport.sendMail({ from: config.mailFrom, to: a, subject: sujet, text: texte })
+  await transport.sendMail({ from: config.mailFrom, to: a, subject: sujet, text: texte, replyTo: options.repondreA })
   return true
 }

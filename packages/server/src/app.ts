@@ -13,6 +13,7 @@ import { success } from './utils/response'
 import routes from './routes'
 import cookieParser from 'cookie-parser'
 import { apercuRouter } from './routes/apercu.routes'
+import formulairesRouter from './routes/formulaires.routes'
 
 export const app = express()
 
@@ -24,6 +25,9 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   contentSecurityPolicy: false, // l'aperçu sert les pages des sites clients telles quelles
 }))
+// Formulaires des sites clients : ouverts à tous les domaines (avant la règle CORS de l'interface)
+app.use('/api/formulaires', express.urlencoded({ extended: true, limit: '64kb' }), express.json({ limit: '64kb' }), formulairesRouter)
+
 app.use(
   cors({
     origin: config.corsOrigins,

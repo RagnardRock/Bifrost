@@ -5,7 +5,7 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { editeurService, type EtatEditeur, type Publication, type Membre, type Invitation, type RoleSite } from '@/services/editeur.service'
+import { editeurService, type EtatEditeur, type Publication, type Membre, type Invitation, type RoleSite, type Message } from '@/services/editeur.service'
 import { adresseSite } from '@/services/suivi.service'
 import { comptesService, type MonSite } from '@/services/comptes.service'
 import { useAuthStore } from '@/stores/auth.store'
@@ -210,6 +210,37 @@ async function annulerInvitation(i: Invitation) {
   try { await editeurService.annulerInvitation(siteId.value, i.id); equipe.value = await editeurService.equipe(siteId.value) } catch (err) { echec(err) }
 }
 
+// ---------- messages reçus par les formulaires du site ----------
+const messages = ref<Message[] | null>(null)
+const ouvert = ref<string | null>(null)
+async function ouvrirMessages() {
+  ouvert.value = null
+  try { messages.value = await editeurService.messages(siteId.value) } catch (err) { echec(err, 'Impossible de charger les messages.') }
+}
+async function lireMessage(m: Message) {
+  ouvert.value = ouvert.value === m.id ? null : m.id
+  if (m.lu) return
+  m.lu = true
+  try { await editeurService.marquerLu(siteId.value, m.id, true); await rafraichirEtat() } catch { m.lu = false }
+}
+async function marquerNonLu(m: Message) {
+  try { await editeurService.marquerLu(siteId.value, m.id, false); m.lu = false; ouvert.value = null; await rafraichirEtat() } catch (err) { echec(err) }
+}
+function supprimerMessage(m: Message) {
+  confirmation.value = {
+    texte: 'Supprimer ce message ? Il ne pourra pas être récupéré.',
+    action: async () => {
+      await editeurService.supprimerMessage(siteId.value, m.id)
+      messages.value = (messages.value ?? []).filter((x) => x.id !== m.id)
+      await rafraichirEtat()
+    },
+  }
+}
+// En titre : le nom (premier champ rempli qui n'est pas l'adresse), sinon l'adresse ; en dessous, le reste du message
+const titreMessage = (m: Message) => m.champs.find((c) => c.valeur && c.valeur !== m.email)?.valeur.slice(0, 80) || m.email || 'Message'
+const apercuMessage = (m: Message) => m.champs.filter((c) => c.valeur && c.valeur !== m.email && c.valeur !== titreMessage(m)).map((c) => c.valeur).join(' · ').slice(0, 140)
+const repondre = (m: Message) => `mailto:${m.email}?subject=${encodeURIComponent(`Re : votre message sur ${etat.value?.site.name ?? 'notre site'}`)}`
+
 // ---------- publication et historique ----------
 const historique = ref<Publication[] | null>(null)
 async function publier() {
@@ -304,6 +335,9 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
         <button class="ed-btn ed-btn--clair" type="button" @click="ouvrirNouvelle">+ Actualité</button>
         <button class="ed-btn ed-btn--icone" type="button" :aria-pressed="vueMobile" title="Voir comme sur un téléphone" @click="vueMobile = !vueMobile">📱</button>
         <template v-if="responsable">
+          <button class="ed-btn ed-btn--icone ed-btn--badge" type="button" :title="etat?.messagesNonLus ? `Messages reçus (${etat.messagesNonLus} non lu${etat.messagesNonLus > 1 ? 's' : ''})` : 'Messages reçus par le formulaire du site'" @click="ouvrirMessages">
+            📨<span v-if="etat?.messagesNonLus" class="ed-badge">{{ etat.messagesNonLus > 99 ? '99+' : etat.messagesNonLus }}</span>
+          </button>
           <button class="ed-btn ed-btn--icone" type="button" title="Équipe : qui peut modifier le site" @click="ouvrirEquipe">👥</button>
           <button class="ed-btn ed-btn--icone" type="button" title="Historique des publications" @click="ouvrirHistorique">🕘</button>
           <button class="ed-btn ed-btn--publier" type="button" :disabled="!nbModifs || occupe" :title="detailModifs" @click="publier">
@@ -376,6 +410,40 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
           </li>
         </ul>
         <div class="ed-boutons"><button type="button" class="ed-btn ed-btn--clair" @click="historique = null">Fermer</button></div>
+      </div>
+    </div>
+
+    <!-- Messages reçus -->
+    <div v-if="messages" class="ed-fond" @click.self="messages = null">
+      <div class="ed-fenetre ed-fenetre--large">
+        <h2>Messages reçus</h2>
+        <p v-if="!messages.length" class="ed-note">Aucun message pour l’instant. Ceux envoyés par le formulaire du site arriveront ici, et par e-mail aux responsables.</p>
+        <ul class="ed-messages">
+          <li v-for="m in messages" :key="m.id" :class="{ 'ed-non-lu': !m.lu, 'ed-ouvert': ouvert === m.id }">
+            <button type="button" class="ed-message-tete" :aria-expanded="ouvert === m.id" @click="lireMessage(m)">
+              <span class="ed-point" aria-hidden="true" />
+              <span class="ed-message-resume">
+                <strong>{{ titreMessage(m) }}</strong>
+                <span>{{ apercuMessage(m) }}</span>
+              </span>
+              <time :datetime="m.createdAt">{{ dateLisible(m.createdAt) }}</time>
+            </button>
+            <div v-if="ouvert === m.id" class="ed-message-corps">
+              <dl>
+                <template v-for="c in m.champs" :key="c.nom">
+                  <dt>{{ c.libelle }}</dt>
+                  <dd>{{ c.valeur || '—' }}</dd>
+                </template>
+              </dl>
+              <div class="ed-ligne">
+                <a v-if="m.email" :href="repondre(m)" class="ed-btn ed-btn--publier">Répondre</a>
+                <button type="button" class="ed-btn ed-btn--clair" @click="marquerNonLu(m)">Marquer non lu</button>
+                <button type="button" class="ed-btn ed-btn--clair ed-rouge" @click="supprimerMessage(m)">Supprimer</button>
+              </div>
+            </div>
+          </li>
+        </ul>
+        <div class="ed-boutons"><button type="button" class="ed-btn ed-btn--clair" @click="messages = null">Fermer</button></div>
       </div>
     </div>
 
@@ -472,6 +540,33 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 .ed-fond { position: fixed; inset: 0; background: var(--bf-voile); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 16px; z-index: 40; }
 .ed-fenetre { width: 100%; max-width: 560px; max-height: calc(100vh - 32px); overflow: auto; background: var(--bf-surface); backdrop-filter: blur(20px); border: 1px solid var(--bf-bord); border-radius: 20px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); padding: 24px; display: grid; gap: 14px; }
 .ed-fenetre--petite { max-width: 400px; }
+.ed-fenetre--large { max-width: 680px; }
+.ed-btn--badge { position: relative; }
+.ed-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--bf-accent, #e07a4a); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.ed-messages { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ed-messages li { border-radius: 12px; background: var(--bf-verre); }
+.ed-message-tete { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 12px; }
+.ed-message-tete:hover { background: var(--bf-verre-fort); }
+.ed-point { width: 8px; height: 8px; flex: none; border-radius: 50%; background: transparent; }
+.ed-non-lu .ed-point { background: var(--bf-accent, #e07a4a); }
+.ed-message-resume { flex: 1; min-width: 0; display: grid; }
+.ed-message-resume strong, .ed-message-resume span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ed-message-resume strong { font-size: 14px; font-weight: 500; }
+.ed-non-lu .ed-message-resume strong { font-weight: 700; }
+.ed-message-resume span { font-size: 13px; color: var(--bf-doux); }
+.ed-message-tete time { flex: none; font-size: 12px; color: var(--bf-doux); }
+.ed-message-corps { padding: 0 12px 14px 32px; display: grid; gap: 12px; }
+.ed-message-corps dl { margin: 0; display: grid; gap: 4px 16px; grid-template-columns: minmax(80px, max-content) 1fr; font-size: 14px; }
+.ed-message-corps dt { color: var(--bf-doux); }
+.ed-message-corps dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ed-message-corps a.ed-btn { text-decoration: none; }
+.ed-rouge { color: var(--bf-danger); }
+@media (max-width: 560px) {
+  .ed-message-tete time { display: none; }
+  .ed-message-corps { padding-left: 12px; }
+  .ed-message-corps dl { grid-template-columns: 1fr; }
+  .ed-message-corps dd { margin-bottom: 6px; }
+}
 .ed-fenetre h2 { margin: 0; font-size: 20px; font-weight: 700; }
 .ed-fenetre label, .ed-etiquette { display: grid; gap: 6px; font-size: 14px; font-weight: 600; color: var(--bf-texte); }
 .ed-fenetre input, .ed-fenetre textarea { background: var(--bf-champ); border: 1px solid var(--bf-bord-fort); border-radius: 10px; padding: 12px; color: var(--bf-texte); font: inherit; font-weight: 400; }
@@ -501,5 +596,6 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
   .ed-btn { padding: 9px 12px; font-size: 13px; }
   .ed-aide { display: none; }
   .ed-btn--icone { display: none; }
+  .ed-btn--icone.ed-btn--badge { display: inline-block; }
 }
 </style>

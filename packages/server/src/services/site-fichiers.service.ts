@@ -17,6 +17,7 @@ import { unzipSync } from 'fflate'
 import { config } from '../config'
 import { Errors } from '../utils/errors'
 import * as flags from './flags.service'
+import { brancherFormulaires } from './formulaires.html'
 
 export function dossiers(siteId: string) {
   if (!/^[a-zA-Z0-9-]+$/.test(siteId)) throw Errors.badRequest('Site invalide')
@@ -54,6 +55,19 @@ async function lister(dossier: string, filtre?: (f: string) => boolean): Promise
 }
 
 export const listerPages = (siteId: string) => lister(dossiers(siteId).brouillon, (f) => f.endsWith('.html'))
+export const listerPagesPubliees = (siteId: string) => lister(dossiers(siteId).publie, (f) => f.endsWith('.html'))
+
+/** Adresse où un formulaire du site envoie ses messages (API de Bifrost). */
+export const adresseFormulaire = (siteId: string, nom: string) => `${config.appUrl}/api/formulaires/${siteId}/${encodeURIComponent(nom)}`
+
+/** Branche les formulaires (data-bf-formulaire) de toutes les pages d'un dossier sur Bifrost. */
+async function brancherDossier(siteId: string, dossier: string) {
+  for (const page of await lister(dossier, (f) => f.endsWith('.html'))) {
+    const fichier = path.join(dossier, page)
+    const html = brancherFormulaires(await fs.readFile(fichier, 'utf-8'), (nom) => adresseFormulaire(siteId, nom))
+    if (html !== null) await fs.writeFile(fichier, html, 'utf-8')
+  }
+}
 
 async function lire(siteId: string, page: string) {
   return fs.readFile(cheminSur(dossiers(siteId).brouillon, page), 'utf-8')
@@ -305,6 +319,7 @@ async function importerDepuis(siteId: string, source: string) {
   const d = dossiers(siteId)
   await fs.rm(d.racine, { recursive: true, force: true })
   await fs.cp(source, d.brouillon, { recursive: true, filter: (s) => !IGNORES.test(path.relative(source, s)) })
+  await brancherDossier(siteId, d.brouillon)
   await fs.cp(d.brouillon, d.publie, { recursive: true })
   return { pages: await listerPages(siteId) }
 }
