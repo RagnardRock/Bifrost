@@ -11,6 +11,8 @@ import { errorMiddleware } from './middleware/error.middleware'
 import { logger } from './utils/logger'
 import { success } from './utils/response'
 import routes from './routes'
+import cookieParser from 'cookie-parser'
+import { apercuRouter } from './routes/apercu.routes'
 
 export const app = express()
 
@@ -31,6 +33,10 @@ app.use(express.static(path.join(__dirname, '../public')))
 
 // Demo site (for testing)
 app.use('/demo', express.static(path.join(__dirname, '../../../demo')))
+
+// Aperçu du brouillon (dans l'éditeur) et site publié (essais en local)
+app.use(cookieParser())
+app.use(apercuRouter)
 
 // Body parsing
 app.use(express.json())

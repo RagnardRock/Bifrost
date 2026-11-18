@@ -74,13 +74,23 @@ export const useAuthStore = defineStore('auth', () => {
       client.value = response.user as ClientUser
 
       // Redirect to client dashboard
-      router.push('/dashboard')
+      router.push(`/edition/${siteId}`)
     } catch (e: any) {
       error.value = e.response?.data?.error?.message || 'Erreur de connexion'
       throw e
     } finally {
       isLoading.value = false
     }
+  }
+
+  /** Session ouverte par la connexion v2 (e-mail seul) ou par un lien d'invitation / de mot de passe oublié. */
+  function ouvrirSession(s: { token: string; user: { id: string; email: string; siteId: string; site: { name: string } } }) {
+    token.value = s.token
+    role.value = 'client'
+    localStorage.setItem('token', s.token)
+    localStorage.setItem('role', 'client')
+    client.value = { id: s.user.id, email: s.user.email, siteId: s.user.siteId, siteName: s.user.site.name, createdAt: new Date(), updatedAt: new Date() }
+    router.push(`/edition/${s.user.siteId}`)
   }
 
   async function checkAuth() {
@@ -136,6 +146,7 @@ export const useAuthStore = defineStore('auth', () => {
     // Actions
     loginAdmin,
     loginClient,
+    ouvrirSession,
     checkAuth,
     logout,
   }

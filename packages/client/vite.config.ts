@@ -18,6 +18,10 @@ export default defineConfig(() => ({
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
+      // Éditeur sur place : l'aperçu doit être servi depuis la même origine que l'interface (cookie)
+      '/apercu': { target: 'http://localhost:3000', changeOrigin: true },
+      '/editeur': { target: 'http://localhost:3000', changeOrigin: true },
+      '/sites': { target: 'http://localhost:3000', changeOrigin: true },
     },
   },
   build: {

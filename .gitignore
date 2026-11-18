@@ -38,3 +38,6 @@ packages/server/prisma/*.db-journal
 # Misc
 *.local
 .cache/
+
+# Sites gérés en local (v2)
+donnees/

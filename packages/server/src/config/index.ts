@@ -34,6 +34,16 @@ export const config = {
     : process.env.CORS_ORIGINS?.split(',') ||
       (process.env.NODE_ENV !== 'production' ? true : ['http://localhost:5173']),
 
+  // Dossier où sont rangés les sites statiques gérés par Bifrost
+  sitesDir: path.resolve(process.env.SITES_DIR || path.resolve(__dirname, '../../../../donnees/sites')),
+
+  // Adresse de l'interface Bifrost (liens d'invitation et de mot de passe oublié)
+  appUrl: (process.env.APP_URL || 'http://localhost:5173').replace(/\/+$/, ''),
+
+  // E-mails : sans SMTP_URL, les liens sont affichés dans la console du serveur (et à la personne qui invite)
+  smtpUrl: process.env.SMTP_URL || '',
+  mailFrom: process.env.MAIL_FROM || 'Bifrost <no-reply@localhost>',
+
   // Rate limiting
   rateLimit: {
     public: 100,

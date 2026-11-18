@@ -16,6 +16,11 @@ export const router = createRouter({
       meta: { guest: true, clientGuest: true },
     },
     {
+      path: '/acces/:jeton',
+      name: 'acces',
+      component: () => import('@/views/Acces.vue'),
+    },
+    {
       path: '/admin/login',
       name: 'admin-login',
       component: () => import('@/views/AdminLogin.vue'),
@@ -30,17 +35,13 @@ export const router = createRouter({
         {
           path: '',
           name: 'admin-dashboard',
-          component: () => import('@/views/admin/Dashboard.vue'),
+          component: () => import('@/views/admin/Suivi.vue'),
         },
-        {
-          path: 'sites',
-          name: 'admin-sites',
-          component: () => import('@/views/admin/SitesList.vue'),
-        },
+        { path: 'sites', redirect: '/admin' },
         {
           path: 'sites/:id',
           name: 'admin-site-detail',
-          component: () => import('@/views/admin/SiteDetail.vue'),
+          component: () => import('@/views/admin/SiteFiche.vue'),
         },
         {
           path: 'sites/:id/content',
@@ -48,10 +49,11 @@ export const router = createRouter({
           component: () => import('@/views/admin/SiteContent.vue'),
         },
         {
-          path: 'activity',
+          path: 'activite',
           name: 'admin-activity',
-          component: () => import('@/views/admin/Activity.vue'),
+          component: () => import('@/views/admin/JournalActivite.vue'),
         },
+        { path: 'activity', redirect: '/admin/activite' },
       ],
     },
     // Client routes
@@ -71,6 +73,13 @@ export const router = createRouter({
           component: () => import('@/views/client/Content.vue'),
         },
       ],
+    },
+    // Éditeur sur place (v2) : dev et client
+    {
+      path: '/edition/:siteId',
+      name: 'editeur',
+      component: () => import('@/views/Editeur.vue'),
+      meta: { requiresAuth: true },
     },
     // Catch all 404
     {
@@ -97,6 +106,11 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
 
+  // Éditeur : dev ou client du site
+  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+    return next({ name: 'login', query: { site: to.params.siteId as string } })
+  }
+
   // Client routes protection
   if (to.meta.requiresClient) {
     if (!auth.isClient) {
@@ -111,7 +125,8 @@ router.beforeEach(async (to, _from, next) => {
 
   // Redirect authenticated clients away from client login
   if (to.meta.clientGuest && auth.isClient) {
-    return next({ name: 'client-dashboard' })
+    const siteId = (auth.currentUser as { siteId?: string } | null)?.siteId
+    return next(siteId ? { name: 'editeur', params: { siteId } } : { name: 'client-dashboard' })
   }
 
   next()

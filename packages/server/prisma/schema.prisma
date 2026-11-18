@@ -26,6 +26,8 @@ model User {
   email        String
   passwordHash String   @map("password_hash")
   siteId       String   @map("site_id")
+  /// responsable (publie, gère l'équipe) ou redacteur (modifie le brouillon)
+  role         String   @default("responsable")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -55,6 +57,9 @@ model Site {
   collectionItems CollectionItem[]
   contentHistory  ContentHistory[]
   webhookLogs     WebhookLog[]
+  publications    Publication[]
+  jetons          Jeton[]
+  evenements      Evenement[]
 
   @@map("sites")
 }
@@ -136,4 +141,58 @@ model WebhookLog {
 
   @@index([siteId, status])
   @@map("webhook_logs")
+}
+
+// ============================================
+// PUBLICATIONS (sites statiques, v2)
+// ============================================
+
+model Publication {
+  id        String   @id @default(uuid())
+  siteId    String   @map("site_id")
+  auteur    String?
+  ajoutes   Json     @db.JsonB
+  modifies  Json     @db.JsonB
+  supprimes Json     @db.JsonB
+  annulee   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, createdAt])
+  @@map("publications")
+}
+
+/// Lien à usage unique envoyé par e-mail : invitation dans l'équipe d'un site, ou mot de passe oublié.
+model Jeton {
+  id        String    @id @default(uuid())
+  type      String
+  email     String
+  siteId    String    @map("site_id")
+  role      String    @default("redacteur")
+  hash      String    @unique
+  expireLe  DateTime  @map("expire_le")
+  utiliseLe DateTime? @map("utilise_le")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, type])
+  @@map("jetons")
+}
+
+/// Journal de ce qui se passe sur un site (modifications, publications, équipe), pour le suivi côté dev.
+model Evenement {
+  id        String   @id @default(uuid())
+  siteId    String   @map("site_id")
+  auteur    String?
+  type      String
+  detail    String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, createdAt])
+  @@index([createdAt])
+  @@map("evenements")
 }

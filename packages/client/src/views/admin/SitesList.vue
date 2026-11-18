@@ -172,15 +172,13 @@ function formatDate(date: Date | string): string {
             </div>
 
             <!-- Actions -->
-            <a
-              :href="`${site.url}?edit=true`"
-              target="_blank"
-              rel="noopener"
+            <router-link
+              :to="`/edition/${site.id}`"
               class="glass-button px-3 py-2 text-sm"
-              title="Éditer sur le site"
+              title="Ouvrir l’éditeur sur place (et l’équipe du site)"
             >
               Éditer
-            </a>
+            </router-link>
             <router-link
               :to="`/admin/sites/${site.id}`"
               class="glass-button px-4 py-2 text-sm"
