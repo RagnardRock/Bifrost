@@ -12,6 +12,8 @@ import path from 'path'
 import crypto from 'crypto'
 import sharp from 'sharp'
 import { nanoid } from 'nanoid'
+import os from 'os'
+import { unzipSync } from 'fflate'
 import { config } from '../config'
 import { Errors } from '../utils/errors'
 import * as flags from './flags.service'
@@ -242,10 +244,47 @@ export async function importer(siteId: string, dossier: string) {
   const source = dossierImport(dossier)
   const info = await fs.stat(source).catch(() => null)
   if (!info?.isDirectory()) throw new Error(`Dossier introuvable sur le serveur : ${dossier}`)
+  return importerDepuis(siteId, source)
+}
+
+const IGNORES = /(^|[\\/])(\.git|node_modules|ancien-site|outils|__MACOSX)([\\/]|$)/
+
+async function importerDepuis(siteId: string, source: string) {
   const d = dossiers(siteId)
   await fs.rm(d.racine, { recursive: true, force: true })
-  const filtre = (s: string) => !/(^|[\\/])(\.git|node_modules|ancien-site|outils)([\\/]|$)/.test(path.relative(source, s))
-  await fs.cp(source, d.brouillon, { recursive: true, filter: filtre })
+  await fs.cp(source, d.brouillon, { recursive: true, filter: (s) => !IGNORES.test(path.relative(source, s)) })
   await fs.cp(d.brouillon, d.publie, { recursive: true })
   return { pages: await listerPages(siteId) }
+}
+
+/**
+ * Importe un site envoyé depuis le navigateur, sous forme de ZIP (un dossier glissé est zippé par le navigateur).
+ * Si tout est rangé dans un seul dossier racine (ZIP d'un dossier), on prend son contenu.
+ */
+export async function importerZip(siteId: string, zip: Uint8Array) {
+  let entrees: Record<string, Uint8Array>
+  try {
+    entrees = unzipSync(zip)
+  } catch {
+    throw new Error('Ce fichier n’est pas un ZIP lisible')
+  }
+  const noms = Object.keys(entrees).map((n) => n.replace(/\\/g, '/')).filter((n) => !n.endsWith('/') && !IGNORES.test(n) && !/(^|\/)(\.DS_Store|Thumbs\.db)$/.test(n))
+  if (!noms.some((n) => /\.html?$/i.test(n))) throw new Error('Aucune page HTML dans cet envoi')
+  const premier = (noms[0] ?? "").split("/")[0]
+  const prefixe = noms.every((n) => n.startsWith(premier + '/')) ? premier + '/' : ''
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'bifrost-envoi-'))
+  try {
+    for (const brut of Object.keys(entrees)) {
+      const nom = brut.replace(/\\/g, '/')
+      if (!noms.includes(nom)) continue
+      const relatif = nom.slice(prefixe.length)
+      const cible = path.resolve(temp, relatif)
+      if (!relatif || path.relative(temp, cible).startsWith('..') || path.isAbsolute(path.relative(temp, cible))) continue
+      await fs.mkdir(path.dirname(cible), { recursive: true })
+      await fs.writeFile(cible, entrees[brut] as Uint8Array)
+    }
+    return await importerDepuis(siteId, temp)
+  } finally {
+    await fs.rm(temp, { recursive: true, force: true })
+  }
 }

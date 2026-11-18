@@ -3,6 +3,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import Journal from '@/components/suivi/Journal.vue'
+import EnvoiSite, { type Envoi } from '@/components/suivi/EnvoiSite.vue'
 import { suiviService, ilYa, type FicheSite, type Evenement } from '@/services/suivi.service'
 import { editeurService, type Membre, type Invitation } from '@/services/editeur.service'
 
@@ -18,6 +19,9 @@ const reglages = ref({ nom: '', url: '' })
 const dossier = ref('')
 const voirFichiers = ref(false)
 const occupe = ref(false)
+const envoi = ref<Envoi | null>(null)
+const progres = ref(0)
+const cle = ref(0)
 
 const enAttente = computed(() => {
   const d = fiche.value?.differences
@@ -47,13 +51,17 @@ async function enregistrer() {
 }
 
 async function reimporter() {
-  if (!dossier.value.trim()) return
+  if (!envoi.value && !dossier.value.trim()) return
   if (!window.confirm('Réimporter remplace le brouillon ET la version en ligne par le contenu du dossier. Continuer ?')) return
   occupe.value = true
+  progres.value = 0
   try {
-    await suiviService.reimporter(id.value, dossier.value)
+    if (envoi.value) await suiviService.reimporterEnvoi(id.value, envoi.value.archive, (p) => (progres.value = p))
+    else await suiviService.reimporter(id.value, dossier.value)
     message.value = 'Site réimporté'
     dossier.value = ''
+    envoi.value = null
+    cle.value++
     await charger()
   } catch (e: any) {
     erreur.value = e?.response?.data?.error?.message || 'Réimport impossible.'
@@ -145,8 +153,12 @@ onMounted(charger)
           <form class="glass-card bloc" @submit.prevent="reimporter">
             <h2>Réimporter le dossier</h2>
             <p class="text-xs text-gray-500">Après une refonte faite par le dev. Remplace le brouillon et la version en ligne.</p>
-            <input v-model="dossier" class="input-field" placeholder="nom du dossier déposé (ou chemin en local)" aria-label="Dossier du site sur le serveur">
-            <button type="submit" class="glass-button justify-self-start text-red-500" :disabled="occupe || !dossier.trim()">{{ occupe ? 'Import…' : 'Réimporter' }}</button>
+            <EnvoiSite :key="cle" @choisi="envoi = $event" />
+            <details v-if="!envoi" class="avance">
+              <summary>Dossier déjà présent sur le serveur</summary>
+              <input v-model="dossier" class="input-field" placeholder="nom du dossier déposé (ou chemin en local)" aria-label="Dossier du site sur le serveur">
+            </details>
+            <button type="submit" class="glass-button justify-self-start text-red-500" :disabled="occupe || (!envoi && !dossier.trim())">{{ occupe ? (envoi && progres < 100 ? `Envoi… ${progres} %` : 'Import…') : 'Réimporter' }}</button>
           </form>
         </div>
       </div>
@@ -169,4 +181,6 @@ onMounted(charger)
 .ajout { color: var(--bf-ok); }
 .modif { color: var(--bf-accent); }
 .suppr { color: var(--bf-danger); }
+.avance { font-size: 13px; color: var(--bf-doux); }
+.avance summary { cursor: pointer; margin-bottom: 8px; }
 </style>
