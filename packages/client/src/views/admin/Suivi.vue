@@ -100,7 +100,7 @@ onMounted(charger)
         </dl>
 
         <footer>
-          <router-link :to="`/edition/${s.id}`" class="btn-primary">Éditer</router-link>
+          <a :href="`/edition/${s.id}`" target="_blank" rel="noopener" class="btn-primary">Éditer</a>
           <router-link :to="`/admin/sites/${s.id}`" class="glass-button">Fiche</router-link>
         </footer>
       </article>

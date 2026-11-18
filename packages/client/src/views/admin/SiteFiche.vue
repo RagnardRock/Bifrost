@@ -91,7 +91,7 @@ onMounted(charger)
         </div>
         <div class="flex gap-2">
           <a :href="fiche.site.url || `/sites/${fiche.site.id}/`" target="_blank" rel="noopener" class="glass-button">Voir en ligne</a>
-          <router-link :to="`/edition/${fiche.site.id}`" class="btn-primary">Ouvrir l’éditeur</router-link>
+          <a :href="`/edition/${fiche.site.id}`" target="_blank" rel="noopener" class="btn-primary">Ouvrir l’éditeur</a>
         </div>
       </div>
 
@@ -134,7 +134,7 @@ onMounted(charger)
           <section class="glass-card bloc">
             <div class="flex items-center justify-between">
               <h2>Équipe</h2>
-              <router-link :to="`/edition/${fiche.site.id}`" class="text-sm text-blue-500 hover:underline" title="L’équipe se gère depuis le bouton 👥 de l’éditeur">Gérer</router-link>
+              <a :href="`/edition/${fiche.site.id}`" target="_blank" rel="noopener" class="text-sm text-blue-500 hover:underline" title="L’équipe se gère depuis le bouton 👥 de l’éditeur">Gérer</a>
             </div>
             <p v-if="equipe && !equipe.membres.length" class="text-sm text-gray-500">Personne pour l’instant. Invitez le client depuis l’éditeur (👥).</p>
             <ul v-if="equipe" class="lignes">
