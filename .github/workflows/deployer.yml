@@ -44,4 +44,5 @@ jobs:
 
       - name: Pas encore de secrets
         if: ${{ env.VPS_HOTE == '' }}
-        run: echo "Secrets VPS absents : rien n'est envoyé (voir deploy/LISEZMOI.md)."
+        run: |
+          echo "Secrets VPS absents : rien n'est envoyé (voir deploy/LISEZMOI.md)."
