@@ -6,6 +6,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { editeurService, type EtatEditeur, type Publication, type Membre, type Invitation, type RoleSite } from '@/services/editeur.service'
+import { adresseSite } from '@/services/suivi.service'
 import { useAuthStore } from '@/stores/auth.store'
 import { useUIStore } from '@/stores/ui.store'
 
@@ -289,7 +290,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
     <div class="ed-aide">
       Cliquez sur un texte pour le modifier, sur une photo pour la changer. Survolez une actualité pour la déplacer ou la supprimer.
       <button v-if="nbModifs && responsable" type="button" class="ed-lien" @click="abandonner">Effacer mes modifications</button>
-      <a :href="`/sites/${siteId}/`" target="_blank" rel="noopener" class="ed-lien">Voir le site en ligne</a>
+      <a :href="adresseSite(etat?.site ?? { id: siteId })" target="_blank" rel="noopener" class="ed-lien">Voir le site en ligne</a>
       <router-link v-if="etat?.moi.dev" :to="`/admin/sites/${siteId}`" class="ed-lien">Fiche du site (dev)</router-link>
       <button type="button" class="ed-lien" :title="`Thème : ${ui.theme === 'system' ? 'comme l’appareil' : ui.theme}`" @click="ui.basculerTheme()">{{ ui.theme === 'dark' ? '🌙 Sombre' : ui.theme === 'light' ? '☀️ Clair' : '💻 Auto' }}</button>
       <button type="button" class="ed-lien" @click="deconnexion">Se déconnecter</button>
