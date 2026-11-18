@@ -13,6 +13,7 @@ import { Errors } from '../utils/errors'
 import { success } from '../utils/response'
 import * as fichiers from '../services/site-fichiers.service'
 import * as comptes from '../services/comptes.service'
+import { journaliser } from '../services/suivi.service'
 
 const router = Router({ mergeParams: true })
 
@@ -78,7 +79,9 @@ router.get('/page', action(async (req) => fichiers.analyserPage(sid(req), String
 const schemaChamp = z.object({ cle: z.string().min(1).max(200), valeur: z.string().max(100_000) })
 router.put('/champ', action(async (req) => {
   const { cle, valeur } = schemaChamp.parse(req.body)
-  return fichiers.modifierChamp(sid(req), cle, valeur)
+  const r = await fichiers.modifierChamp(sid(req), cle, valeur)
+  journaliser(sid(req), auteur(req), /^medias\//.test(valeur) ? 'image' : 'modification', cle)
+  return r
 }))
 
 const schemaListe = z.object({
@@ -95,7 +98,10 @@ router.post('/liste', action(async (req) => {
   const o = b.op === 'modifier' ? { op: b.op, index: b.index, cle: b.cle || '', valeur: b.valeur ?? '' }
     : b.op === 'deplacer' ? { op: b.op, index: b.index, vers: b.vers ?? b.index }
     : { op: b.op, index: b.index }
-  return fichiers.operationListe(sid(req), b.page, b.nom, o as never)
+  const r = await fichiers.operationListe(sid(req), b.page, b.nom, o as never)
+  journaliser(sid(req), auteur(req), b.op === 'modifier' && /^medias\//.test(b.valeur || '') ? 'image' : b.op === 'modifier' ? 'modification' : 'liste',
+    b.op === 'modifier' ? `${b.nom} n°${b.index + 1} · ${b.cle}` : `${b.nom} n°${b.index + 1} · ${({ supprimer: 'supprimé', deplacer: 'déplacé', dupliquer: 'dupliqué' } as Record<string, string>)[b.op]}`)
+  return r
 }))
 
 router.post('/image', (req, res, next) => envoi(req, res, (err) => {
@@ -112,7 +118,12 @@ const schemaElement = z.object({
   texte: z.string().max(100_000).optional(),
   photos: z.array(z.string().regex(/^medias\/[\w.-]+$/)).max(50).default([]),
 })
-router.post('/collection/:nom', action(async (req) => fichiers.nouvelElement(sid(req), String((req.params as Record<string, string>).nom), schemaElement.parse(req.body))))
+router.post('/collection/:nom', action(async (req) => {
+  const d = schemaElement.parse(req.body)
+  const r = await fichiers.nouvelElement(sid(req), String((req.params as Record<string, string>).nom), d)
+  journaliser(sid(req), auteur(req), 'actualite', d.titre)
+  return r
+}))
 
 router.post('/publier', responsable, action(async (req) => {
   const siteId = sid(req)
@@ -122,10 +133,15 @@ router.post('/publier', responsable, action(async (req) => {
     await prisma.publication.delete({ where: { id: pub.id } })
     return { publication: null }
   }
+  journaliser(siteId, auteur(req), 'publication', `${diff.ajoutes.length + diff.modifies.length + diff.supprimes.length} fichier(s)`)
   return { publication: await prisma.publication.update({ where: { id: pub.id }, data: diff }) }
 }))
 
-router.post('/abandonner', responsable, action(async (req) => { await fichiers.abandonnerBrouillon(sid(req)); return { ok: true } }))
+router.post('/abandonner', responsable, action(async (req) => {
+  await fichiers.abandonnerBrouillon(sid(req))
+  journaliser(sid(req), auteur(req), 'abandon')
+  return { ok: true }
+}))
 
 router.get('/publications', action(async (req) =>
   prisma.publication.findMany({ where: { siteId: sid(req) }, orderBy: { createdAt: 'desc' }, take: 30 })))
@@ -136,6 +152,7 @@ router.post('/publications/:id/annuler', responsable, action(async (req) => {
   const derniere = await prisma.publication.findFirst({ where: { siteId, annulee: false }, orderBy: { createdAt: 'desc' } })
   if (!derniere || derniere.id !== String((req.params as Record<string, string>).id)) throw Errors.badRequest('Seule la dernière publication peut être annulée')
   await fichiers.annulerPublication(siteId, derniere.id, derniere as never)
+  journaliser(siteId, auteur(req), 'annulation', `publication du ${derniere.createdAt.toLocaleString('fr-FR')}`)
   return prisma.publication.update({ where: { id: derniere.id }, data: { annulee: true } })
 }))
 
@@ -146,11 +163,22 @@ router.get('/equipe', responsable, action(async (req) => comptes.equipe(sid(req)
 router.post('/equipe/invitations', responsable, action(async (req) => {
   const b = z.object({ email: z.string().email(), role: schemaRole }).parse(req.body)
   const qui = req.user?.role === 'admin' ? 'Votre développeur' : 'Un membre de votre équipe'
-  return comptes.inviter(sid(req), b.email, b.role, qui)
+  const r = await comptes.inviter(sid(req), b.email, b.role, qui)
+  journaliser(sid(req), auteur(req), 'invitation', `${b.email} (${b.role})`)
+  return r
 }))
 router.delete('/equipe/invitations/:id', responsable, action(async (req) => comptes.annulerInvitation(sid(req), param(req, 'id'))))
-router.put('/equipe/membres/:id', responsable, action(async (req) => comptes.changerRole(sid(req), param(req, 'id'), z.object({ role: schemaRole }).parse(req.body).role)))
-router.delete('/equipe/membres/:id', responsable, action(async (req) => comptes.retirer(sid(req), param(req, 'id'), req.user?.userId || null)))
+router.put('/equipe/membres/:id', responsable, action(async (req) => {
+  const m = await comptes.changerRole(sid(req), param(req, 'id'), z.object({ role: schemaRole }).parse(req.body).role)
+  journaliser(sid(req), auteur(req), 'role', `${m.email} → ${m.role}`)
+  return m
+}))
+router.delete('/equipe/membres/:id', responsable, action(async (req) => {
+  const email = (await prisma.user.findFirst({ where: { id: param(req, 'id'), siteId: sid(req) }, select: { email: true } }))?.email
+  const r = await comptes.retirer(sid(req), param(req, 'id'), req.user?.userId || null)
+  journaliser(sid(req), auteur(req), 'retrait', email || '')
+  return r
+}))
 
 // Dev uniquement : importer un dossier de site présent sur le serveur
 router.post('/importer', adminMiddleware, action(async (req) => {

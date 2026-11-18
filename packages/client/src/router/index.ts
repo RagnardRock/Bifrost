@@ -35,17 +35,13 @@ export const router = createRouter({
         {
           path: '',
           name: 'admin-dashboard',
-          component: () => import('@/views/admin/Dashboard.vue'),
+          component: () => import('@/views/admin/Suivi.vue'),
         },
-        {
-          path: 'sites',
-          name: 'admin-sites',
-          component: () => import('@/views/admin/SitesList.vue'),
-        },
+        { path: 'sites', redirect: '/admin' },
         {
           path: 'sites/:id',
           name: 'admin-site-detail',
-          component: () => import('@/views/admin/SiteDetail.vue'),
+          component: () => import('@/views/admin/SiteFiche.vue'),
         },
         {
           path: 'sites/:id/content',
@@ -53,10 +49,11 @@ export const router = createRouter({
           component: () => import('@/views/admin/SiteContent.vue'),
         },
         {
-          path: 'activity',
+          path: 'activite',
           name: 'admin-activity',
-          component: () => import('@/views/admin/Activity.vue'),
+          component: () => import('@/views/admin/JournalActivite.vue'),
         },
+        { path: 'activity', redirect: '/admin/activite' },
       ],
     },
     // Client routes

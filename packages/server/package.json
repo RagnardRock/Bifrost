@@ -16,7 +16,8 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset",
-    "site:importer": "tsx scripts/importer-site.ts"
+    "site:importer": "tsx scripts/importer-site.ts",
+    "admin:creer": "tsx scripts/creer-admin.ts"
   },
   "dependencies": {
     "@bifrost/shared": "*",

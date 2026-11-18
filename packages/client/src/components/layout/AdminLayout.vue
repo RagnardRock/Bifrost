@@ -8,14 +8,13 @@ const ui = useUIStore()
 const route = useRoute()
 
 const navItems = [
-  { name: 'Dashboard', path: '/admin', icon: 'home' },
-  { name: 'Sites', path: '/admin/sites', icon: 'globe' },
-  { name: 'Activité', path: '/admin/activity', icon: 'activity' },
+  { name: 'Sites', path: '/admin', icon: 'globe' },
+  { name: 'Activité', path: '/admin/activite', icon: 'activity' },
 ]
 
 const isActive = (path: string) => {
   if (path === '/admin') {
-    return route.path === '/admin'
+    return route.path === '/admin' || route.path.startsWith('/admin/sites')
   }
   return route.path.startsWith(path)
 }
@@ -35,7 +34,7 @@ function toggleTheme() {
       <!-- Logo -->
       <div class="p-6 border-b border-white/10">
         <h1 class="text-2xl font-bold">Bifrost</h1>
-        <p class="text-sm text-gray-500 dark:text-gray-400">Admin Panel</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Espace développeur</p>
       </div>
 
       <!-- Navigation -->
@@ -69,7 +68,7 @@ function toggleTheme() {
             {{ ui.theme === 'dark' ? '☀️' : ui.theme === 'light' ? '🌙' : '💻' }}
           </button>
           <button @click="auth.logout()" class="glass-button flex-1 text-sm text-red-500">
-            Logout
+            Déconnexion
           </button>
         </div>
       </div>

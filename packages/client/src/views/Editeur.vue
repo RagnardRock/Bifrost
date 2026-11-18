@@ -288,6 +288,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
       Cliquez sur un texte pour le modifier, sur une photo pour la changer. Survolez une actualité pour la déplacer ou la supprimer.
       <button v-if="nbModifs && responsable" type="button" class="ed-lien" @click="abandonner">Effacer mes modifications</button>
       <a :href="`/sites/${siteId}/`" target="_blank" rel="noopener" class="ed-lien">Voir le site en ligne</a>
+      <router-link v-if="etat?.moi.dev" :to="`/admin/sites/${siteId}`" class="ed-lien">Fiche du site (dev)</router-link>
       <button type="button" class="ed-lien" @click="deconnexion">Se déconnecter</button>
     </div>
 

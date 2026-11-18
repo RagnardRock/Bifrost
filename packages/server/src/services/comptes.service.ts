@@ -12,6 +12,7 @@ import { comparePassword, hashPassword } from '../utils/hash'
 import { signToken } from '../utils/jwt'
 import { Errors } from '../utils/errors'
 import { envoyer } from './mail.service'
+import { journaliser } from './suivi.service'
 
 export type Role = 'responsable' | 'redacteur'
 export const ROLES: Role[] = ['responsable', 'redacteur']
@@ -110,6 +111,7 @@ export async function utiliserJeton(jeton: string, motDePasse: string) {
     user = await prisma.user.update({ where: { id: existant.id }, data: { passwordHash } })
   }
   await prisma.jeton.update({ where: { id: j.id }, data: { utiliseLe: new Date() } })
+  journaliser(j.siteId, user.id, j.type === 'invitation' ? 'arrivee' : 'mot-de-passe', user.email)
   return session(user, j.site)
 }
 

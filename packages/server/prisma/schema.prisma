@@ -59,6 +59,7 @@ model Site {
   webhookLogs     WebhookLog[]
   publications    Publication[]
   jetons          Jeton[]
+  evenements      Evenement[]
 
   @@map("sites")
 }
@@ -178,4 +179,20 @@ model Jeton {
 
   @@index([siteId, type])
   @@map("jetons")
+}
+
+/// Journal de ce qui se passe sur un site (modifications, publications, équipe), pour le suivi côté dev.
+model Evenement {
+  id        String   @id @default(uuid())
+  siteId    String   @map("site_id")
+  auteur    String?
+  type      String
+  detail    String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, createdAt])
+  @@index([createdAt])
+  @@map("evenements")
 }

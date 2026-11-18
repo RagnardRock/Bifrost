@@ -72,3 +72,13 @@ Les images envoyées sont converties en WebP (1600 px max) dans `brouillon/media
 - Mot de passe oublié : lien valable 1 heure.
 - Sans `SMTP_URL`, aucun e-mail ne part : le lien d'invitation s'affiche pour être copié, et les liens sont écrits dans la console du serveur.
 - Le dev (compte admin) ouvre l'éditeur de n'importe quel site depuis la liste des sites (bouton « Éditer ») et y a les droits d'un responsable.
+
+## Espace développeur
+
+- Créer son compte dev : `npm run admin:creer -w @bifrost/server -- <email> <mot-de-passe>`, puis `http://localhost:5173/admin/login`.
+- **Sites** : une carte par site (modifications en attente, membres, dernière publication et son auteur, dernière activité),
+  boutons « Éditer » et « Fiche », et « + Nouveau site » qui crée le site et importe son dossier (chemin sur la machine du serveur).
+- **Fiche d'un site** : fichiers en attente de publication, publications avec leur auteur, équipe, journal du site,
+  nom et adresse en ligne, réimport du dossier après une refonte.
+- **Activité** : le journal de tous les sites (modifications, photos, actualités, publications, annulations, invitations,
+  arrivées dans l'équipe, changements de rôle), filtrable par site.
