@@ -68,11 +68,26 @@ function cibleTexte(_$: CheerioAPI, $el: Cheerio<Element>): Cheerio<Element> {
   return $el
 }
 
+/** Un champ texte qui contient d'autres champs (ex. <summary>Titre<small data-bf>…</small></summary>) : on ne touche qu'à son texte propre. */
+const contientChamps = ($el: Cheerio<Element>) => $el.find('[data-bf]').length > 0
+
+function textePropre($el: Cheerio<Element>): string {
+  return $el.contents().filter((_, n) => n.type === 'text').text().replace(/\s+/g, ' ').trim()
+}
+
+function ecrireTextePropre($: CheerioAPI, $el: Cheerio<Element>, valeur: string) {
+  const textes = $el.contents().filter((_, n) => n.type === 'text' && !!$(n).text().trim())
+  if (!textes.length) { $el.prepend(echapper(valeur)); return }
+  textes.each((i, n) => { if (i === 0) (n as unknown as { data: string }).data = valeur; else $(n).remove() })
+}
+const echapper = (valeur: string) => valeur.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
 function lireChamp($: CheerioAPI, $el: Cheerio<Element>, dossierPage: string): Champ {
   const type = typeDe($el)
   const cle = $el.attr('data-bf') || ''
   if (type === 'image') return { cle, type, valeur: versRacine($el.attr('src') || '', dossierPage) }
   if (type === 'riche') return { cle, type, valeur: ($el.html() || '').trim() }
+  if (contientChamps($el)) return { cle, type, valeur: textePropre($el) }
   return { cle, type, valeur: cibleTexte($, $el).text().replace(/\s+/g, ' ').trim() }
 }
 
@@ -146,6 +161,7 @@ function ecrireChamp($: CheerioAPI, $el: Cheerio<Element>, valeur: string, dossi
   const type = typeDe($el)
   if (type === 'image') { $el.attr('src', depuisRacine(valeur, dossierPage)); return }
   if (type === 'riche') { $el.html(nettoyerRiche(valeur)); return }
+  if (contientChamps($el)) { ecrireTextePropre($, $el, valeur); return }
   const cible = cibleTexte($, $el)
   cible.text(valeur)
   if (cible.is('time') && /^\d{4}-\d{2}-\d{2}$/.test(valeur)) cible.attr('datetime', valeur)

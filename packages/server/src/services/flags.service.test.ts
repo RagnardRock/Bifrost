@@ -30,6 +30,13 @@ describe('flags', () => {
     expect(html).toContain('<a href="actualites/un.html">Nouveau &lt;b&gt;titre&lt;/b&gt;</a>')
   })
 
+  it('modifie le texte propre d’un champ qui en contient un autre', () => {
+    const h = '<details><summary data-bf="t">Présentation<small data-bf="r">Histoire</small></summary></details>'
+    expect(f.analyser(h).champs.map((c) => c.valeur)).toEqual(['Présentation', 'Histoire'])
+    const { html } = f.modifierChamp(h, 'index.html', 't', 'Qui & quoi')
+    expect(html).toContain('<summary data-bf="t">Qui &amp; quoi<small data-bf="r">Histoire</small></summary>')
+  })
+
   it('nettoie le texte riche', () => {
     const { html } = f.modifierChamp(page, 'index.html', 'bloc', '<p onclick="x()">Ok<script>alert(1)</script></p>')
     expect(html).toContain('<p>Ok</p>')

@@ -43,6 +43,16 @@
     return 'texte'
   }
   function cibleTexte(el) {
+    // un champ qui en contient d'autres (titre + résumé dans un <summary>) : on n'édite que son texte propre
+    if (el.querySelector('[data-bf]')) {
+      var propre = document.createElement('span')
+      propre.className = 'bf-propre'
+      Array.prototype.slice.call(el.childNodes).forEach(function (n) {
+        if (n.nodeType === 3 && n.textContent.trim()) { if (!propre.parentNode) el.insertBefore(propre, n); propre.appendChild(n) }
+      })
+      if (!propre.parentNode) el.insertBefore(propre, el.firstChild)
+      return propre
+    }
     var enfants = el.children
     if (enfants.length === 1 && enfants[0].tagName === 'A' && el.textContent.trim() === enfants[0].textContent.trim()) return enfants[0]
     return el
@@ -52,6 +62,9 @@
     // un champ dans un élément de liste appartient à cet élément ; sinon c'est un champ de page
     return { cle: el.getAttribute('data-bf'), type: typeDe(el), liste: l ? l.nom : null, index: l ? l.index : null }
   }
+
+  // les blocs repliables sont ouverts pendant la modification, pour que tout leur contenu soit accessible
+  Array.prototype.forEach.call(document.querySelectorAll('details'), function (d) { d.open = true })
 
   var champs = Array.prototype.filter.call(document.querySelectorAll('[data-bf]'), function (el) { return !dansRiche(el) })
 
@@ -101,6 +114,7 @@
     el.classList.remove('bf-edition')
     enCours = null
     var valeur = t === 'riche' ? el.innerHTML : cible.textContent.replace(/\s+/g, ' ').trim()
+    if (cible.className === 'bf-propre') cible.replaceWith(document.createTextNode(cible.textContent))
     if (valeur === (t === 'riche' ? el._bfAvant : (el._bfAvant || '').replace(/\s+/g, ' ').trim())) return
     var c = champ(el)
     c.type = 'champ'
