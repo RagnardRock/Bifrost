@@ -64,6 +64,21 @@ router.post('/sites', action(async (req) => {
   }
 }))
 
+// Nouveau site depuis un modèle fourni (« modele:artisan ») ou depuis un autre site, vidé ou non
+router.get('/modeles', action(async () => fichiers.listerModeles()))
+router.post('/sites/modele', action(async (req) => {
+  const b = z.object({ nom: z.string().trim().min(1).max(120), url: z.string().trim().max(300).default(''), source: z.string().trim().min(1).max(100), vider: z.boolean().default(true) }).parse(req.body)
+  const site = await prisma.site.create({ data: { name: b.nom, url: b.url, slug: await slugLibre(b.nom), apiKey: `bf_${nanoid(32)}` } })
+  try {
+    const { pages } = await fichiers.importerModele(site.id, b.source, b.vider)
+    suivi.journaliser(site.id, req.user?.adminId, 'import', `${pages.length} pages (modèle ${b.source})`)
+    return { id: site.id, pages: pages.length }
+  } catch (e) {
+    await prisma.site.delete({ where: { id: site.id } })
+    throw e
+  }
+}))
+
 router.put('/sites/:id', action(async (req) => {
   const b = z.object({
     nom: z.string().trim().min(1).max(120),

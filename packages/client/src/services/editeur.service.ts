@@ -63,4 +63,10 @@ export const editeurService = {
   enregistrerTheme: (siteId: string, modifs: { fichier: string; nom: string; valeur: string }[]) =>
     donnees<ThemeDev>(api.put(`${base(siteId)}/theme`, { modifs })),
   supprimerBloc: (siteId: string, id: string) => api.delete(`${base(siteId)}/blocs/${encodeURIComponent(id)}`),
+  creerPage: (siteId: string, b: { titre: string; chemin?: string; depuis?: string; menu: boolean }) =>
+    donnees<{ page: string; menus: number }>(api.post(`${base(siteId)}/pages`, b)),
+  renommerPage: (siteId: string, page: string, nouveau: string) =>
+    donnees<{ page: string; liens: number }>(api.put(`${base(siteId)}/pages`, { page, nouveau })),
+  supprimerPage: (siteId: string, page: string) =>
+    donnees<{ liensRestants: string[] }>(api.delete(`${base(siteId)}/pages`, { data: { page } })),
 }

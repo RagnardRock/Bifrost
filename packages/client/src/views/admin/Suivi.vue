@@ -4,7 +4,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Journal from '@/components/suivi/Journal.vue'
 import EnvoiSite, { type Envoi } from '@/components/suivi/EnvoiSite.vue'
-import { suiviService, adresseSite, ilYa, type SiteSuivi, type Evenement, type SiteSupprime } from '@/services/suivi.service'
+import { suiviService, adresseSite, ilYa, type SiteSuivi, type Evenement, type SiteSupprime, type ModeleSite } from '@/services/suivi.service'
 
 const router = useRouter()
 const sites = ref<SiteSuivi[] | null>(null)
@@ -14,6 +14,21 @@ const nouveau = ref<{ nom: string; url: string; dossier: string } | null>(null)
 const occupe = ref(false)
 const envoi = ref<Envoi | null>(null)
 const progres = ref(0)
+// départ du nouveau site : ses fichiers, ou un modèle (fourni avec Bifrost, ou un site existant vidé)
+const depart = ref<'fichiers' | 'modele'>('fichiers')
+const source = ref('')
+const vider = ref(true)
+const modeles = ref<ModeleSite[]>([])
+async function ouvrirNouveau() {
+  nouveau.value = { nom: '', url: '', dossier: '' }
+  depart.value = 'fichiers'
+  source.value = ''
+  if (!modeles.value.length) { try { modeles.value = await suiviService.modeles() } catch { modeles.value = [] } }
+}
+function choisirSource(s: string) {
+  source.value = s
+  vider.value = !s.startsWith('modele:') // un site existant se vide ; un modèle fourni est déjà court
+}
 
 const corbeille = ref<SiteSupprime[]>([])
 
@@ -28,12 +43,15 @@ async function charger() {
 async function creer() {
   const n = nouveau.value
   if (!n) return
-  if (!envoi.value && !n.dossier.trim()) { erreur.value = 'Choisissez le dossier du site (ou un ZIP).'; return }
+  if (depart.value === 'modele' && !source.value) { erreur.value = 'Choisissez un modèle.'; return }
+  if (depart.value === 'fichiers' && !envoi.value && !n.dossier.trim()) { erreur.value = 'Choisissez le dossier du site (ou un ZIP).'; return }
   occupe.value = true
   progres.value = 0
   erreur.value = ''
   try {
-    const r = envoi.value
+    const r = depart.value === 'modele'
+      ? await suiviService.creerDepuisModele(n.nom, n.url, source.value, vider.value)
+      : envoi.value
       ? await suiviService.creerEnvoi(n.nom, n.url, envoi.value.archive, (p) => (progres.value = p))
       : await suiviService.creer(n.nom, n.url, n.dossier)
     nouveau.value = null
@@ -72,7 +90,7 @@ onMounted(charger)
         <h1>Sites</h1>
         <p class="chapeau">Ce que vos clients modifient, publient, et qui fait partie de chaque équipe.</p>
       </div>
-      <button type="button" class="btn-primary" @click="nouveau = { nom: '', url: '', dossier: '' }">+ Nouveau site</button>
+      <button type="button" class="btn-primary" @click="ouvrirNouveau">+ Nouveau site</button>
     </div>
 
     <p v-if="erreur" class="glass-card p-4 mb-6 text-red-500" role="alert">{{ erreur }}</p>
@@ -156,18 +174,43 @@ onMounted(charger)
         <h2 class="text-xl">Nouveau site</h2>
         <label>Nom<input v-model="nouveau.nom" class="input-field" required maxlength="120" placeholder="Nom du client ou du site"></label>
         <label>Adresse en ligne (facultatif)<input v-model="nouveau.url" class="input-field" placeholder="https://exemple.fr"></label>
-        <div class="champ">
-          <span>Le site</span>
-          <EnvoiSite @choisi="envoi = $event" />
-          <p class="text-xs text-gray-500">Copié en brouillon et en version en ligne. Les dossiers .git, node_modules, outils et ancien-site sont ignorés.</p>
+        <div class="depart" role="radiogroup" aria-label="Partir de">
+          <button type="button" role="radio" :aria-checked="depart === 'fichiers'" @click="depart = 'fichiers'">Mes fichiers</button>
+          <button type="button" role="radio" :aria-checked="depart === 'modele'" @click="depart = 'modele'">Un modèle</button>
         </div>
-        <details v-if="!envoi" class="avance">
-          <summary>Dossier déjà présent sur le serveur</summary>
-          <input v-model="nouveau.dossier" class="input-field" placeholder="nom du dossier, ou chemin complet en local" aria-label="Dossier du site sur le serveur">
-        </details>
+        <template v-if="depart === 'fichiers'">
+          <div class="champ">
+            <span>Le site</span>
+            <EnvoiSite @choisi="envoi = $event" />
+            <p class="text-xs text-gray-500">Copié en brouillon et en version en ligne. Les dossiers .git, node_modules, outils et ancien-site sont ignorés.</p>
+          </div>
+          <details v-if="!envoi" class="avance">
+            <summary>Dossier déjà présent sur le serveur</summary>
+            <input v-model="nouveau.dossier" class="input-field" placeholder="nom du dossier, ou chemin complet en local" aria-label="Dossier du site sur le serveur">
+          </details>
+        </template>
+        <template v-else>
+          <ul class="modeles">
+            <li v-for="m in modeles" :key="m.id">
+              <button type="button" :aria-pressed="source === `modele:${m.id}`" @click="choisirSource(`modele:${m.id}`)">
+                <span class="modele-icone" aria-hidden="true">{{ m.icone }}</span>
+                <strong>{{ m.nom }}</strong>
+                <small>{{ m.description }}</small>
+              </button>
+            </li>
+          </ul>
+          <label v-if="sites?.length">Ou repartir d’un de vos sites
+            <select class="input-field" :value="source.startsWith('modele:') ? '' : source" @change="choisirSource(($event.target as HTMLSelectElement).value)">
+              <option value="">Choisir un site…</option>
+              <option v-for="s in sites" :key="s.id" :value="s.id">{{ s.nom }}</option>
+            </select>
+          </label>
+          <label class="case"><input v-model="vider" type="checkbox"> Vider les listes (un seul élément par liste, actualités retirées)</label>
+          <p class="text-xs text-gray-500">Le modèle est copié en brouillon et en ligne : il ne reste qu’à changer les textes, les photos et les couleurs (onglet Thème du mode dev).</p>
+        </template>
         <div class="flex justify-end gap-2">
           <button type="button" class="glass-button" @click="nouveau = null; envoi = null">Annuler</button>
-          <button type="submit" class="btn-primary" :disabled="occupe">{{ occupe ? (envoi && progres < 100 ? `Envoi… ${progres} %` : 'Import…') : 'Créer et importer' }}</button>
+          <button type="submit" class="btn-primary" :disabled="occupe">{{ occupe ? (envoi && progres < 100 ? `Envoi… ${progres} %` : 'Création…') : depart === 'modele' ? 'Créer le site' : 'Créer et importer' }}</button>
         </div>
       </form>
     </div>
@@ -201,10 +244,21 @@ a.etiquette:hover { color: var(--bf-fort); }
 .corbeille li > div:first-child { display: grid; gap: 2px; }
 .corbeille span { font-size: 13px; color: var(--bf-doux); }
 .fond { position: fixed; inset: 0; background: var(--bf-voile); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 16px; z-index: 40; }
-.fenetre { width: 100%; max-width: 520px; padding: 24px; display: grid; gap: 14px; background: var(--bf-surface); }
+.fenetre { width: 100%; max-width: 560px; max-height: calc(100dvh - 32px); overflow: auto; padding: 24px; display: grid; gap: 14px; background: var(--bf-surface); }
 .fenetre label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
 .fenetre input { font-weight: 400; }
 .champ { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
 .avance { font-size: 13px; color: var(--bf-doux); }
 .avance summary { cursor: pointer; margin-bottom: 8px; }
+.depart { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--bf-verre); justify-self: start; }
+.depart button { border: 0; background: none; color: var(--bf-doux); font: inherit; font-size: 14px; font-weight: 600; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.depart button[aria-checked='true'] { background: var(--bf-verre-fort); color: var(--bf-fort); }
+.modeles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.modeles button { width: 100%; height: 100%; display: grid; gap: 2px; text-align: left; padding: 12px; border-radius: 14px; border: 1px solid var(--bf-bord); background: var(--bf-verre); color: var(--bf-texte); font: inherit; cursor: pointer; }
+.modeles button:hover { border-color: var(--bf-bord-fort); }
+.modeles button[aria-pressed='true'] { border-color: var(--bf-accent); box-shadow: inset 0 0 0 1px var(--bf-accent); }
+.modeles strong { font-size: 14px; color: var(--bf-fort); }
+.modeles small { font-size: 12px; color: var(--bf-doux); font-weight: 400; line-height: 1.35; }
+.modele-icone { font-size: 20px; }
+.fenetre .case { display: flex; gap: 8px; align-items: center; font-weight: 500; }
 </style>

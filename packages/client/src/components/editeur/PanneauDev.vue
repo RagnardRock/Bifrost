@@ -31,7 +31,7 @@ export type OperationDev =
   | { op: 'dupliquer' }
   | { op: 'deplacer'; sens: 'haut' | 'bas' }
 
-const props = defineProps<{ selection: SelectionDev | null; flags: FlagPage[]; alertes: AlerteDev[]; occupe: boolean; blocs: BlocDev[]; theme: ThemeDev | null }>()
+const props = defineProps<{ selection: SelectionDev | null; flags: FlagPage[]; alertes: AlerteDev[]; occupe: boolean; blocs: BlocDev[]; theme: ThemeDev | null; pages: string[]; page: string }>()
 const emit = defineEmits<{
   operation: [o: OperationDev, confirmer?: string]
   selectionner: [chemin: number[]]
@@ -44,9 +44,13 @@ const emit = defineEmits<{
   'theme-charger': []
   'theme-apercu': [nom: string, valeur: string | null]
   'theme-enregistrer': [modifs: { fichier: string; nom: string; valeur: string }[]]
+  'page-ouvrir': [page: string]
+  'page-creer': [b: { titre: string; chemin: string; depuis: string; menu: boolean }]
+  'page-renommer': [page: string, nouveau: string]
+  'page-supprimer': [page: string]
 }>()
 
-const onglet = ref<'element' | 'blocs' | 'theme' | 'flags'>('element')
+const onglet = ref<'element' | 'blocs' | 'theme' | 'pages' | 'flags'>('element')
 watch(onglet, (o) => { if (o === 'theme') emit('theme-charger') })
 
 // ---------- thème ----------
@@ -91,6 +95,34 @@ function enregistrerTheme() {
     return { fichier: fichier as string, nom: nom as string, valeur }
   }).filter((m) => m.valeur.trim())
   if (modifs.length) emit('theme-enregistrer', modifs)
+}
+
+// ---------- pages du site ----------
+/** Pages principales, puis un dossier par collection (actualités…) replié. */
+const pagesRacine = computed(() => props.pages.filter((p) => !p.includes('/')))
+const dossiersPages = computed(() => {
+  const g = new Map<string, string[]>()
+  for (const p of props.pages) if (p.includes('/')) { const d = p.slice(0, p.lastIndexOf('/')); g.set(d, [...(g.get(d) ?? []), p]) }
+  return [...g.entries()]
+})
+const slug = (t: string) => t.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)
+const nouvelle = ref<{ titre: string; chemin: string; cheminTouche: boolean; depuis: string; menu: boolean } | null>(null)
+function ouvrirNouvelle() { nouvelle.value = { titre: '', chemin: '', cheminTouche: false, depuis: props.page.includes('/') ? 'index.html' : props.page, menu: true } }
+watch(() => nouvelle.value?.titre, (t) => { const n = nouvelle.value; if (n && !n.cheminTouche) n.chemin = t ? `${slug(t) || 'page'}.html` : '' })
+function creerPage() {
+  const n = nouvelle.value
+  if (!n?.titre.trim() || !n.chemin.trim()) return
+  emit('page-creer', { titre: n.titre.trim(), chemin: n.chemin.trim(), depuis: n.depuis, menu: n.menu })
+  nouvelle.value = null
+}
+const renommage = ref<{ page: string; nom: string } | null>(null)
+function renommer() {
+  const r = renommage.value
+  if (!r) return
+  let nom = r.nom.trim().toLowerCase()
+  if (nom && !nom.endsWith('.html')) nom += '.html'
+  if (nom && nom !== r.page) emit('page-renommer', r.page, nom)
+  renommage.value = null
 }
 
 // ---------- bibliothèque de sections ----------
@@ -192,6 +224,7 @@ const memeChemin = (a: number[] | null | undefined, b: number[]) => !!a && a.len
       <button type="button" role="tab" :aria-selected="onglet === 'element'" @click="onglet = 'element'">Élément</button>
       <button type="button" role="tab" :aria-selected="onglet === 'blocs'" @click="onglet = 'blocs'">Blocs</button>
       <button type="button" role="tab" :aria-selected="onglet === 'theme'" @click="onglet = 'theme'">Thème</button>
+      <button type="button" role="tab" :aria-selected="onglet === 'pages'" @click="onglet = 'pages'">Pages</button>
       <button type="button" role="tab" :aria-selected="onglet === 'flags'" title="Flags de la page" @click="onglet = 'flags'">
         Flags <span class="pd-compte">{{ flags.length }}</span><span v-if="alertes.length" class="pd-compte pd-compte--alerte" :title="`${alertes.length} point(s) à vérifier`">⚠ {{ alertes.length }}</span>
       </button>
@@ -364,6 +397,40 @@ const memeChemin = (a: number[] | null | undefined, b: number[]) => !!a && a.len
       </template>
     </div>
 
+    <!-- Pages du site -->
+    <div v-else-if="onglet === 'pages'" class="pd-corps">
+      <p class="pd-note pd-note--haut">Une nouvelle page reprend l’en-tête, le menu et le pied de page d’une page existante. Renommer fait suivre tous les liens du site.</p>
+      <ul class="pd-pages">
+        <li v-for="p in pagesRacine" :key="p" :class="{ 'pd-page-active': p === page }">
+          <template v-if="renommage?.page === p">
+            <input v-model="renommage.nom" class="pd-saisie pd-mono" aria-label="Nouveau nom de la page" spellcheck="false"
+              @keydown.enter.prevent="renommer" @keydown.esc.prevent="renommage = null">
+            <button type="button" class="pd-mini" :disabled="occupe" title="Valider" @click="renommer">✓</button>
+          </template>
+          <template v-else>
+            <button type="button" class="pd-page-nom" @click="emit('page-ouvrir', p)"><span class="pd-mono">{{ p }}</span></button>
+            <button v-if="p !== 'index.html'" type="button" class="pd-mini" :disabled="occupe" :aria-label="`Renommer ${p}`" title="Renommer" @click="renommage = { page: p, nom: p }">✎</button>
+            <button v-if="p !== 'index.html'" type="button" class="pd-mini" :disabled="occupe" :aria-label="`Supprimer ${p}`" title="Supprimer" @click="emit('page-supprimer', p)">✕</button>
+          </template>
+        </li>
+      </ul>
+      <p v-for="[d, ps] in dossiersPages" :key="d" class="pd-note"><span class="pd-mono">{{ d }}/</span> : {{ ps.length }} page{{ ps.length > 1 ? 's' : '' }} (gérées avec leur liste)</p>
+      <button v-if="!nouvelle" type="button" class="pd-btn" :disabled="occupe" @click="ouvrirNouvelle">+ Nouvelle page</button>
+      <section v-else class="pd-bloc">
+        <h3>Nouvelle page</h3>
+        <label class="pd-champ">Titre <input v-model="nouvelle.titre" class="pd-saisie" placeholder="Nos tarifs" @keydown.enter.prevent="creerPage"></label>
+        <label class="pd-champ">Fichier <input v-model="nouvelle.chemin" class="pd-saisie pd-mono" spellcheck="false" placeholder="nos-tarifs.html" @input="nouvelle.cheminTouche = true"></label>
+        <label class="pd-champ">Reprendre la mise en page de
+          <select v-model="nouvelle.depuis" class="pd-saisie"><option v-for="p in pagesRacine" :key="p" :value="p">{{ p }}</option></select>
+        </label>
+        <label class="pd-case"><input v-model="nouvelle.menu" type="checkbox"> Ajouter au menu de toutes les pages</label>
+        <div class="pd-boutons">
+          <button type="button" class="pd-btn pd-btn--clair" @click="nouvelle = null">Annuler</button>
+          <button type="button" class="pd-btn" :disabled="occupe || !nouvelle.titre.trim() || !nouvelle.chemin.trim()" @click="creerPage">Créer la page</button>
+        </div>
+      </section>
+    </div>
+
     <!-- Tous les flags de la page -->
     <div v-else class="pd-corps">
       <ul v-if="alertes.length" class="pd-alertes">
@@ -439,6 +506,13 @@ kbd { font: 600 11px ui-monospace, Consolas, monospace; padding: 1px 5px; border
 .pd-couleur { flex: none; width: 38px; height: 34px; padding: 2px; border: 1px solid var(--bf-bord-fort); border-radius: 9px; background: var(--bf-champ); cursor: pointer; }
 .pd-modifie { border-color: var(--bf-violet) !important; }
 .pd-bloc h3 small { text-transform: none; letter-spacing: 0; }
+.pd-pages { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 2px; }
+.pd-pages li { display: flex; align-items: center; gap: 4px; border-radius: 9px; padding: 2px 4px; }
+.pd-pages li:hover { background: var(--bf-verre); }
+.pd-page-active { background: var(--bf-verre-fort); }
+.pd-page-nom { flex: 1; min-width: 0; text-align: left; border: 0; background: none; color: var(--bf-texte); font: inherit; padding: 6px 4px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pd-mini { border: 0; background: none; color: var(--bf-doux); font: inherit; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; flex: none; }
+.pd-mini:hover:not(:disabled) { background: var(--bf-verre-fort); color: var(--bf-fort); }
 .pd-boutons--colle { position: sticky; bottom: -20px; padding: 10px 0; background: var(--bf-surface); }
 .pd-ignore { opacity: .5; text-decoration: line-through; }
 @media (max-width: 900px) {

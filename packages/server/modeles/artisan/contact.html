@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Devis et contact | Martin Rénovation</title>
+  <meta name="description" content="Artisan à votre service pour vos travaux de rénovation.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="lien-evitement" href="#contenu">Aller au contenu</a>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="marque" href="index.html" data-bf="site.nom">Martin Rénovation</a>
+      <nav class="menu" aria-label="Menu principal">
+        <ul>
+          <li><a href="index.html" data-bf="menu.accueil">Accueil</a></li>
+          <li><a href="realisations.html" data-bf="menu.realisations">Réalisations</a></li>
+          <li><a href="contact.html" data-bf="menu.contact" aria-current="page">Devis et contact</a></li>
+        </ul>
+      </nav>
+      <a class="bouton" href="contact.html" data-bf="entete.appel">Demander un devis</a>
+    </div>
+  </header>
+  <main id="contenu">
+    <section class="section">
+      <div class="conteneur texte">
+        <span class="surtitre" data-bf="contact.surtitre">Contact</span>
+        <h1 data-bf="contact.titre">Demander un devis</h1>
+        <p class="chapo" data-bf="contact.chapo">Décrivez vos travaux en quelques lignes : nous vous rappelons sous 48 h.</p>
+      </div>
+    </section>
+    <section class="section douce">
+      <div class="conteneur deux-colonnes" style="align-items:start">
+        <div>
+          <ul class="coordonnees">
+            <li><strong>Adresse</strong><span data-bf="pied.adresse">12 rue des Artisans, 43000 Le Puy-en-Velay</span></li>
+            <li><strong>Téléphone</strong><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a></li>
+            <li><strong>E-mail</strong><a href="mailto:contact@exemple.fr" data-bf="contact.email">contact@exemple.fr</a></li>
+          </ul>
+          <p data-bf="contact.acces">Stationnement facile à proximité.</p>
+        </div>
+        <form class="formulaire carte" data-bf-formulaire="contact">
+          <label>Nom <input name="nom" required autocomplete="name"></label>
+          <label>E-mail <input type="email" name="email" required autocomplete="email"></label>
+          <label>Téléphone <input type="tel" name="telephone" autocomplete="tel"></label>
+          <label>Type de travaux <select name="travaux"><option>Dépannage</option><option>Rénovation</option><option>Installation</option><option>Autre</option></select></label>
+          <label>Message <textarea name="message" rows="5" required></textarea></label>
+          <button class="bouton" type="submit">Envoyer</button>
+        </form>
+      </div>
+    </section>
+  </main>
+  <footer class="pied">
+    <div class="conteneur">
+      <p><strong data-bf="site.nom">Martin Rénovation</strong><br><span data-bf="pied.adresse">12 rue des Artisans, 43000 Le Puy-en-Velay</span></p>
+      <p><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a><br><a href="mailto:contact@exemple.fr" data-bf="contact.email">contact@exemple.fr</a></p>
+      <p><a href="mentions-legales.html">Mentions légales</a></p>
+    </div>
+  </footer>
+</body>
+</html>

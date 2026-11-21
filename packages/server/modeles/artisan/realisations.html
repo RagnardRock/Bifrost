@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Réalisations | Martin Rénovation</title>
+  <meta name="description" content="Artisan à votre service pour vos travaux de rénovation.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="lien-evitement" href="#contenu">Aller au contenu</a>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="marque" href="index.html" data-bf="site.nom">Martin Rénovation</a>
+      <nav class="menu" aria-label="Menu principal">
+        <ul>
+          <li><a href="index.html" data-bf="menu.accueil">Accueil</a></li>
+          <li><a href="realisations.html" data-bf="menu.realisations" aria-current="page">Réalisations</a></li>
+          <li><a href="contact.html" data-bf="menu.contact">Devis et contact</a></li>
+        </ul>
+      </nav>
+      <a class="bouton" href="contact.html" data-bf="entete.appel">Demander un devis</a>
+    </div>
+  </header>
+  <main id="contenu">
+    <section class="section">
+      <div class="conteneur">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="realisations.surtitre">Réalisations</span>
+          <h2 data-bf="realisations.titre">Quelques chantiers récents</h2>
+          <p data-bf="realisations.texte">Chaque chantier est différent : voici un aperçu de notre travail.</p>
+        </div>
+        <ul class="galerie" data-bf-liste="realisations">
+          <li data-bf-element>
+            <figure><img src="assets/bifrost-attente.svg" alt="" data-bf="photo"><figcaption data-bf="legende">Salle de bain refaite à neuf</figcaption></figure>
+          </li>
+          <li data-bf-element>
+            <figure><img src="assets/bifrost-attente.svg" alt="" data-bf="photo"><figcaption data-bf="legende">Cuisine ouverte sur le séjour</figcaption></figure>
+          </li>
+          <li data-bf-element>
+            <figure><img src="assets/bifrost-attente.svg" alt="" data-bf="photo"><figcaption data-bf="legende">Remplacement de chaudière</figcaption></figure>
+          </li>
+          <li data-bf-element>
+            <figure><img src="assets/bifrost-attente.svg" alt="" data-bf="photo"><figcaption data-bf="legende">Douche à l’italienne</figcaption></figure>
+          </li>
+          <li data-bf-element>
+            <figure><img src="assets/bifrost-attente.svg" alt="" data-bf="photo"><figcaption data-bf="legende">Tableau électrique aux normes</figcaption></figure>
+          </li>
+          <li data-bf-element>
+            <figure><img src="assets/bifrost-attente.svg" alt="" data-bf="photo"><figcaption data-bf="legende">Terrasse en bois</figcaption></figure>
+          </li>
+        </ul>
+      </div>
+    </section>
+    <section class="section bandeau">
+      <div class="conteneur">
+        <h2 data-bf="appel-realisations.titre">Envie du même résultat chez vous ?</h2>
+        <p data-bf="appel-realisations.texte">Racontez-nous votre projet, nous passons le voir.</p>
+        <a class="bouton" href="contact.html" data-bf="appel-realisations.bouton">Demander un devis</a>
+      </div>
+    </section>
+  </main>
+  <footer class="pied">
+    <div class="conteneur">
+      <p><strong data-bf="site.nom">Martin Rénovation</strong><br><span data-bf="pied.adresse">12 rue des Artisans, 43000 Le Puy-en-Velay</span></p>
+      <p><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a><br><a href="mailto:contact@exemple.fr" data-bf="contact.email">contact@exemple.fr</a></p>
+      <p><a href="mentions-legales.html">Mentions légales</a></p>
+    </div>
+  </footer>
+</body>
+</html>
