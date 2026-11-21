@@ -11,6 +11,7 @@ import * as fichiers from './site-fichiers.service'
 import { lireFormulaires, lireEnvoi, type Formulaire } from './formulaires.html'
 import { envoyer } from './mail.service'
 import { journaliser } from './suivi.service'
+import { nouveauMessage } from './notifications.service'
 
 /** Formulaires publiés de chaque site, relus au plus toutes les 30 secondes. */
 const cache = new Map<string, { date: number; formulaires: Map<string, Formulaire & { page: string }> }>()
@@ -47,6 +48,8 @@ export async function recevoir(siteId: string, nom: string, corps: Record<string
   await prisma.message.create({ data: { siteId: site.id, formulaire: nom, champs: envoi.champs, email: envoi.email } })
   journaliser(site.id, null, 'message', nom)
   void prevenir(site, nom, envoi.champs, envoi.email)
+  const extrait = envoi.champs.find((c) => c.valeur && /message|demande|texte/i.test(c.libelle)) || envoi.champs.find((c) => c.valeur)
+  void nouveauMessage(site.id, nom, extrait?.valeur.replace(/\s+/g, ' ').trim() || '')
   return resultat
 }
 
