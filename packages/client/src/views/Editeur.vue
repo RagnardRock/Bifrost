@@ -5,7 +5,7 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { editeurService, type EtatEditeur, type Publication, type BlocDev } from '@/services/editeur.service'
+import { editeurService, type EtatEditeur, type Publication, type BlocDev, type ThemeDev } from '@/services/editeur.service'
 import { adresseSite } from '@/services/suivi.service'
 import { comptesService, type MonSite } from '@/services/comptes.service'
 import { useAuthStore } from '@/stores/auth.store'
@@ -28,7 +28,14 @@ const cle = ref(0)
 const erreur = ref('')
 const message = ref('')
 const occupe = ref(false)
-const vueMobile = ref(false)
+// largeur de l'aperçu : bureau (pleine largeur), tablette ou téléphone
+type Apercu = 'bureau' | 'tablette' | 'telephone'
+const apercu = ref<Apercu>('bureau')
+const APERCUS: { id: Apercu; icone: string; titre: string }[] = [
+  { id: 'bureau', icone: '🖥️', titre: 'Aperçu ordinateur' },
+  { id: 'tablette', icone: '📋', titre: 'Aperçu tablette (820 px)' },
+  { id: 'telephone', icone: '📱', titre: 'Aperçu téléphone (390 px)' },
+]
 // Sur téléphone, les boutons de la barre et les raccourcis passent dans un menu « ⋯ »
 const menuMobile = ref(false)
 function depuisMenu(action: () => unknown) { menuMobile.value = false; void action() }
@@ -137,6 +144,24 @@ function supprimerBloc(b: BlocDev) {
       await editeurService.supprimerBloc(siteId.value, b.id)
       blocsDev.value = blocsDev.value.filter((x) => x.id !== b.id)
     },
+  }
+}
+// thème : variables CSS du site et des sections Bifrost
+const themeDev = ref<ThemeDev | null>(null)
+async function chargerTheme() {
+  try { themeDev.value = await editeurService.theme(siteId.value) } catch (err) { echec(err, 'Thème indisponible.') }
+}
+async function enregistrerTheme(modifs: { fichier: string; nom: string; valeur: string }[]) {
+  occupe.value = true
+  try {
+    themeDev.value = await editeurService.enregistrerTheme(siteId.value, modifs)
+    await rafraichirEtat()
+    recharger()
+    informer('Thème enregistré dans le brouillon')
+  } catch (err) {
+    echec(err)
+  } finally {
+    occupe.value = false
   }
 }
 function selectionnerDev(chemin: number[]) { versCadre({ type: 'selectionner', chemin, defiler: true }) }
@@ -375,7 +400,9 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
       <div class="ed-actions">
         <button v-if="etat?.moi.dev" class="ed-btn ed-btn--icone ed-btn--dev" type="button" :aria-pressed="devActif" :title="devActif ? 'Revenir au mode client' : 'Mode dev : sélectionner n’importe quel élément, poser des flags'" @click="basculerModeDev">🛠️<span class="ed-btn-texte">{{ devActif ? 'Mode dev' : 'Dev' }}</span></button>
         <button class="ed-btn ed-btn--clair" type="button" @click="ouvrirNouvelle">+ Actualité</button>
-        <button class="ed-btn ed-btn--icone" type="button" :aria-pressed="vueMobile" title="Voir comme sur un téléphone" @click="vueMobile = !vueMobile">📱</button>
+        <div class="ed-apercus" role="group" aria-label="Largeur de l’aperçu">
+          <button v-for="a in APERCUS" :key="a.id" type="button" class="ed-apercu" :aria-pressed="apercu === a.id" :title="a.titre" :aria-label="a.titre" @click="apercu = a.id">{{ a.icone }}</button>
+        </div>
         <router-link :to="lienMonSite" class="ed-btn ed-btn--clair ed-btn--badge ed-mon-site" :title="responsable && etat?.messagesNonLus ? `Messages, équipe, réglages (${etat.messagesNonLus} message${etat.messagesNonLus > 1 ? 's' : ''} non lu${etat.messagesNonLus > 1 ? 's' : ''})` : 'Messages, équipe, réglages et compte'">
           Mon site<span v-if="responsable && etat?.messagesNonLus" class="ed-badge">{{ etat.messagesNonLus > 99 ? '99+' : etat.messagesNonLus }}</span>
         </router-link>
@@ -407,13 +434,14 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
     </div>
 
     <div class="ed-zone">
-      <main class="ed-scene" :class="{ 'ed-scene--mobile': vueMobile }">
+      <main class="ed-scene" :class="{ 'ed-scene--mobile': apercu === 'telephone', 'ed-scene--tablette': apercu === 'tablette' }">
         <iframe v-if="etat" :key="cle" ref="cadre" :src="src" title="Votre site" class="ed-cadre" />
       </main>
       <PanneauDev v-if="devActif" :selection="selectionDev" :flags="flagsPage" :alertes="alertesPage" :occupe="occupe" :blocs="blocsDev"
         @operation="depuisPanneau" @selectionner="selectionnerDev" @fermer="basculerModeDev"
         @glisser="(id) => versCadre({ type: 'glisser', bloc: id })" @fin-glisser="versCadre({ type: 'fin-glisser' })"
-        @inserer="insererDepuisPanneau" @enregistrer="enregistrerBloc" @supprimer-bloc="supprimerBloc" />
+        @inserer="insererDepuisPanneau" @enregistrer="enregistrerBloc" @supprimer-bloc="supprimerBloc"
+        :theme="themeDev" @theme-charger="chargerTheme" @theme-apercu="(nom, valeur) => versCadre({ type: 'theme', nom, valeur })" @theme-enregistrer="enregistrerTheme" />
     </div>
 
     <input ref="choixImage" type="file" accept="image/*" hidden @change="surImage">
@@ -526,7 +554,12 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 .ed-btn--dev[aria-pressed='true'] { background: rgba(139, 92, 246, .35); color: var(--bf-fort); }
 .ed-scene { flex: 1; min-width: 0; display: flex; justify-content: center; padding: 0; overflow: hidden; background: transparent; }
 .ed-cadre { width: 100%; height: 100%; border: 0; background: #fff; transition: width .25s; }
-.ed-scene--mobile { padding: 20px 0; }
+.ed-scene--mobile, .ed-scene--tablette { padding: 20px 0; overflow: auto; }
+.ed-scene--tablette .ed-cadre { width: 820px; max-width: calc(100% - 32px); border-radius: 20px; box-shadow: 0 0 0 10px #222, 0 20px 60px rgba(0, 0, 0, .5); }
+.ed-apercus { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--bf-verre); box-shadow: inset 0 0 0 1px var(--bf-bord); }
+.ed-apercu { border: 0; background: none; border-radius: 999px; padding: 6px 9px; font-size: 15px; cursor: pointer; line-height: 1; opacity: .6; }
+.ed-apercu:hover { opacity: 1; }
+.ed-apercu[aria-pressed='true'] { background: var(--bf-verre-fort); opacity: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, .2); }
 .ed-scene--mobile .ed-cadre { width: 390px; border-radius: 24px; box-shadow: 0 0 0 10px #222, 0 20px 60px rgba(0, 0, 0, .5); }
 .ed-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--bf-surface); backdrop-filter: blur(16px); border: 1px solid var(--bf-bord); color: var(--bf-texte); padding: 12px 20px; border-radius: 999px; font-size: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); cursor: pointer; z-index: 30; max-width: calc(100% - 32px); }
 .ed-toast--erreur { background: #b91c1c; color: #fff; }
@@ -574,7 +607,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
   .ed-barre { padding: 8px 10px; }
   .ed-btn { padding: 9px 12px; font-size: 13px; }
   .ed-aide { display: none; }
-  .ed-btn--icone, .ed-mon-site { display: none; }
+  .ed-btn--icone, .ed-mon-site, .ed-apercus { display: none; }
   .ed-btn--icone.ed-btn--plus { display: inline-block; }
   .ed-attente { display: none; }
 }

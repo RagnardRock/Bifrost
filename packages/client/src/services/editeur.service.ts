@@ -17,6 +17,8 @@ export interface Message { id: string; formulaire: string; champs: { nom: string
 export interface Membre { id: string; email: string; role: RoleSite; createdAt: string; /** double authentification active */ doubleAuth?: boolean }
 export interface Invitation { id: string; email: string; role: RoleSite; expireLe: string }
 
+export interface VariableTheme { fichier: string; nom: string; valeur: string }
+export interface ThemeDev { site: VariableTheme[]; bifrost: (VariableTheme & { libelle: string; defaut: string; definie: boolean })[] }
 export interface BlocDev { id: string; nom: string; icone: string; description: string; perso: boolean }
 
 const base = (siteId: string) => `/editeur/${siteId}`
@@ -57,5 +59,8 @@ export const editeurService = {
     donnees<{ chemin: number[] }>(api.post(`${base(siteId)}/blocs/inserer`, corps)),
   enregistrerBloc: (siteId: string, corps: { page: string; chemin: number[]; balises: string[]; nom: string }) =>
     donnees<BlocDev>(api.post(`${base(siteId)}/blocs`, corps)),
+  theme: (siteId: string) => donnees<ThemeDev>(api.get(`${base(siteId)}/theme`)),
+  enregistrerTheme: (siteId: string, modifs: { fichier: string; nom: string; valeur: string }[]) =>
+    donnees<ThemeDev>(api.put(`${base(siteId)}/theme`, { modifs })),
   supprimerBloc: (siteId: string, id: string) => api.delete(`${base(siteId)}/blocs/${encodeURIComponent(id)}`),
 }

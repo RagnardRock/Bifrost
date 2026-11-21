@@ -17,6 +17,9 @@ import * as suivi from '../services/suivi.service'
 import * as fichiers from '../services/site-fichiers.service'
 import { siteParCle } from '../services/slug.service'
 import { verifierConnexion } from '../services/double-auth.service'
+import * as blocs from '../services/blocs.service'
+import * as modeDev from '../services/mode-dev.service'
+import fs from 'fs/promises'
 
 const router = Router()
 
@@ -95,6 +98,16 @@ router.delete('/jetons/:id', action(async (req) => {
 }))
 
 router.get('/sites', action(async () => suivi.sites()))
+
+// Bibliothèque de sections (la même que l'onglet Blocs du mode dev), pour « Insérer un bloc » dans Rune.
+// « pris » : les préfixes de clés déjà utilisés dans les pages du dev, pour renommer ceux du bloc.
+router.get('/blocs', action(async () => blocs.lister()))
+router.post('/blocs/:bloc/preparer', action(async (req) => {
+  const { pris } = z.object({ pris: z.array(z.string().max(100)).max(5000).default([]) }).parse(req.body ?? {})
+  const html = modeDev.renommerBloc(await blocs.lire(String(req.params.bloc)), new Set(pris))
+  const css = html.includes('class="bfb') ? await fs.readFile(blocs.feuilleBlocs(), 'utf-8') : null
+  return { html, css }
+}))
 
 // ---------- un site (par son nom court ou son identifiant) ----------
 

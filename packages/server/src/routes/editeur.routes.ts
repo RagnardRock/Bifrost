@@ -249,7 +249,7 @@ const schemaDev = z.object({
       'data-bf-page': nomFlag,
     }) }),
     z.object({ op: z.literal('texte'), valeur: z.string().max(20_000) }),
-    z.object({ op: z.literal('attribut'), nom: z.enum(['alt', 'href', 'title']), valeur: z.string().max(2000).nullable() }),
+    z.object({ op: z.literal('attribut'), nom: z.enum(['alt', 'href', 'title', 'class']), valeur: z.string().max(2000).nullable() }),
     z.object({ op: z.literal('supprimer') }),
     z.object({ op: z.literal('dupliquer') }),
     z.object({ op: z.literal('deplacer'), sens: z.enum(['haut', 'bas']) }),
@@ -260,6 +260,15 @@ router.post('/dev', adminMiddleware, action(async (req) => {
   const b = schemaDev.parse(req.body)
   const r = await fichiers.operationDev(sid(req), b.page, { chemin: b.chemin, balises: b.balises }, b.operation)
   journaliser(sid(req), auteur(req), 'mode-dev', `${b.page} · <${b.balises[b.balises.length - 1]}> ${libellesDev[b.operation.op]}`)
+  return r
+}))
+
+// Mode dev : thème (variables CSS du site et des sections Bifrost)
+router.get('/theme', adminMiddleware, action(async (req) => fichiers.lireTheme(sid(req))))
+router.put('/theme', adminMiddleware, action(async (req) => {
+  const b = z.object({ modifs: z.array(z.object({ fichier: z.string().min(1).max(300), nom: z.string().regex(/^--[a-zA-Z0-9_-]{1,60}$/), valeur: z.string().max(300) })).min(1).max(100) }).parse(req.body)
+  const r = await fichiers.ecrireTheme(sid(req), b.modifs)
+  journaliser(sid(req), auteur(req), 'mode-dev', `thème : ${b.modifs.map((m) => m.nom).join(', ').slice(0, 200)}`)
   return r
 }))
 

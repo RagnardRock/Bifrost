@@ -137,6 +137,14 @@ Onglet **Blocs** du panneau dev : en-tête, texte, texte et photo, cartes, galer
 - **⭐ Enregistrer comme bloc** (onglet Élément) garde l'élément sélectionné dans « Mes blocs », réutilisable sur tous les sites (`<SITES_DIR>/_blocs/`).
 - Ajouter un bloc fourni : `packages/server/blocs/<id>.html`, avec en première ligne `<!-- {"nom": "…", "icone": "…", "description": "…"} -->`.
 
+### Thème et aperçus
+
+- Onglet **Thème** : les variables CSS déclarées dans `:root { … }` des feuilles du site (couleurs avec un sélecteur), et celles des sections Bifrost (`--bf-accent`, `--bf-rayon`…).
+  L'aperçu change en direct ; « Enregistrer » réécrit la valeur dans la feuille du site, ou dans `assets/bf-theme.css` (créée et liée à toutes les pages) pour les `--bf-…`.
+  Une valeur peut reprendre une couleur du site : `var(--vert)`.
+- Onglet Élément › **Classes CSS** : les variantes d'une section passent par les classes du site (`section--papier`…), pas par des styles en ligne.
+- Barre du haut : aperçu **ordinateur / tablette (820 px) / téléphone (390 px)**, en mode client comme en mode dev.
+
 ## Depuis Rune (l'IDE du dev)
 
 Le panneau Bifrost de Rune (icône globe) utilise l'API `/api/dev` :
@@ -149,3 +157,4 @@ Le panneau Bifrost de Rune (icône globe) utilise l'API `/api/dev` :
   L'essai répond ce qui changerait en ligne, les fichiers que Bifrost n'a pas encore (`manquants`), les modifications non publiées du client et ses publications depuis `depuis`.
   L'envoi devient une **publication** du dev, avec historique (on peut revenir en arrière). Il est refusé si le client a des modifications non publiées, sauf `ecraserBrouillon`.
   Les fichiers absents du dossier du dev restent en ligne, sauf `supprimer`. Les formulaires sont branchés comme à l'import.
+- `GET /api/dev/blocs` et `POST /api/dev/blocs/:bloc/preparer` `{ pris: [préfixes déjà utilisés] }` → `{ html, css }` : la bibliothèque de sections du mode dev, pour « Insérer un bloc » dans Rune (clés renommées si besoin, `css` = `bifrost-blocs.css` pour les blocs fournis).
