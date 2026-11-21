@@ -8,7 +8,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import jwt from 'jsonwebtoken'
 import { config } from '../config'
-import { dossiers, cheminSur } from '../services/site-fichiers.service'
+import { dossiers, cheminSur, fichierPause } from '../services/site-fichiers.service'
 import { siteParCle } from '../services/slug.service'
 
 export const apercuRouter = Router()
@@ -42,5 +42,8 @@ apercuRouter.use('/sites/:cle', async (req, res, next) => {
   if (!id) return res.status(404).send('Site introuvable')
   let racine: string
   try { racine = dossiers(id).publie } catch { return res.status(400).end() }
+  // Site en pause : sa page de pause, pour toutes les adresses
+  const pause = await fs.readFile(fichierPause(id), 'utf-8').catch(() => null)
+  if (pause !== null) return res.status(503).set('Retry-After', '86400').type('html').send(pause)
   express.static(path.resolve(racine))(req, res, next)
 })

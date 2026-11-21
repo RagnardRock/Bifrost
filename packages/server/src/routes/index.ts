@@ -3,6 +3,7 @@ import authRoutes from './auth.routes'
 import editeurRoutes from './editeur.routes'
 import comptesRoutes from './comptes.routes'
 import suiviRoutes from './suivi.routes'
+import clientsRoutes from './clients.routes'
 
 const router = Router()
 
@@ -17,5 +18,8 @@ router.use('/editeur/:siteId', editeurRoutes)
 
 // Espace développeur : suivi des sites
 router.use('/admin/suivi', suiviRoutes)
+
+// Espace développeur : fiches clients et contrats
+router.use('/admin/clients', clientsRoutes)
 
 export default router

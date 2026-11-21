@@ -364,3 +364,82 @@ export async function importerZip(siteId: string, zip: Uint8Array) {
     await fs.rm(temp, { recursive: true, force: true })
   }
 }
+
+// ---------- pause, export, corbeille (espace dev) ----------
+
+/**
+ * Page affichée à la place du site quand il est en pause. Le fichier sert aussi de marqueur :
+ * Bifrost (/sites/…) et nginx (domaine du client) regardent s'il existe.
+ */
+export const fichierPause = (siteId: string) => path.join(dossiers(siteId).racine, 'pause.html')
+
+export function pageDePause(nom: string) {
+  const e = nom.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${e}</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.5 system-ui,sans-serif;background:#f4f4f5;color:#18181b;padding:16px;box-sizing:border-box;text-align:center}main{max-width:420px}h1{font-size:24px;margin:0 0 8px}p{margin:0;color:#52525b}@media(prefers-color-scheme:dark){body{background:#0b0c12;color:#e4e4e7}p{color:#a1a1aa}}</style>
+</head><body><main><h1>${e}</h1><p>Ce site est momentanément indisponible. Merci de revenir un peu plus tard.</p></main></body></html>`
+}
+
+export async function mettreEnPause(siteId: string, nom: string, pause: boolean) {
+  const f = fichierPause(siteId)
+  if (pause) {
+    await fs.mkdir(path.dirname(f), { recursive: true })
+    await fs.writeFile(f, pageDePause(nom))
+  } else {
+    await fs.rm(f, { force: true })
+  }
+}
+
+/** Le site en ZIP (version en ligne ou brouillon), pour le déplacer chez un autre hébergeur. */
+export async function exporterZip(siteId: string, version: 'publie' | 'brouillon' = 'publie') {
+  const { zipSync } = await import('fflate')
+  const base = dossiers(siteId)[version]
+  const fichiers = await lister(base)
+  if (!fichiers.length) throw Errors.notFound('Fichiers du site')
+  const contenu: Record<string, Uint8Array> = {}
+  for (const f of fichiers) contenu[f] = new Uint8Array(await fs.readFile(path.join(base, f)))
+  return Buffer.from(zipSync(contenu, { level: 6 }))
+}
+
+/** Corbeille : les sites supprimés y restent 30 jours (fichiers + données), puis sont effacés. */
+export const JOURS_CORBEILLE = 30
+// Dans le dossier des sites (même volume, donc déplacement instantané et compris dans la sauvegarde)
+export const dossierCorbeille = () => path.join(config.sitesDir, '_corbeille')
+
+const entreeCorbeille = (siteId: string) => {
+  dossiers(siteId) // vérifie l'identifiant
+  return path.join(dossierCorbeille(), siteId)
+}
+
+/** Range les fichiers du site et ses données (JSON) dans la corbeille. */
+export async function mettreALaCorbeille(siteId: string, donnees: unknown) {
+  const d = dossiers(siteId)
+  const cible = entreeCorbeille(siteId)
+  await fs.rm(cible, { recursive: true, force: true })
+  await fs.mkdir(cible, { recursive: true })
+  if (existsSync(d.racine)) await fs.rename(d.racine, path.join(cible, 'fichiers'))
+  await fs.writeFile(path.join(cible, 'donnees.json'), JSON.stringify(donnees))
+}
+
+export async function lireCorbeille(siteId: string) {
+  return JSON.parse(await fs.readFile(path.join(entreeCorbeille(siteId), 'donnees.json'), 'utf-8'))
+}
+
+export async function listerCorbeille(): Promise<string[]> {
+  if (!existsSync(dossierCorbeille())) return []
+  return (await fs.readdir(dossierCorbeille(), { withFileTypes: true })).filter((e) => e.isDirectory() && /^[a-zA-Z0-9-]+$/.test(e.name)).map((e) => e.name)
+}
+
+/** Remet les fichiers en place (les données sont recréées par l'appelant). */
+export async function sortirDeLaCorbeille(siteId: string) {
+  const d = dossiers(siteId)
+  const source = path.join(entreeCorbeille(siteId), 'fichiers')
+  if (existsSync(d.racine)) throw Errors.badRequest('Un site occupe déjà cet emplacement')
+  if (existsSync(source)) {
+    await fs.mkdir(path.dirname(d.racine), { recursive: true })
+    await fs.rename(source, d.racine)
+  }
+  await fs.rm(entreeCorbeille(siteId), { recursive: true, force: true })
+}
+
+export const viderEntreeCorbeille = (siteId: string) => fs.rm(entreeCorbeille(siteId), { recursive: true, force: true })

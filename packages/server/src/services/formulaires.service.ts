@@ -32,8 +32,9 @@ export interface Resultat { merci: string | null; page: string }
 
 /** Reçoit un envoi : vérifie, enregistre, prévient les responsables du site par e-mail. */
 export async function recevoir(siteId: string, nom: string, corps: Record<string, unknown>): Promise<Resultat> {
-  const site = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, name: true, emailMessages: true } })
+  const site = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, name: true, emailMessages: true, enPause: true } })
   if (!site) throw Errors.notFound('Site')
+  if (site.enPause) throw Errors.badRequest('Ce site est momentanément indisponible')
   const f = (await formulairesPublies(site.id)).get(nom)
   if (!f) throw Errors.notFound('Formulaire')
   const envoi = lireEnvoi(f, corps)
