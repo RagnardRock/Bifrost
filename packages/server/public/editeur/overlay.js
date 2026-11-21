@@ -9,6 +9,8 @@
   if (parent === window) return
 
   function envoyer(msg) { msg.source = 'bifrost'; msg.page = page; parent.postMessage(msg, '*') }
+  // mode dev (compte du développeur) : sélection de n'importe quel élément, réglé par l'éditeur parent
+  var dev = false
 
   // ---------- styles ----------
   var css = document.createElement('style')
@@ -72,6 +74,7 @@
   var bulle = document.createElement('div')
   bulle.className = 'bf-bulle'
   bulle.hidden = true
+  bulle.setAttribute('data-bf-overlay', '')
   document.body.appendChild(bulle)
   function montrerBulle(el, texte) {
     var r = el.getBoundingClientRect()
@@ -83,7 +86,7 @@
 
   champs.forEach(function (el) {
     el.addEventListener('mouseenter', function () {
-      if (el.classList.contains('bf-edition')) return
+      if (dev || el.classList.contains('bf-edition')) return
       el.classList.add('bf-survol')
       montrerBulle(el, typeDe(el) === 'image' ? 'Cliquer pour changer la photo' : 'Cliquer pour modifier')
     })
@@ -123,6 +126,7 @@
   }
 
   document.addEventListener('click', function (e) {
+    if (dev) { devClic(e); return }
     var el = e.target.closest && e.target.closest('[data-bf]')
     while (el && dansRiche(el)) el = el.parentElement.closest('[data-bf]')
     if (el) {
@@ -150,6 +154,7 @@
   document.addEventListener('submit', function (e) { e.preventDefault() }, true)
 
   document.addEventListener('keydown', function (e) {
+    if (dev) { devTouche(e); return }
     if (!enCours) return
     if (e.key === 'Escape') { var c = enCours._bfCible || enCours; if (typeDe(enCours) === 'riche') enCours.innerHTML = enCours._bfAvant; else c.textContent = enCours._bfAvant; terminer(enCours) }
     else if (e.key === 'Enter' && typeDe(enCours) !== 'riche') { e.preventDefault(); terminer(enCours) }
@@ -169,6 +174,7 @@
   var outils = document.createElement('div')
   outils.className = 'bf-outils'
   outils.hidden = true
+  outils.setAttribute('data-bf-overlay', '')
   document.body.appendChild(outils)
   var actif = null
   function bouton(texte, titre, fn, danger) {
@@ -195,12 +201,267 @@
     outils.style.top = (window.scrollY + r.top + 6) + 'px'
   }
   document.addEventListener('mouseover', function (e) {
+    if (dev) { devSurvol(e); return }
     if (outils.contains(e.target)) return
     var el = e.target.closest && e.target.closest('[data-bf-element]')
     if (!el) return
     var info = listeDe(el)
     if (info && (!actif || actif.element !== info.element)) montrerOutils(info)
   })
+
+  // ---------- mode dev ----------
+  // Le dev sélectionne n'importe quel élément ; l'éditeur parent affiche le panneau « Élément »
+  // et appelle l'API. Un élément est désigné par son chemin depuis <body> (indice parmi les enfants).
+  var cssDev = document.createElement('style')
+  cssDev.textContent = [
+    '.bf-dev-survol { outline: 1px dashed rgba(139,92,246,.9) !important; outline-offset: 1px; cursor: default !important; }',
+    '.bf-dev-choisi { outline: 2px solid #8b5cf6 !important; outline-offset: 2px; }',
+    '.bf-dev-flag { box-shadow: inset 0 0 0 1px rgba(224,122,74,.55) !important; }',
+    '.bf-dev-etiquette { position: absolute; z-index: 99999; pointer-events: none; background: #8b5cf6; color: #fff; font: 600 11px/1 ui-monospace, Consolas, monospace; padding: 4px 7px; border-radius: 6px; white-space: nowrap; max-width: 90vw; overflow: hidden; text-overflow: ellipsis; }',
+    '.bf-dev-edition { outline: 2px solid #e07a4a !important; cursor: text !important; }',
+  ].join('\n')
+  var etiquette = document.createElement('div')
+  etiquette.className = 'bf-dev-etiquette'
+  etiquette.hidden = true
+  etiquette.setAttribute('data-bf-overlay', '')
+  document.body.appendChild(etiquette)
+  var choisi = null
+  var survole = null
+  var devEdition = null
+
+  function estOverlay(el) { return !el || el.nodeType !== 1 || el.hasAttribute('data-bf-overlay') || el.tagName === 'SCRIPT' && el.src && /\/editeur\/overlay\.js/.test(el.src) }
+  function selectionnable(el) {
+    if (!el || el.nodeType !== 1 || el === document.body || el === document.documentElement) return null
+    while (el && el !== document.body && !document.body.contains(el)) el = el.parentElement
+    if (!el || el === document.body) return null
+    for (var x = el; x && x !== document.body; x = x.parentElement) if (estOverlay(x)) return null
+    // la pastille provisoire de l'édition client ne compte pas
+    if (el.classList.contains('bf-propre')) el = el.parentElement
+    return el
+  }
+  function cheminDe(el) {
+    var chemin = [], balises = []
+    for (var x = el; x && x !== document.body; x = x.parentElement) {
+      chemin.unshift(Array.prototype.indexOf.call(x.parentElement.children, x))
+      balises.unshift(x.tagName.toLowerCase())
+    }
+    return { chemin: chemin, balises: balises }
+  }
+  function depuisChemin(chemin) {
+    var el = document.body
+    for (var i = 0; i < chemin.length; i++) { el = el && el.children[chemin[i]]; if (!el) return null }
+    return el === document.body ? null : el
+  }
+  function libelle(el) {
+    var t = el.tagName.toLowerCase()
+    if (el.id) t += '#' + el.id
+    else if (typeof el.className === 'string' && el.className.trim()) t += '.' + el.className.trim().split(/\s+/).filter(function (c) { return !/^bf-/.test(c) })[0]
+    return t.replace(/\.$/, '').replace(/\.undefined$/, '')
+  }
+  function flagsDe(el) {
+    var f = {}
+    ;['data-bf', 'data-bf-type', 'data-bf-liste', 'data-bf-limite', 'data-bf-page', 'data-bf-formulaire'].forEach(function (a) { if (el.hasAttribute(a)) f[a] = el.getAttribute(a) })
+    if (el.hasAttribute('data-bf-element')) f['data-bf-element'] = true
+    return f
+  }
+  function nomPage() { var n = page.replace(/\.html$/, '').split('/').pop(); return n === 'index' ? 'accueil' : n.replace(/[^\w-]/g, '') || 'page' }
+  function nomBalise(el) {
+    var t = el.tagName.toLowerCase()
+    if (/^h[1-6]$/.test(t)) return 'titre'
+    return ({ p: 'texte', img: 'photo', a: 'lien', li: 'element', time: 'date', figcaption: 'legende', blockquote: 'citation', button: 'bouton', span: 'texte', small: 'note', strong: 'texte', address: 'adresse' })[t] || t
+  }
+  function slug(t) {
+    return (t || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+      .split(' ').filter(function (m) { return m.length > 2 && !/^(une|des|les|pour|avec|dans|nos|notre|votre|vos|aux|sur|par|qui|que|est|son|ses|leur|leurs|chez|entre|tout|tous)$/.test(m) }).slice(0, 2).join('-')
+  }
+  /** Préfixe d'une clé hors liste : l'id de la zone, sinon les premiers mots de son titre, sinon le nom de la page. */
+  function prefixeDe(el) {
+    var zone = el.parentElement && el.parentElement.closest('section, article, header, footer, nav, aside, [id]')
+    while (zone && zone !== document.body && (zone.tagName === 'MAIN' || /^(contenu|content|main|page)$/i.test(zone.id || ''))) zone = zone.parentElement.closest('section, article, header, footer, nav, aside, [id]')
+    if (!zone || zone === document.body) return nomPage()
+    if (zone.id) return zone.id.replace(/[^\w-]/g, '')
+    if (/^(HEADER|FOOTER|NAV)$/.test(zone.tagName)) return ({ HEADER: 'entete', FOOTER: 'pied', NAV: 'menu' })[zone.tagName]
+    var titre = zone.querySelector('h1, h2, h3')
+    return slug(titre && titre !== el ? titre.textContent : titre ? titre.textContent : '') || nomPage()
+  }
+  /** Clé proposée : « section.titre » hors liste, « titre » dans un élément de liste ; unique dans sa portée. */
+  function suggestion(el) {
+    var element = el.parentElement && el.parentElement.closest('[data-bf-element]')
+    var base = nomBalise(el)
+    var cle = base
+    if (!element) cle = prefixeDe(el) + '.' + base
+    var portee = element || document
+    var prises = {}
+    Array.prototype.forEach.call(portee.querySelectorAll('[data-bf]'), function (x) {
+      if (x === el) return
+      if (!element && x.closest('[data-bf-element]')) return
+      prises[x.getAttribute('data-bf')] = true
+    })
+    var c = cle, n = 2
+    while (prises[c]) c = cle + '-' + (n++)
+    var type = el.tagName === 'IMG' ? 'image' : el.tagName === 'A' ? 'lien' : el.querySelector('p, br, strong, em, ul, ol, b, i') ? 'riche' : 'texte'
+    return { cle: c, type: type }
+  }
+  function infos(el) {
+    var c = cheminDe(el)
+    var fil = []
+    for (var x = el; x && x !== document.body; x = x.parentElement) fil.unshift(libelle(x))
+    var liste = el.closest('[data-bf-liste]')
+    var element = el.parentElement && el.parentElement.closest('[data-bf-element]')
+    var attributs = {}
+    ;['alt', 'href', 'title', 'src'].forEach(function (a) { if (el.hasAttribute(a)) attributs[a] = el.getAttribute(a) })
+    var feuille = !el.children.length
+    return {
+      type: 'selection',
+      chemin: c.chemin, balises: c.balises, fil: fil,
+      balise: el.tagName.toLowerCase(),
+      feuille: feuille && !/^(img|input|br|hr|iframe|video|svg)$/i.test(el.tagName),
+      texte: feuille ? (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 5000) : '',
+      flags: flagsDe(el),
+      attributs: attributs,
+      contexte: {
+        liste: liste && liste !== el ? liste.getAttribute('data-bf-liste') : null,
+        dansElement: !!element,
+        dansRiche: !!(el.parentElement && el.parentElement.closest('[data-bf-type="riche"]')),
+      },
+      suggestion: suggestion(el),
+      peutMonter: !!el.previousElementSibling,
+      peutDescendre: !!(el.nextElementSibling && !estOverlay(el.nextElementSibling) && el.nextElementSibling.tagName !== 'SCRIPT'),
+    }
+  }
+  function placerEtiquette(el) {
+    var r = el.getBoundingClientRect()
+    var f = el.getAttribute('data-bf') || el.getAttribute('data-bf-liste')
+    etiquette.textContent = libelle(el) + (f ? '  ·  ' + f : '')
+    etiquette.hidden = false
+    etiquette.style.left = (window.scrollX + Math.max(2, r.left)) + 'px'
+    etiquette.style.top = (window.scrollY + (r.top > 24 ? r.top - 22 : r.bottom + 4)) + 'px'
+  }
+  function choisir(el, defiler) {
+    if (choisi) choisi.classList.remove('bf-dev-choisi')
+    choisi = el
+    el.classList.add('bf-dev-choisi')
+    if (defiler) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    placerEtiquette(el)
+    envoyer(infos(el))
+  }
+  function deselectionner() {
+    if (choisi) choisi.classList.remove('bf-dev-choisi')
+    choisi = null
+    etiquette.hidden = true
+    envoyer({ type: 'selection', chemin: null })
+  }
+  function devSurvol(e) {
+    var el = selectionnable(e.target)
+    if (el === survole) return
+    if (survole) survole.classList.remove('bf-dev-survol')
+    survole = el
+    if (el && el !== choisi) el.classList.add('bf-dev-survol')
+  }
+  function devClic(e) {
+    if (devEdition && devEdition.contains(e.target)) return
+    e.preventDefault()
+    e.stopPropagation()
+    if (devEdition) finirEditionDev(true)
+    var el = selectionnable(e.target)
+    if (el) choisir(el); else deselectionner()
+  }
+  function commencerEditionDev(el) {
+    if (!el || el.children.length || /^(IMG|INPUT|BR|HR|IFRAME|VIDEO)$/.test(el.tagName)) return
+    devEdition = el
+    el._bfAvant = el.textContent
+    el.classList.add('bf-dev-edition')
+    el.setAttribute('contenteditable', 'plaintext-only')
+    if (el.contentEditable !== 'plaintext-only') el.setAttribute('contenteditable', 'true')
+    el.focus()
+  }
+  function finirEditionDev(garder) {
+    var el = devEdition
+    if (!el) return
+    devEdition = null
+    el.removeAttribute('contenteditable')
+    el.classList.remove('bf-dev-edition')
+    var v = (el.textContent || '').replace(/\s+/g, ' ').trim()
+    if (!garder) { el.textContent = el._bfAvant; return }
+    if (v === (el._bfAvant || '').replace(/\s+/g, ' ').trim()) return
+    var c = cheminDe(el)
+    envoyer({ type: 'dev', chemin: c.chemin, balises: c.balises, operation: { op: 'texte', valeur: v } })
+  }
+  function devTouche(e) {
+    if (devEdition) {
+      if (e.key === 'Escape') { e.preventDefault(); finirEditionDev(false) }
+      else if (e.key === 'Enter') { e.preventDefault(); finirEditionDev(true) }
+      return
+    }
+    if (!choisi) return
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      var p = choisi.parentElement
+      if (p && p !== document.body) choisir(p); else deselectionner()
+    } else if (e.key === 'Enter') { e.preventDefault(); commencerEditionDev(choisi) }
+    else if (e.key === 'Delete') { e.preventDefault(); var c = cheminDe(choisi); envoyer({ type: 'dev', chemin: c.chemin, balises: c.balises, operation: { op: 'supprimer' }, demanderConfirmation: true }) }
+  }
+  document.addEventListener('dblclick', function (e) {
+    if (!dev) return
+    e.preventDefault()
+    var el = selectionnable(e.target)
+    if (el) { choisir(el); commencerEditionDev(el) }
+  }, true)
+  document.addEventListener('focusout', function (e) {
+    if (dev && devEdition && e.target === devEdition) setTimeout(function () { if (devEdition && document.activeElement !== devEdition) finirEditionDev(true) }, 0)
+  })
+
+  /** Tous les flags de la page, avec les problèmes repérés, pour la vue « Flags de la page ». */
+  function inventaire() {
+    var res = [], alertes = []
+    var vus = {}
+    Array.prototype.forEach.call(document.querySelectorAll('[data-bf], [data-bf-liste], [data-bf-element], [data-bf-page], [data-bf-formulaire]'), function (el) {
+      if (!selectionnable(el)) return
+      var c = cheminDe(el)
+      var f = flagsDe(el)
+      var dansRiche = !!(el.parentElement && el.parentElement.closest('[data-bf-type="riche"]'))
+      var element = el.parentElement && el.parentElement.closest('[data-bf-element]')
+      res.push({ chemin: c.chemin, balise: el.tagName.toLowerCase(), flags: f, profondeur: c.chemin.length, ignore: dansRiche })
+      var probleme = function (texte) { alertes.push({ chemin: c.chemin, texte: texte }) }
+      if (dansRiche) probleme('« ' + (f['data-bf'] || f['data-bf-liste']) + ' » est dans un texte riche : il est ignoré.')
+      if (f['data-bf-element'] && !el.closest('[data-bf-liste]')) probleme('Élément de liste en dehors de toute liste.')
+      if (f['data-bf-liste'] && !Array.prototype.some.call(el.querySelectorAll('[data-bf-element]'), function (x) { return x.parentElement.closest('[data-bf-liste]') === el })) probleme('La liste « ' + f['data-bf-liste'] + ' » n’a aucun élément (data-bf-element).')
+      if (f['data-bf'] !== undefined) {
+        if (!f['data-bf']) probleme('Flag sans nom.')
+        else if (!element && !dansRiche) {
+          var v = el.tagName === 'IMG' ? el.getAttribute('src') : (el.textContent || '').replace(/\s+/g, ' ').trim()
+          if (vus[f['data-bf']] !== undefined && vus[f['data-bf']] !== v) probleme('« ' + f['data-bf'] + ' » apparaît plusieurs fois avec des contenus différents : modifier l’un écrasera les autres.')
+          vus[f['data-bf']] = v
+        }
+        if (el.tagName === 'IMG' && !el.hasAttribute('alt')) probleme('Image « ' + f['data-bf'] + ' » sans texte alternatif (alt).')
+      }
+    })
+    Array.prototype.forEach.call(document.querySelectorAll('img:not([alt])'), function (el) {
+      if (!selectionnable(el) || el.hasAttribute('data-bf')) return
+      alertes.push({ chemin: cheminDe(el).chemin, texte: 'Image sans attribut alt.' })
+    })
+    envoyer({ type: 'flags-page', flags: res, alertes: alertes })
+  }
+
+  function basculerDev(actif) {
+    if (actif === dev) { if (dev) inventaire(); return }
+    dev = actif
+    if (enCours) terminer(enCours)
+    outils.hidden = true
+    bulle.hidden = true
+    if (dev) {
+      document.head.appendChild(cssDev)
+      Array.prototype.forEach.call(document.querySelectorAll('[data-bf], [data-bf-liste]'), function (el) { el.classList.add('bf-dev-flag') })
+      inventaire()
+    } else {
+      if (cssDev.parentNode) cssDev.parentNode.removeChild(cssDev)
+      Array.prototype.forEach.call(document.querySelectorAll('.bf-dev-flag, .bf-dev-survol, .bf-dev-choisi'), function (el) { el.classList.remove('bf-dev-flag', 'bf-dev-survol', 'bf-dev-choisi') })
+      if (devEdition) finirEditionDev(false)
+      choisi = null
+      etiquette.hidden = true
+    }
+  }
+  window.addEventListener('scroll', function () { if (dev && choisi) placerEtiquette(choisi) }, { passive: true })
 
   // ---------- position de défilement (rechargements après une modification) ----------
   var cleDefil = 'bf-defil-' + page
@@ -211,6 +472,8 @@
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.source !== 'bifrost-parent') return
     if (e.data.type === 'avant-rechargement') { try { sessionStorage.setItem(cleDefil, String(window.scrollY)) } catch (x) {} }
+    else if (e.data.type === 'mode') basculerDev(!!e.data.dev)
+    else if (e.data.type === 'selectionner' && dev) { var el = depuisChemin(e.data.chemin || []); if (el) choisir(el, !!e.data.defiler); else deselectionner() }
   })
 
   envoyer({ type: 'page', titre: document.title, modele: (document.querySelector('[data-bf-page]') || {}).getAttribute ? document.querySelector('[data-bf-page]').getAttribute('data-bf-page') : null })

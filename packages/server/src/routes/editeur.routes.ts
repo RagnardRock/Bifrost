@@ -228,6 +228,36 @@ router.put('/messages/:id', responsable, action(async (req) => {
 }))
 router.delete('/messages/:id', responsable, action(async (req) => formulaires.supprimer(sid(req), param(req, 'id'))))
 
+// Mode dev : poser des flags, modifier, dupliquer, déplacer ou supprimer n'importe quel élément (dev uniquement)
+const nomFlag = z.string().max(100).nullable().optional()
+const schemaDev = z.object({
+  page: z.string().min(1).max(300),
+  chemin: z.array(z.number().int().min(0).max(10_000)).min(1).max(200),
+  balises: z.array(z.string().regex(/^[a-z][a-z0-9-]*$/).max(40)).min(1).max(200),
+  operation: z.discriminatedUnion('op', [
+    z.object({ op: z.literal('flags'), flags: z.object({
+      'data-bf': nomFlag,
+      'data-bf-type': z.enum(['texte', 'riche', 'image', 'lien']).nullable().optional(),
+      'data-bf-liste': nomFlag,
+      'data-bf-element': z.boolean().optional(),
+      'data-bf-limite': z.number().int().nullable().optional(),
+      'data-bf-page': nomFlag,
+    }) }),
+    z.object({ op: z.literal('texte'), valeur: z.string().max(20_000) }),
+    z.object({ op: z.literal('attribut'), nom: z.enum(['alt', 'href', 'title']), valeur: z.string().max(2000).nullable() }),
+    z.object({ op: z.literal('supprimer') }),
+    z.object({ op: z.literal('dupliquer') }),
+    z.object({ op: z.literal('deplacer'), sens: z.enum(['haut', 'bas']) }),
+  ]),
+})
+const libellesDev: Record<string, string> = { flags: 'flags', texte: 'texte', attribut: 'attribut', supprimer: 'supprimé', dupliquer: 'dupliqué', deplacer: 'déplacé' }
+router.post('/dev', adminMiddleware, action(async (req) => {
+  const b = schemaDev.parse(req.body)
+  const r = await fichiers.operationDev(sid(req), b.page, { chemin: b.chemin, balises: b.balises }, b.operation)
+  journaliser(sid(req), auteur(req), 'mode-dev', `${b.page} · <${b.balises[b.balises.length - 1]}> ${libellesDev[b.operation.op]}`)
+  return r
+}))
+
 // Dev uniquement : importer un dossier de site présent sur le serveur
 router.post('/importer', adminMiddleware, action(async (req) => {
   const { dossier } = z.object({ dossier: z.string().min(1) }).parse(req.body)
