@@ -31,7 +31,7 @@ export type OperationDev =
   | { op: 'flags'; flags: Flags }
   | { op: 'deplacer-vers'; vers: Cible; position: Position }
   | { op: 'texte'; valeur: string }
-  | { op: 'attribut'; nom: 'alt' | 'href' | 'title'; valeur: string | null }
+  | { op: 'attribut'; nom: 'alt' | 'href' | 'title' | 'class'; valeur: string | null }
   | { op: 'supprimer' }
   | { op: 'dupliquer' }
   | { op: 'deplacer'; sens: 'haut' | 'bas' }
@@ -126,6 +126,7 @@ export function operation(html: string, cible: Cible, o: OperationDev): { html: 
     case 'attribut': {
       const v = o.valeur?.trim() ?? null
       if (o.nom === 'href' && v && /^\s*(javascript|data|vbscript):/i.test(v)) throw Errors.badRequest('Adresse de lien refusée')
+      if (o.nom === 'class' && v && !/^[\w\s-]*$/.test(v)) throw Errors.badRequest('Classes CSS : lettres, chiffres, tirets et espaces seulement')
       if (o.nom === 'alt' && $el.is('img')) $el.attr('alt', v ?? '') // une image garde toujours son alt (vide = décorative)
       else if (v === null) $el.removeAttr(o.nom)
       else $el.attr(o.nom, v)
@@ -191,7 +192,8 @@ export function renommerBloc(blocHtml: string, pris: Set<string>): string {
     const [p, ...reste] = v.split('.')
     $(el).attr('data-bf', [nouveau(p as string), ...reste].join('.'))
   })
-  return $('body').html() || ''
+  // data-bf-element s'écrit sans valeur, comme dans les sites écrits à la main
+  return ($('body').html() || '').replace(/ data-bf-element=""/g, ' data-bf-element')
 }
 
 /** Insère le HTML d'un bloc (chemins depuis la racine du site) avant, après ou dans l'élément ciblé. */
@@ -210,7 +212,7 @@ export function inserer(html: string, cheminPage: string, cible: Cible | null, b
 
 /** Ajoute la feuille de style des blocs dans <head> si elle n'y est pas. */
 export function lierFeuilleBlocs(html: string, cheminPage: string, fichier = 'assets/bifrost-blocs.css'): string {
-  if (html.includes('bifrost-blocs.css')) return html
+  if (html.includes(path.posix.basename(fichier))) return html
   const $ = charger(html)
   const lien = `<link rel="stylesheet" href="${depuisRacine(fichier, path.posix.dirname(cheminPage))}">`
   if ($('head').length) $('head').append(lien + '\n')

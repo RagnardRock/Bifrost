@@ -20,6 +20,7 @@ import * as flags from './flags.service'
 import { brancherFormulaires } from './formulaires.html'
 import * as modeDev from './mode-dev.service'
 import * as blocs from './blocs.service'
+import * as theme from './theme.service'
 
 export function dossiers(siteId: string) {
   if (!/^[a-zA-Z0-9-]+$/.test(siteId)) throw Errors.badRequest('Site invalide')
@@ -120,16 +121,64 @@ export async function insererBloc(siteId: string, page: string, cible: modeDev.C
   const bloc = modeDev.renommerBloc(await blocs.lire(blocId), pris)
   const r = modeDev.inserer(await lire(siteId, page), page, cible, bloc, position)
   let html = r.html
-  if (bloc.includes('class="bfb')) {
-    // la feuille des blocs fournis est remise à jour à chaque ajout
-    const d = dossiers(siteId).brouillon
-    await fs.mkdir(path.join(d, 'assets'), { recursive: true })
-    await fs.copyFile(blocs.feuilleBlocs(), path.join(d, 'assets', 'bifrost-blocs.css'))
-    html = modeDev.lierFeuilleBlocs(html, page) // ne touche qu'au <head> : le chemin dans <body> reste bon
+  // feuille des blocs et image d'attente : remises à jour à chaque ajout
+  const d = dossiers(siteId).brouillon
+  for (const [cible, source] of Object.entries(blocs.fichiersDuBloc(bloc))) {
+    await fs.mkdir(path.dirname(path.join(d, cible)), { recursive: true })
+    await fs.copyFile(source, path.join(d, cible))
   }
+  if (bloc.includes('class="bfb')) html = modeDev.lierFeuilleBlocs(html, page) // ne touche qu'au <head> : le chemin dans <body> reste bon
   html = brancherFormulaires(html, (nom) => adresseFormulaire(siteId, nom)) ?? html
   await ecrire(siteId, page, html)
   return { chemin: r.chemin }
+}
+
+/** Mode dev : variables CSS du site (:root de ses feuilles) et variables des sections Bifrost. */
+export async function lireTheme(siteId: string) {
+  const d = dossiers(siteId).brouillon
+  const feuilles = (await lister(d, (f) => f.endsWith('.css'))).filter((f) => !/(^|\/)(bifrost-blocs|bf-theme)\.css$/.test(f) && !/(^|\/)medias\//.test(f))
+  const site: { fichier: string; nom: string; valeur: string }[] = []
+  for (const f of feuilles) for (const v of theme.lireVariables(await fs.readFile(path.join(d, f), 'utf-8'))) site.push({ fichier: f, ...v })
+  const fichierTheme = path.join(d, theme.FICHIER_THEME)
+  const definies = existsSync(fichierTheme) ? theme.lireVariables(await fs.readFile(fichierTheme, 'utf-8')) : []
+  const bifrost = theme.VARIABLES_BIFROST.map((v) => {
+    const x = definies.find((y) => y.nom === v.nom)
+    return { fichier: theme.FICHIER_THEME, nom: v.nom, libelle: v.libelle, defaut: v.valeur, valeur: x?.valeur ?? v.valeur, definie: !!x }
+  })
+  return { site, bifrost }
+}
+
+/** Mode dev : écrit des variables du thème. Les --bf-… vont dans assets/bf-theme.css, lié à toutes les pages. */
+export async function ecrireTheme(siteId: string, modifs: { fichier: string; nom: string; valeur: string }[]) {
+  const d = dossiers(siteId).brouillon
+  const parFichier = new Map<string, { nom: string; valeur: string }[]>()
+  for (const m of modifs) {
+    if (!m.fichier.endsWith('.css')) throw Errors.badRequest('Fichier de thème invalide')
+    if (m.fichier === theme.FICHIER_THEME && !theme.VARIABLES_BIFROST.some((v) => v.nom === m.nom)) throw Errors.badRequest(`Variable inconnue : ${m.nom}`)
+    if (!theme.valeurValide(m.valeur)) throw Errors.badRequest(`Valeur refusée pour ${m.nom}`)
+    parFichier.set(m.fichier, [...(parFichier.get(m.fichier) ?? []), m])
+  }
+  for (const [fichier, vars] of parFichier) {
+    const chemin = cheminSur(d, fichier)
+    const nouveau = fichier === theme.FICHIER_THEME && !existsSync(chemin)
+    if (!nouveau && !existsSync(chemin)) throw Errors.badRequest(`Feuille introuvable : ${fichier}`)
+    let css = nouveau ? '/* Thème des sections Bifrost : réglé depuis le mode dev (onglet Thème). */\n' : await fs.readFile(chemin, 'utf-8')
+    try {
+      for (const v of vars) css = theme.ecrireVariable(css, v.nom, v.valeur)
+    } catch (e) {
+      throw Errors.badRequest((e as Error).message)
+    }
+    await fs.mkdir(path.dirname(chemin), { recursive: true })
+    await fs.writeFile(chemin, css, 'utf-8')
+    if (fichier === theme.FICHIER_THEME) {
+      for (const p of await listerPages(siteId)) {
+        const h = await lire(siteId, p)
+        const lie = modeDev.lierFeuilleBlocs(h, p, theme.FICHIER_THEME)
+        if (lie !== h) await ecrire(siteId, p, lie)
+      }
+    }
+  }
+  return lireTheme(siteId)
 }
 
 /** Mode dev : enregistre un élément d'une page comme bloc réutilisable sur tous les sites. */

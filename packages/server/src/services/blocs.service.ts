@@ -20,6 +20,14 @@ export const dossierBlocsFournis = path.resolve(path.dirname(fileURLToPath(impor
 export const dossierBlocsPerso = () => path.join(config.sitesDir, '_blocs')
 export const feuilleBlocs = () => path.join(dossierBlocsFournis, 'bifrost-blocs.css')
 
+/** Fichiers à copier dans le site avec un bloc fourni (chemin dans le site → fichier source). */
+export function fichiersDuBloc(html: string): Record<string, string> {
+  const res: Record<string, string> = {}
+  if (html.includes('class="bfb')) res['assets/bifrost-blocs.css'] = feuilleBlocs()
+  if (html.includes('bifrost-attente.svg')) res['assets/bifrost-attente.svg'] = path.join(dossierBlocsFournis, 'bifrost-attente.svg')
+  return res
+}
+
 /** Ordre d'affichage des blocs fournis (les autres suivent, par ordre alphabétique). */
 const ORDRE = ['entete', 'texte', 'texte-photo', 'cartes', 'galerie', 'equipe', 'logos', 'faq', 'horaires', 'contact']
 

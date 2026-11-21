@@ -310,6 +310,8 @@
     var element = el.parentElement && el.parentElement.closest('[data-bf-element]')
     var attributs = {}
     ;['alt', 'href', 'title', 'src'].forEach(function (a) { if (el.hasAttribute(a)) attributs[a] = el.getAttribute(a) })
+    // classes du site seulement (pas celles que le mode dev ajoute pour l'affichage)
+    attributs['class'] = Array.prototype.filter.call(el.classList, function (c) { return !/^bf-(dev-|survol|edition)/.test(c) }).join(' ')
     var feuille = !el.children.length
     return {
       type: 'selection',
@@ -572,6 +574,11 @@
     else if (e.data.type === 'mode') basculerDev(!!e.data.dev)
     else if (e.data.type === 'glisser' && dev) { blocGlisse = String(e.data.bloc || '') || null }
     else if (e.data.type === 'fin-glisser') finGlisser()
+    // aperçu du thème en direct, avant enregistrement
+    else if (e.data.type === 'theme' && dev && /^--[\w-]+$/.test(e.data.nom || '')) {
+      if (e.data.valeur) document.documentElement.style.setProperty(e.data.nom, String(e.data.valeur))
+      else document.documentElement.style.removeProperty(e.data.nom)
+    }
     else if (e.data.type === 'selectionner' && dev) { var el = depuisChemin(e.data.chemin || []); if (el) choisir(el, !!e.data.defiler); else deselectionner() }
   })
 

@@ -5,7 +5,7 @@
  * Le panneau n'appelle pas l'API : il émet des opérations que l'éditeur envoie au serveur.
  */
 import { computed, ref, watch } from 'vue'
-import type { BlocDev } from '@/services/editeur.service'
+import type { BlocDev, ThemeDev, VariableTheme } from '@/services/editeur.service'
 
 export interface SelectionDev {
   chemin: number[]
@@ -26,12 +26,12 @@ export interface AlerteDev { chemin: number[]; texte: string }
 export type OperationDev =
   | { op: 'flags'; flags: Record<string, string | number | boolean | null> }
   | { op: 'texte'; valeur: string }
-  | { op: 'attribut'; nom: 'alt' | 'href' | 'title'; valeur: string | null }
+  | { op: 'attribut'; nom: 'alt' | 'href' | 'title' | 'class'; valeur: string | null }
   | { op: 'supprimer' }
   | { op: 'dupliquer' }
   | { op: 'deplacer'; sens: 'haut' | 'bas' }
 
-const props = defineProps<{ selection: SelectionDev | null; flags: FlagPage[]; alertes: AlerteDev[]; occupe: boolean; blocs: BlocDev[] }>()
+const props = defineProps<{ selection: SelectionDev | null; flags: FlagPage[]; alertes: AlerteDev[]; occupe: boolean; blocs: BlocDev[]; theme: ThemeDev | null }>()
 const emit = defineEmits<{
   operation: [o: OperationDev, confirmer?: string]
   selectionner: [chemin: number[]]
@@ -41,9 +41,57 @@ const emit = defineEmits<{
   inserer: [id: string]
   enregistrer: [nom: string]
   'supprimer-bloc': [bloc: BlocDev]
+  'theme-charger': []
+  'theme-apercu': [nom: string, valeur: string | null]
+  'theme-enregistrer': [modifs: { fichier: string; nom: string; valeur: string }[]]
 }>()
 
-const onglet = ref<'element' | 'blocs' | 'flags'>('element')
+const onglet = ref<'element' | 'blocs' | 'theme' | 'flags'>('element')
+watch(onglet, (o) => { if (o === 'theme') emit('theme-charger') })
+
+// ---------- thème ----------
+// valeurs en cours de modification, par « fichier|nom »
+const brouillonTheme = ref<Record<string, string>>({})
+const cleVar = (v: { fichier: string; nom: string }) => `${v.fichier}|${v.nom}`
+const valeurVar = (v: VariableTheme) => brouillonTheme.value[cleVar(v)] ?? v.valeur
+const themeModifie = computed(() => Object.keys(brouillonTheme.value).length)
+const groupesSite = computed(() => {
+  const g = new Map<string, VariableTheme[]>()
+  for (const v of props.theme?.site ?? []) g.set(v.fichier, [...(g.get(v.fichier) ?? []), v])
+  return [...g.entries()]
+})
+watch(() => props.theme, () => { brouillonTheme.value = {} })
+function changerVar(v: VariableTheme, valeur: string) {
+  const k = cleVar(v)
+  const copie = { ...brouillonTheme.value }
+  if (valeur === v.valeur) delete copie[k]; else copie[k] = valeur
+  brouillonTheme.value = copie
+  emit('theme-apercu', v.nom, valeur.trim() || null)
+}
+/** Une couleur que le sélecteur sait afficher (#rgb ou #rrggbb). */
+function hexDe(valeur: string): string | null {
+  const v = valeur.trim()
+  if (/^#[0-9a-f]{6}$/i.test(v)) return v.toLowerCase()
+  if (/^#[0-9a-f]{3}$/i.test(v)) return `#${v.slice(1).split('').map((c) => c + c).join('')}`.toLowerCase()
+  if (/^(white|#fff)$/i.test(v)) return '#ffffff'
+  if (/^black$/i.test(v)) return '#000000'
+  return null
+}
+function annulerTheme() {
+  for (const k of Object.keys(brouillonTheme.value)) {
+    const [fichier, nom] = k.split('|')
+    const v = [...(props.theme?.site ?? []), ...(props.theme?.bifrost ?? [])].find((x) => x.fichier === fichier && x.nom === nom)
+    emit('theme-apercu', nom as string, v?.valeur ?? null)
+  }
+  brouillonTheme.value = {}
+}
+function enregistrerTheme() {
+  const modifs = Object.entries(brouillonTheme.value).map(([k, valeur]) => {
+    const [fichier, nom] = k.split('|')
+    return { fichier: fichier as string, nom: nom as string, valeur }
+  }).filter((m) => m.valeur.trim())
+  if (modifs.length) emit('theme-enregistrer', modifs)
+}
 
 // ---------- bibliothèque de sections ----------
 const blocsFournis = computed(() => props.blocs.filter((b) => !b.perso))
@@ -62,14 +110,14 @@ function enregistrerBloc() {
 }
 
 // ---------- formulaire de l'élément ----------
-const f = ref({ cle: '', type: '', liste: '', limite: '', element: false, modele: '', texte: '', alt: '', href: '', title: '' })
+const f = ref({ cle: '', type: '', liste: '', limite: '', element: false, modele: '', texte: '', alt: '', href: '', title: '', classes: '' })
 function remplir(s: SelectionDev | null) {
   if (!s) return
   const g = (n: string) => (typeof s.flags[n] === 'string' ? s.flags[n] as string : '')
   f.value = {
     cle: g('data-bf'), type: g('data-bf-type'), liste: g('data-bf-liste'), limite: g('data-bf-limite'),
     element: !!s.flags['data-bf-element'], modele: g('data-bf-page'),
-    texte: s.texte, alt: s.attributs.alt ?? '', href: s.attributs.href ?? '', title: s.attributs.title ?? '',
+    texte: s.texte, alt: s.attributs.alt ?? '', href: s.attributs.href ?? '', title: s.attributs.title ?? '', classes: s.attributs.class ?? '',
   }
 }
 watch(() => props.selection, (s) => { remplir(s); if (s) onglet.value = 'element' }, { immediate: true })
@@ -114,10 +162,12 @@ function retirerFlags() {
 function appliquerTexte() {
   if (s.value && f.value.texte.trim() !== s.value.texte) emit('operation', { op: 'texte', valeur: f.value.texte })
 }
-function appliquerAttribut(nom: 'alt' | 'href' | 'title') {
+function appliquerAttribut(nom: 'alt' | 'href' | 'title' | 'class') {
   const avant = s.value?.attributs[nom] ?? ''
-  if (f.value[nom].trim() === avant) return
-  emit('operation', { op: 'attribut', nom, valeur: f.value[nom].trim() || (nom === 'alt' ? '' : null) })
+  const champ = nom === 'class' ? 'classes' : nom
+  const v = f.value[champ].trim().replace(/\s+/g, ' ')
+  if (v === avant) return
+  emit('operation', { op: 'attribut', nom, valeur: v || (nom === 'alt' ? '' : null) })
 }
 function parent(i: number) {
   if (s.value) emit('selectionner', s.value.chemin.slice(0, i + 1))
@@ -141,6 +191,7 @@ const memeChemin = (a: number[] | null | undefined, b: number[]) => !!a && a.len
     <div class="pd-onglets" role="tablist">
       <button type="button" role="tab" :aria-selected="onglet === 'element'" @click="onglet = 'element'">Élément</button>
       <button type="button" role="tab" :aria-selected="onglet === 'blocs'" @click="onglet = 'blocs'">Blocs</button>
+      <button type="button" role="tab" :aria-selected="onglet === 'theme'" @click="onglet = 'theme'">Thème</button>
       <button type="button" role="tab" :aria-selected="onglet === 'flags'" title="Flags de la page" @click="onglet = 'flags'">
         Flags <span class="pd-compte">{{ flags.length }}</span><span v-if="alertes.length" class="pd-compte pd-compte--alerte" :title="`${alertes.length} point(s) à vérifier`">⚠ {{ alertes.length }}</span>
       </button>
@@ -225,8 +276,12 @@ const memeChemin = (a: number[] | null | undefined, b: number[]) => !!a && a.len
           <button type="button" class="pd-btn" :disabled="!flagsModifies || !formulaireValide || occupe" @click="appliquerFlags">Appliquer</button>
         </div>
 
-        <section v-if="s.feuille || s.balise === 'img' || s.balise === 'a'" class="pd-bloc">
-          <h3>Contenu</h3>
+        <section class="pd-bloc">
+          <h3>Contenu et style</h3>
+          <label class="pd-champ">
+            <span>Classes CSS <small>class</small></span>
+            <input v-model="f.classes" spellcheck="false" placeholder="ex. section section--papier" :aria-invalid="!/^[\w\s-]*$/.test(f.classes)" @blur="appliquerAttribut('class')" @keydown.enter.prevent="appliquerAttribut('class')">
+          </label>
           <label v-if="s.feuille" class="pd-champ">
             <span>Texte</span>
             <textarea v-model="f.texte" rows="3" @blur="appliquerTexte" />
@@ -275,6 +330,40 @@ const memeChemin = (a: number[] | null | undefined, b: number[]) => !!a && a.len
       </ul>
     </div>
 
+    <!-- Thème : variables CSS -->
+    <div v-else-if="onglet === 'theme'" class="pd-corps">
+      <p v-if="!theme" class="pd-vide">Chargement…</p>
+      <template v-else>
+        <p class="pd-note pd-note--haut">Les changements s’affichent tout de suite dans l’aperçu ; « Enregistrer » les écrit dans le brouillon.</p>
+        <section v-for="[fichier, vars] in groupesSite" :key="fichier" class="pd-bloc">
+          <h3>Variables du site <small class="pd-mono">{{ fichier }}</small></h3>
+          <label v-for="v in vars" :key="v.nom" class="pd-var">
+            <span class="pd-mono">{{ v.nom }}</span>
+            <span class="pd-ligne">
+              <input v-if="hexDe(valeurVar(v))" type="color" class="pd-couleur" :value="hexDe(valeurVar(v))" :aria-label="`Couleur ${v.nom}`" @input="changerVar(v, ($event.target as HTMLInputElement).value)">
+              <input class="pd-saisie" :value="valeurVar(v)" spellcheck="false" :class="{ 'pd-modifie': brouillonTheme[cleVar(v)] !== undefined }" @input="changerVar(v, ($event.target as HTMLInputElement).value)">
+            </span>
+          </label>
+        </section>
+        <p v-if="!groupesSite.length" class="pd-note">Aucune variable « :root { --… } » dans les feuilles du site.</p>
+        <section class="pd-bloc">
+          <h3>Sections Bifrost</h3>
+          <p class="pd-note">Valeurs utilisées par les blocs ajoutés. On peut reprendre une couleur du site : <code>var(--vert)</code>.</p>
+          <label v-for="v in theme.bifrost" :key="v.nom" class="pd-var">
+            <span>{{ v.libelle }} <small class="pd-mono">{{ v.nom }}</small></span>
+            <span class="pd-ligne">
+              <input v-if="hexDe(valeurVar(v))" type="color" class="pd-couleur" :value="hexDe(valeurVar(v))" :aria-label="`Couleur ${v.libelle}`" @input="changerVar(v, ($event.target as HTMLInputElement).value)">
+              <input class="pd-saisie" :value="valeurVar(v)" :placeholder="v.defaut" spellcheck="false" :class="{ 'pd-modifie': brouillonTheme[cleVar(v)] !== undefined }" @input="changerVar(v, ($event.target as HTMLInputElement).value)">
+            </span>
+          </label>
+        </section>
+        <div class="pd-boutons pd-boutons--colle">
+          <button v-if="themeModifie" type="button" class="pd-btn pd-btn--clair" :disabled="occupe" @click="annulerTheme">Annuler</button>
+          <button type="button" class="pd-btn" :disabled="!themeModifie || occupe" @click="enregistrerTheme">Enregistrer{{ themeModifie ? ` (${themeModifie})` : '' }}</button>
+        </div>
+      </template>
+    </div>
+
     <!-- Tous les flags de la page -->
     <div v-else class="pd-corps">
       <ul v-if="alertes.length" class="pd-alertes">
@@ -295,7 +384,7 @@ const memeChemin = (a: number[] | null | undefined, b: number[]) => !!a && a.len
 <style scoped>
 .pd { width: 340px; flex: none; display: flex; flex-direction: column; min-height: 0; background: var(--bf-surface); backdrop-filter: blur(18px); border-left: 1px solid var(--bf-bord); font-size: 13px; }
 .pd-onglets { display: flex; align-items: center; gap: 4px; padding: 8px; border-bottom: 1px solid var(--bf-bord); }
-.pd-onglets button { border: 0; background: none; color: var(--bf-doux); font: inherit; font-weight: 600; padding: 7px 10px; border-radius: 999px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
+.pd-onglets button { border: 0; background: none; color: var(--bf-doux); font: inherit; font-weight: 600; padding: 7px 8px; border-radius: 999px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
 .pd-onglets button[aria-selected='true'] { background: var(--bf-verre-fort); color: var(--bf-fort); }
 .pd-onglets .pd-fermer { margin-left: auto; }
 .pd-compte { font-size: 11px; padding: 1px 6px; border-radius: 999px; background: var(--bf-verre-fort); }
@@ -345,6 +434,12 @@ kbd { font: 600 11px ui-monospace, Consolas, monospace; padding: 1px 5px; border
 .pd-bloc-perso { position: relative; }
 .pd-bloc-suppr { position: absolute; top: 4px; right: 4px; border: 0; background: none; color: var(--bf-doux); cursor: pointer; border-radius: 999px; width: 24px; height: 24px; }
 .pd-bloc-suppr:hover { color: var(--bf-danger); background: var(--bf-verre-fort); }
+.pd-var { display: grid; gap: 4px; font-weight: 600; }
+.pd-var small { font-weight: 500; font-size: 11px; color: var(--bf-pale); margin-left: 4px; }
+.pd-couleur { flex: none; width: 38px; height: 34px; padding: 2px; border: 1px solid var(--bf-bord-fort); border-radius: 9px; background: var(--bf-champ); cursor: pointer; }
+.pd-modifie { border-color: var(--bf-violet) !important; }
+.pd-bloc h3 small { text-transform: none; letter-spacing: 0; }
+.pd-boutons--colle { position: sticky; bottom: -20px; padding: 10px 0; background: var(--bf-surface); }
 .pd-ignore { opacity: .5; text-decoration: line-through; }
 @media (max-width: 900px) {
   .pd { position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: 48vh; border-left: 0; border-top: 1px solid var(--bf-bord); border-radius: 18px 18px 0 0; z-index: 20; box-shadow: 0 -16px 40px rgba(0, 0, 0, .35); }

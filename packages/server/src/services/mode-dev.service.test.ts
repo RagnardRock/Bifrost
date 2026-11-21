@@ -107,3 +107,11 @@ describe('sections toutes faites', () => {
     expect(d.extraire(page.replace('a.jpg', '../medias/a.jpg'), 'actualites/a.html', img)).toBe('<img src="medias/a.jpg">')
   })
 })
+
+describe('classes CSS', () => {
+  it('règle les classes d’un élément et refuse les caractères spéciaux', () => {
+    const r = d.operation(page, { chemin: [1], balises: ['section'] }, { op: 'attribut', nom: 'class', valeur: 'section--sombre large' })
+    expect(r.html).toContain('<section id="tarifs" class="section--sombre large">')
+    expect(() => d.operation(page, { chemin: [1], balises: ['section'] }, { op: 'attribut', nom: 'class', valeur: 'a" onclick="x' })).toThrow()
+  })
+})
