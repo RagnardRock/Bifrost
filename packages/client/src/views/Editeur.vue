@@ -10,6 +10,7 @@ import { adresseSite } from '@/services/suivi.service'
 import { comptesService, type MonSite } from '@/services/comptes.service'
 import { useAuthStore } from '@/stores/auth.store'
 import { useUIStore } from '@/stores/ui.store'
+import PanneauDev, { type SelectionDev, type FlagPage, type AlerteDev, type OperationDev } from '@/components/editeur/PanneauDev.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -76,6 +77,48 @@ function recharger() {
   setTimeout(() => (cle.value++), 30)
 }
 
+// ---------- mode dev (compte du développeur) ----------
+const lireModeDev = () => { try { return localStorage.getItem('bf-mode-dev') === '1' } catch { return false } }
+const modeDev = ref(lireModeDev())
+const devActif = computed(() => !!etat.value?.moi.dev && modeDev.value)
+const selectionDev = ref<SelectionDev | null>(null)
+const flagsPage = ref<FlagPage[]>([])
+const alertesPage = ref<AlerteDev[]>([])
+// élément à resélectionner quand l'aperçu se recharge après une opération
+let aReselectionner: number[] | null = null
+function versCadre(msg: Record<string, unknown>) {
+  // copie simple : les tableaux réactifs de Vue ne passent pas par postMessage
+  cadre.value?.contentWindow?.postMessage(JSON.parse(JSON.stringify({ source: 'bifrost-parent', ...msg })), '*')
+}
+function basculerModeDev() {
+  modeDev.value = !modeDev.value
+  try { localStorage.setItem('bf-mode-dev', modeDev.value ? '1' : '0') } catch { /* stockage indisponible */ }
+  if (!modeDev.value) selectionDev.value = null
+  versCadre({ type: 'mode', dev: devActif.value })
+}
+function selectionnerDev(chemin: number[]) { versCadre({ type: 'selectionner', chemin, defiler: true }) }
+async function operationDev(chemin: number[], balises: string[], operation: OperationDev, confirmerTexte?: string) {
+  const faire = async () => {
+    occupe.value = true
+    try {
+      const r = await editeurService.dev(siteId.value, { page: page.value, chemin, balises, operation })
+      aReselectionner = r.chemin
+      if (!r.chemin) selectionDev.value = null
+      await rafraichirEtat()
+      recharger()
+      informer('Enregistré dans le brouillon')
+    } finally {
+      occupe.value = false
+    }
+  }
+  if (confirmerTexte) confirmation.value = { texte: confirmerTexte, action: faire }
+  else await faire().catch((err) => echec(err))
+}
+function depuisPanneau(o: OperationDev, confirmerTexte?: string) {
+  const sel = selectionDev.value
+  if (sel) void operationDev(sel.chemin, sel.balises, o, confirmerTexte)
+}
+
 // ---------- messages venant de l'aperçu ----------
 const champImage = ref<{ cle: string; liste: string | null; index: number | null } | null>(null)
 const choixImage = ref<HTMLInputElement | null>(null)
@@ -90,6 +133,20 @@ async function surMessage(e: MessageEvent) {
       page.value = m.page
       titrePage.value = (m.titre || '').split('|')[0].trim()
       modele.value = m.modele
+      if (etat.value?.moi.dev) {
+        versCadre({ type: 'mode', dev: devActif.value })
+        if (devActif.value && aReselectionner) versCadre({ type: 'selectionner', chemin: aReselectionner })
+        else selectionDev.value = null
+        aReselectionner = null
+      }
+    } else if (m.type === 'selection') {
+      selectionDev.value = m.chemin ? m as SelectionDev : null
+    } else if (m.type === 'flags-page') {
+      flagsPage.value = m.flags
+      alertesPage.value = m.alertes
+    } else if (m.type === 'dev') {
+      if (!devActif.value) return
+      await operationDev(m.chemin, m.balises, m.operation, m.demanderConfirmation ? 'Supprimer cet élément et tout ce qu’il contient ?' : undefined)
     } else if (m.type === 'champ') {
       if (m.liste) await editeurService.operationListe(siteId.value, { page: m.page, nom: m.liste, op: 'modifier', index: m.index, cle: m.cle, valeur: m.valeur })
       else await editeurService.modifierChamp(siteId.value, m.cle, m.valeur)
@@ -270,6 +327,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
         </div>
       </div>
       <div class="ed-actions">
+        <button v-if="etat?.moi.dev" class="ed-btn ed-btn--icone ed-btn--dev" type="button" :aria-pressed="devActif" :title="devActif ? 'Revenir au mode client' : 'Mode dev : sélectionner n’importe quel élément, poser des flags'" @click="basculerModeDev">🛠️<span class="ed-btn-texte">{{ devActif ? 'Mode dev' : 'Dev' }}</span></button>
         <button class="ed-btn ed-btn--clair" type="button" @click="ouvrirNouvelle">+ Actualité</button>
         <button class="ed-btn ed-btn--icone" type="button" :aria-pressed="vueMobile" title="Voir comme sur un téléphone" @click="vueMobile = !vueMobile">📱</button>
         <router-link :to="lienMonSite" class="ed-btn ed-btn--clair ed-btn--badge ed-mon-site" :title="responsable && etat?.messagesNonLus ? `Messages, équipe, réglages (${etat.messagesNonLus} message${etat.messagesNonLus > 1 ? 's' : ''} non lu${etat.messagesNonLus > 1 ? 's' : ''})` : 'Messages, équipe, réglages et compte'">
@@ -291,7 +349,8 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
     </header>
 
     <div class="ed-aide">
-      <p class="ed-astuce"><span aria-hidden="true">✎</span> Cliquez sur un texte pour le modifier, sur une photo pour la changer. Survolez une actualité pour la déplacer ou la supprimer.</p>
+      <p v-if="devActif" class="ed-astuce"><span aria-hidden="true">🛠️</span> Mode dev : cliquez sur n’importe quel élément pour le sélectionner, double-cliquez pour modifier son texte. Échap remonte au parent.</p>
+      <p v-else class="ed-astuce"><span aria-hidden="true">✎</span> Cliquez sur un texte pour le modifier, sur une photo pour la changer. Survolez une actualité pour la déplacer ou la supprimer.</p>
       <div class="ed-raccourcis">
         <button v-if="nbModifs && responsable" type="button" class="ed-pastille ed-pastille--danger" @click="abandonner">Effacer mes modifications</button>
         <a :href="adresseSite(etat?.site ?? { id: siteId })" target="_blank" rel="noopener" class="ed-pastille">Voir le site <span aria-hidden="true">↗</span></a>
@@ -301,9 +360,13 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
       </div>
     </div>
 
-    <main class="ed-scene" :class="{ 'ed-scene--mobile': vueMobile }">
-      <iframe v-if="etat" :key="cle" ref="cadre" :src="src" title="Votre site" class="ed-cadre" />
-    </main>
+    <div class="ed-zone">
+      <main class="ed-scene" :class="{ 'ed-scene--mobile': vueMobile }">
+        <iframe v-if="etat" :key="cle" ref="cadre" :src="src" title="Votre site" class="ed-cadre" />
+      </main>
+      <PanneauDev v-if="devActif" :selection="selectionDev" :flags="flagsPage" :alertes="alertesPage" :occupe="occupe"
+        @operation="depuisPanneau" @selectionner="selectionnerDev" @fermer="basculerModeDev" />
+    </div>
 
     <input ref="choixImage" type="file" accept="image/*" hidden @change="surImage">
 
@@ -410,7 +473,10 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 .ed-pastille:hover { background: var(--bf-verre-fort); color: var(--bf-fort); }
 .ed-pastille--danger { color: var(--bf-danger); }
 .ed-pastille--danger:hover { background: rgba(248, 113, 113, .12); color: var(--bf-danger); }
-.ed-scene { flex: 1; display: flex; justify-content: center; padding: 0; overflow: hidden; background: transparent; }
+.ed-zone { flex: 1; display: flex; min-height: 0; }
+.ed-btn--dev { display: inline-flex; align-items: center; gap: 6px; }
+.ed-btn--dev[aria-pressed='true'] { background: rgba(139, 92, 246, .35); color: var(--bf-fort); }
+.ed-scene { flex: 1; min-width: 0; display: flex; justify-content: center; padding: 0; overflow: hidden; background: transparent; }
 .ed-cadre { width: 100%; height: 100%; border: 0; background: #fff; transition: width .25s; }
 .ed-scene--mobile { padding: 20px 0; }
 .ed-scene--mobile .ed-cadre { width: 390px; border-radius: 24px; box-shadow: 0 0 0 10px #222, 0 20px 60px rgba(0, 0, 0, .5); }
