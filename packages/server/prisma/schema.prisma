@@ -18,6 +18,8 @@ model Admin {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  jetonsDev JetonDev[]
+
   @@map("admins")
 }
 
@@ -234,4 +236,19 @@ model Message {
 
   @@index([siteId, createdAt])
   @@map("messages")
+}
+
+// Jeton d'accès d'un outil du dev (Rune) : long, révocable, seule son empreinte SHA-256 est gardée
+model JetonDev {
+  id           String    @id @default(uuid())
+  adminId      String    @map("admin_id")
+  appareil     String    @default("Rune")
+  hash         String    @unique
+  dernierUsage DateTime? @map("dernier_usage")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@map("jetons_dev")
 }
