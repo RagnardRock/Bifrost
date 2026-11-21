@@ -10,9 +10,9 @@ export const authController = {
    */
   async adminLogin(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email, password } = req.body as LoginInput
+      const { email, password, code } = req.body as LoginInput
 
-      const result = await authService.adminLogin(email, password)
+      const result = await authService.adminLogin(email, password, code)
 
       res.json(success(result))
     } catch (error) {

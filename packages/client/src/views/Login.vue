@@ -6,14 +6,18 @@
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
-import { comptesService, type ChoixSites } from '@/services/comptes.service'
+import { comptesService, codeDemande, type ChoixSites } from '@/services/comptes.service'
 
 const route = useRoute()
 const auth = useAuthStore()
 
 const mode = ref<'connexion' | 'oubli' | 'oubli-envoye'>('connexion')
-const email = ref('')
+const email = ref((route.query.email as string) || '')
 const motDePasse = ref('')
+// Double authentification : le champ apparaît quand le serveur le demande
+const code = ref('')
+const avecCode = ref(false)
+const info = ref(route.query.info === 'mot-de-passe' ? 'Mot de passe enregistré. Connectez-vous avec votre code d’authentification.' : '')
 const erreur = ref('')
 const occupe = ref(false)
 const choix = ref<ChoixSites['sites'] | null>(null)
@@ -22,14 +26,21 @@ async function seConnecter(siteId?: string) {
   erreur.value = ''
   occupe.value = true
   try {
-    const r = await comptesService.connexion(email.value, motDePasse.value, siteId || (route.query.site as string) || undefined)
+    const r = await comptesService.connexion(email.value, motDePasse.value, siteId || (route.query.site as string) || undefined, code.value)
     if ('sites' in r) choix.value = r.sites
     else auth.ouvrirSession(r)
   } catch (e: any) {
+    if (codeDemande(e)) {
+      avecCode.value = true
+      choix.value = null
+      erreur.value = ''
+      setTimeout(() => document.getElementById('code')?.focus(), 50)
+      return
+    }
     // un ?site= ancien ne doit pas bloquer : on réessaie sans
     if (!siteId && route.query.site && e?.response?.status === 401) {
       try {
-        const r = await comptesService.connexion(email.value, motDePasse.value)
+        const r = await comptesService.connexion(email.value, motDePasse.value, undefined, code.value)
         if ('sites' in r) choix.value = r.sites
         else auth.ouvrirSession(r)
         return
@@ -81,6 +92,12 @@ async function demanderLien() {
           <label for="mdp" class="block text-sm font-medium mb-2">Mot de passe</label>
           <input id="mdp" v-model="motDePasse" type="password" required autocomplete="current-password" class="input-field">
         </div>
+        <div v-if="avecCode">
+          <label for="code" class="block text-sm font-medium mb-2">Code de vérification</label>
+          <input id="code" v-model="code" required inputmode="numeric" autocomplete="one-time-code" maxlength="20" class="input-field code" placeholder="123 456">
+          <p class="text-xs text-gray-500 mt-2">Le code à 6 chiffres de votre appli d’authentification, ou un code de secours.</p>
+        </div>
+        <div v-if="info && !erreur" class="text-green-600 text-sm text-center" role="status">{{ info }}</div>
         <div v-if="erreur" class="text-red-500 text-sm text-center" role="alert">{{ erreur }}</div>
         <button type="submit" :disabled="occupe" class="btn-primary w-full">{{ occupe ? 'Connexion…' : 'Se connecter' }}</button>
         <button type="button" class="block mx-auto text-sm text-blue-500 hover:underline" @click="mode = 'oubli'; erreur = ''">Mot de passe oublié ?</button>
@@ -107,4 +124,8 @@ async function demanderLien() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.code { font-size: 20px; letter-spacing: .2em; text-align: center; font-variant-numeric: tabular-nums; }
+</style>
 

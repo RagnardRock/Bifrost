@@ -74,6 +74,18 @@ async function reimporter() {
   }
 }
 
+// ---------- double authentification d'un membre ----------
+async function retirerDoubleAuth(m: Membre) {
+  if (!window.confirm(`Retirer la double authentification de ${m.email} ? À faire seulement si la personne a perdu son téléphone et ses codes de secours. Elle pourra la réactiver depuis « Mon compte ».`)) return
+  try {
+    await suiviService.reinitialiserDoubleAuth(m.id)
+    message.value = 'Double authentification retirée'
+    equipe.value = await editeurService.equipe(id.value).catch(() => null)
+  } catch (e: any) {
+    erreur.value = e?.response?.data?.error?.message || 'Impossible.'
+  }
+}
+
 // ---------- client, pause, export, suppression ----------
 const clients = ref<Client[]>([])
 const clientChoisi = ref('')
@@ -186,7 +198,10 @@ onMounted(async () => { await charger(); await chargerClients() })
             </div>
             <p v-if="equipe && !equipe.membres.length" class="text-sm text-gray-500">Personne pour l’instant. Invitez le client depuis l’éditeur, bouton « Mon site ».</p>
             <ul v-if="equipe" class="lignes">
-              <li v-for="m in equipe.membres" :key="m.id"><div><strong>{{ m.email }}</strong><span>{{ ROLES[m.role] }} · depuis {{ ilYa(m.createdAt) }}</span></div></li>
+              <li v-for="m in equipe.membres" :key="m.id" class="membre">
+                <div><strong>{{ m.email }}</strong><span>{{ ROLES[m.role] }} · depuis {{ ilYa(m.createdAt) }}<template v-if="m.doubleAuth"> · 🔒 double authentification</template></span></div>
+                <button v-if="m.doubleAuth" type="button" class="text-xs text-red-500 hover:underline" title="Si la personne a perdu son téléphone et ses codes de secours" @click="retirerDoubleAuth(m)">Retirer la 2FA</button>
+              </li>
               <li v-for="i in equipe.invitations" :key="i.id" class="opacity-60"><div><strong>{{ i.email }}</strong><span>Invité · {{ ROLES[i.role] }}</span></div></li>
             </ul>
           </section>
@@ -289,6 +304,9 @@ onMounted(async () => { await charger(); await chargerClients() })
 .lignes li { padding: 10px 12px; border-radius: 10px; background: var(--bf-verre); }
 .lignes strong { display: block; font-size: 14px; overflow-wrap: anywhere; }
 .lignes span { font-size: 12.5px; color: var(--bf-doux); }
+.membre { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.membre > div { min-width: 0; }
+.membre button { flex: none; }
 .fichiers { list-style: none; margin: 0; padding: 0; font-family: ui-monospace, monospace; font-size: 12.5px; display: grid; gap: 4px; max-height: 260px; overflow: auto; }
 .fichiers span { display: inline-block; width: 70px; font-family: system-ui, sans-serif; font-size: 11px; font-weight: 600; }
 .ajout { color: var(--bf-ok); }

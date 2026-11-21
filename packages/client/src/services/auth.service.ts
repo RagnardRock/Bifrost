@@ -1,9 +1,12 @@
 import { api } from './api'
 import type { LoginResponse, ApiResponse } from '@bifrost/shared'
+import type { ApiDoubleAuth, EtatDoubleAuth } from './comptes.service'
 
 interface AdminLoginInput {
   email: string
   password: string
+  /** Code de double authentification, si elle est active */
+  code?: string
 }
 
 interface MeResponse {
@@ -31,3 +34,12 @@ export const authService = {
     return response.data
   },
 }
+
+/** Double authentification du compte dev. */
+export const doubleAuthDev = {
+  etat: () => api.get('/auth/double-auth').then((r: any) => r.data as EtatDoubleAuth),
+  preparer: () => api.post('/auth/double-auth/preparer').then((r: any) => r.data as { secret: string; adresse: string }),
+  activer: (code: string) => api.post('/auth/double-auth/activer', { code }).then((r: any) => r.data as { codes: string[] }),
+  desactiver: (motDePasse: string, code: string) => api.post('/auth/double-auth/desactiver', { motDePasse, code }),
+  codes: (code: string) => api.post('/auth/double-auth/codes', { code }).then((r: any) => r.data as { codes: string[] }),
+} satisfies ApiDoubleAuth

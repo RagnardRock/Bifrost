@@ -9,6 +9,7 @@ import { success } from '../utils/response'
 import * as comptes from '../services/comptes.service'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { Errors } from '../utils/errors'
+import { routesDoubleAuth } from './double-auth.routes'
 
 const router = Router()
 
@@ -37,8 +38,8 @@ router.use(rateLimit({
 export const motDePasse = z.string().min(10, 'Le mot de passe doit faire au moins 10 caractères').max(200)
 
 router.post('/connexion', action(async (req) => {
-  const b = z.object({ email: z.string().email(), motDePasse: z.string().min(1).max(200), siteId: z.string().min(1).max(80).optional() }).parse(req.body)
-  return comptes.connexion(b.email, b.motDePasse, b.siteId)
+  const b = z.object({ email: z.string().email(), motDePasse: z.string().min(1).max(200), siteId: z.string().min(1).max(80).optional(), code: z.string().trim().max(20).optional() }).parse(req.body)
+  return comptes.connexion(b.email, b.motDePasse, b.siteId, b.code)
 }))
 
 router.post('/oubli', action(async (req) => comptes.oubli(z.object({ email: z.string().email() }).parse(req.body).email)))
@@ -50,6 +51,9 @@ router.post('/mot-de-passe', authMiddleware, action(async (req) => {
   const b = z.object({ actuel: z.string().min(1).max(200), nouveau: motDePasse }).parse(req.body)
   return comptes.changerMotDePasse(client(req), req.user?.siteId, b.actuel, b.nouveau)
 }))
+
+// Client connecté : double authentification (tentatives limitées ci-dessus)
+router.use('/double-auth', authMiddleware, routesDoubleAuth((req) => ({ genre: 'user', id: client(req) })))
 
 router.post('/acces/:jeton', action(async (req) => comptes.utiliserJeton(jeton(req), z.object({ motDePasse }).parse(req.body).motDePasse)))
 
