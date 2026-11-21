@@ -20,6 +20,8 @@ import { verifierConnexion } from '../services/double-auth.service'
 import * as blocs from '../services/blocs.service'
 import * as modeDev from '../services/mode-dev.service'
 import fs from 'fs/promises'
+import path from 'path'
+import * as outils from '../services/outils.service'
 
 const router = Router()
 
@@ -109,6 +111,55 @@ router.post('/blocs/:bloc/preparer', action(async (req) => {
   const fichiers: Record<string, string> = {}
   for (const [cible, source] of Object.entries(blocs.fichiersDuBloc(html))) fichiers[cible] = await fs.readFile(source, 'utf-8')
   return { html, fichiers, feuille: fichiers['assets/bifrost-blocs.css'] ? 'assets/bifrost-blocs.css' : null }
+}))
+
+// ---------- outils du mode dev sur le dossier local du dev (Rune) ----------
+// Rune envoie les textes de ses pages (et feuilles), Bifrost renvoie les fichiers à écrire et à supprimer.
+// Même moteur que l'onglet Pages et l'onglet Thème du mode dev ; rien n'est gardé côté serveur.
+const schemaFichiers = z.record(z.string(), z.string().max(5_000_000))
+  .refine((f) => Object.keys(f).length <= 5000 && Object.keys(f).every(outils.cheminValide), 'Chemins de fichiers invalides')
+const schemaPage = z.string().min(1).max(300)
+
+router.post('/outils/pages/creer', action(async (req) => {
+  const b = z.object({ fichiers: schemaFichiers, titre: z.string().trim().min(1).max(120), chemin: schemaPage.optional(), depuis: schemaPage.optional(), menu: z.boolean().default(true) }).parse(req.body)
+  return outils.creerPage(b.fichiers, b)
+}))
+router.post('/outils/pages/renommer', action(async (req) => {
+  const b = z.object({ fichiers: schemaFichiers, page: schemaPage, nouveau: schemaPage }).parse(req.body)
+  return outils.renommerPage(b.fichiers, b.page, b.nouveau)
+}))
+router.post('/outils/pages/supprimer', action(async (req) => {
+  const b = z.object({ fichiers: schemaFichiers, page: schemaPage }).parse(req.body)
+  return outils.supprimerPage(b.fichiers, b.page)
+}))
+router.post('/outils/theme/lire', action(async (req) => {
+  const b = z.object({ fichiers: schemaFichiers }).parse(req.body)
+  return outils.lireTheme(b.fichiers)
+}))
+router.post('/outils/theme/ecrire', action(async (req) => {
+  const b = z.object({
+    fichiers: schemaFichiers,
+    modifs: z.array(z.object({ fichier: z.string().min(1).max(300), nom: z.string().regex(/^--[a-zA-Z0-9_-]{1,60}$/), valeur: z.string().max(300) })).min(1).max(100),
+  }).parse(req.body)
+  return outils.ecrireTheme(b.fichiers, b.modifs)
+}))
+
+// Modèles de site fournis avec Bifrost (artisan, restaurant…), pour « Nouveau projet depuis un modèle » dans Rune
+router.get('/modeles', action(async () => fichiers.listerModeles()))
+router.get('/modeles/:id', action(async (req) => {
+  const id = String(req.params.id)
+  const dossier = path.join(fichiers.dossierModeles, id)
+  if (!/^[a-z0-9-]{1,60}$/.test(id)) throw Errors.notFound('Modèle')
+  const res: Record<string, string> = {}
+  async function parcourir(d: string) {
+    for (const e of await fs.readdir(d, { withFileTypes: true }).catch(() => { throw Errors.notFound('Modèle') })) {
+      const p = path.join(d, e.name)
+      if (e.isDirectory()) await parcourir(p)
+      else if (e.name !== 'modele.json') res[path.relative(dossier, p).split(path.sep).join('/')] = (await fs.readFile(p)).toString('base64')
+    }
+  }
+  await parcourir(dossier)
+  return { fichiers: res }
 }))
 
 // ---------- un site (par son nom court ou son identifiant) ----------

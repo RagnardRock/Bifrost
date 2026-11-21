@@ -12,6 +12,7 @@ import type { Element } from 'domhandler'
 import path from 'path'
 import { charger, versRacine, depuisRacine } from './flags.service'
 import { Errors } from '../utils/errors'
+import { Retouche } from './retouche'
 
 export interface Cible { chemin: number[]; balises: string[] }
 
@@ -213,8 +214,17 @@ export function inserer(html: string, cheminPage: string, cible: Cible | null, b
 /** Ajoute la feuille de style des blocs dans <head> si elle n'y est pas. */
 export function lierFeuilleBlocs(html: string, cheminPage: string, fichier = 'assets/bifrost-blocs.css'): string {
   if (html.includes(path.posix.basename(fichier))) return html
-  const $ = charger(html)
   const lien = `<link rel="stylesheet" href="${depuisRacine(fichier, path.posix.dirname(cheminPage))}">`
+  // retouche sur place : le reste du fichier garde sa mise en forme
+  const r = new Retouche(html)
+  const head = r.$('head').first()[0]
+  if (head && r.aUnLieu(head) && r.lieu(head).endTag) {
+    const dernier = r.$(head).children().last()[0]
+    if (dernier && r.aUnLieu(dernier)) r.apres(dernier, lien)
+    else r.dedansALaFin(head, lien)
+    return r.resultat()
+  }
+  const $ = charger(html)
   if ($('head').length) $('head').append(lien + '\n')
   else return lien + html
   return $.html()
