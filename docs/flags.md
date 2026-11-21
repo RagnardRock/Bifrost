@@ -105,7 +105,7 @@ Les images envoyées sont converties en WebP (1600 px max) dans `brouillon/media
 
 - Créer son compte dev : `npm run admin:creer -w @bifrost/server -- <email> <mot-de-passe>`, puis `http://localhost:5173/admin/login`.
 - **Sites** : une carte par site (modifications en attente, membres, dernière publication et son auteur, dernière activité),
-  boutons « Éditer » et « Fiche », et « + Nouveau site » qui crée le site et importe son dossier (chemin sur la machine du serveur).
+  boutons « Éditer » et « Fiche », et « + Nouveau site » qui crée le site depuis son dossier, un ZIP ou un modèle.
 - **Fiche d'un site** : fichiers en attente de publication, publications avec leur auteur, équipe, journal du site,
   nom et adresse en ligne, réimport du dossier après une refonte.
 - **Activité** : le journal de tous les sites (modifications, photos, actualités, publications, annulations, invitations,
@@ -144,6 +144,18 @@ Onglet **Blocs** du panneau dev : en-tête, texte, texte et photo, cartes, galer
   Une valeur peut reprendre une couleur du site : `var(--vert)`.
 - Onglet Élément › **Classes CSS** : les variantes d'une section passent par les classes du site (`section--papier`…), pas par des styles en ligne.
 - Barre du haut : aperçu **ordinateur / tablette (820 px) / téléphone (390 px)**, en mode client comme en mode dev.
+
+### Pages et modèles de site
+
+- Onglet **Pages** du panneau dev : ouvrir, renommer, supprimer une page, et **+ Nouvelle page**.
+  Une nouvelle page reprend l'en-tête, le menu, le pied de page et les feuilles d'une page choisie ; son contenu devient un titre et un texte flaggés.
+  Elle peut être ajoutée au menu de toutes les pages (copie du dernier lien du menu, avec une clé `menu.<page>`).
+- Renommer fait suivre tous les liens du site (ancres comprises) ; supprimer retire la page du menu et signale les autres liens qui y mènent encore.
+  `index.html` ne se renomme ni ne se supprime. Les pages d'une collection (dossier `actualites/`…) restent gérées par leur liste.
+- API : `POST`, `PUT`, `DELETE /api/editeur/<site>/pages`, réservés au compte dev.
+- Espace dev › **+ Nouveau site › Un modèle** : partir d'un modèle fourni (artisan, restaurant, association, cabinet) ou d'un de ses sites (version en ligne).
+  « Vider les listes » garde un élément par liste et retire les pages d'actualités des éléments enlevés.
+- Ajouter un modèle fourni : un dossier `packages/server/modeles/<id>/` (site statique flaggé, variables de couleurs dans `:root`) avec un `modele.json` `{ "nom", "description", "icone", "ordre" }`.
 
 ## Depuis Rune (l'IDE du dev)
 

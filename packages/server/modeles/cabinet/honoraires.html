@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Honoraires | Cabinet Durand &amp; Associés</title>
+  <meta name="description" content="Un cabinet à votre écoute, des conseils clairs.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="lien-evitement" href="#contenu">Aller au contenu</a>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="marque" href="index.html" data-bf="site.nom">Cabinet Durand &amp; Associés</a>
+      <nav class="menu" aria-label="Menu principal">
+        <ul>
+          <li><a href="index.html" data-bf="menu.accueil">Le cabinet</a></li>
+          <li><a href="honoraires.html" data-bf="menu.honoraires" aria-current="page">Honoraires</a></li>
+          <li><a href="contact.html" data-bf="menu.contact">Rendez-vous</a></li>
+        </ul>
+      </nav>
+      <a class="bouton" href="contact.html" data-bf="entete.appel">Prendre rendez-vous</a>
+    </div>
+  </header>
+  <main id="contenu">
+    <section class="section">
+      <div class="conteneur texte">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="honoraires.surtitre">Honoraires</span>
+          <h2 data-bf="honoraires.titre">Des tarifs connus à l’avance</h2>
+          <p data-bf="honoraires.texte">Une convention d’honoraires est signée avant le début de toute mission.</p>
+        </div>
+        <ul class="tarifs" data-bf-liste="honoraires">
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Premier rendez-vous</span><span class="detail" data-bf="detail">45 minutes, au cabinet ou en visio</span></span>
+            <span class="prix" data-bf="prix">60 €</span>
+          </li>
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Consultation</span><span class="detail" data-bf="detail">Par heure</span></span>
+            <span class="prix" data-bf="prix">120 €</span>
+          </li>
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Forfait accompagnement</span><span class="detail" data-bf="detail">Selon le dossier, devis écrit</span></span>
+            <span class="prix" data-bf="prix">sur devis</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+    <section class="section bandeau">
+      <div class="conteneur">
+        <h2 data-bf="appel.titre">Besoin d’un premier avis ?</h2>
+        <p data-bf="appel.texte">Prenez rendez-vous : nous vous répondons sous 24 h ouvrées.</p>
+        <a class="bouton" href="contact.html" data-bf="appel.bouton">Prendre rendez-vous</a>
+      </div>
+    </section>
+  </main>
+  <footer class="pied">
+    <div class="conteneur">
+      <p><strong data-bf="site.nom">Cabinet Durand &amp; Associés</strong><br><span data-bf="pied.adresse">8 boulevard Saint-Louis, 43000 Le Puy-en-Velay</span></p>
+      <p><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a><br><a href="mailto:cabinet@exemple.fr" data-bf="contact.email">cabinet@exemple.fr</a></p>
+      <p><a href="mentions-legales.html">Mentions légales</a></p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accueil | Martin Rénovation</title>
+  <meta name="description" content="Artisan à votre service pour vos travaux de rénovation.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="lien-evitement" href="#contenu">Aller au contenu</a>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="marque" href="index.html" data-bf="site.nom">Martin Rénovation</a>
+      <nav class="menu" aria-label="Menu principal">
+        <ul>
+          <li><a href="index.html" data-bf="menu.accueil" aria-current="page">Accueil</a></li>
+          <li><a href="realisations.html" data-bf="menu.realisations">Réalisations</a></li>
+          <li><a href="contact.html" data-bf="menu.contact">Devis et contact</a></li>
+        </ul>
+      </nav>
+      <a class="bouton" href="contact.html" data-bf="entete.appel">Demander un devis</a>
+    </div>
+  </header>
+  <main id="contenu">
+    <section class="une">
+      <div class="conteneur">
+        <div>
+          <span class="surtitre" data-bf="accueil.surtitre">Artisan depuis 2008</span>
+          <h1 data-bf="accueil.titre">Vos travaux, faits avec soin et dans les délais</h1>
+          <p class="chapo" data-bf="accueil.chapo">Rénovation, dépannage, installation : un seul interlocuteur, un devis clair et gratuit sous 48 h.</p>
+          <div class="actions">
+            <a class="bouton" href="contact.html" data-bf="accueil.bouton">Demander un devis</a>
+          <a class="bouton secondaire" href="realisations.html" data-bf="accueil.bouton2">Voir nos réalisations</a>
+          </div>
+        </div>
+        <img src="assets/bifrost-attente.svg" alt="" data-bf="accueil.photo">
+      </div>
+    </section>
+    <section class="section douce">
+      <div class="conteneur">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="services.surtitre">Nos services</span>
+          <h2 data-bf="services.titre">Ce que nous faisons pour vous</h2>
+        </div>
+        <ul class="grille" data-bf-liste="services">
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">🛠️</span>
+            <h3 data-bf="titre">Dépannage</h3>
+            <p data-bf="texte">Intervention rapide, 6 jours sur 7, dans tout le secteur.</p>
+          </li>
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">🏠</span>
+            <h3 data-bf="titre">Rénovation</h3>
+            <p data-bf="texte">Salle de bain, cuisine, pièces à vivre : de l’étude à la finition.</p>
+          </li>
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">⚡</span>
+            <h3 data-bf="titre">Installation</h3>
+            <p data-bf="texte">Équipements neufs posés dans les règles, garantie décennale.</p>
+          </li>
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">🌱</span>
+            <h3 data-bf="titre">Économies d’énergie</h3>
+            <p data-bf="texte">Conseils et travaux éligibles aux aides de l’État.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+    <section class="section">
+      <div class="conteneur deux-colonnes">
+        <div>
+          <span class="surtitre" data-bf="atelier.surtitre">Notre façon de travailler</span>
+          <h2 data-bf="atelier.titre">Un artisan local, joignable et transparent</h2>
+          <div data-bf="atelier.texte" data-bf-type="riche"><p>Nous venons voir le chantier, nous vous expliquons les options et nous tenons le prix annoncé. Le chantier est rendu propre, et nous restons disponibles après les travaux.</p></div>
+        </div>
+        <img src="assets/bifrost-attente.svg" alt="" data-bf="atelier.photo">
+      </div>
+    </section>
+    <section class="section douce">
+      <div class="conteneur">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="avis.surtitre">Ils nous ont fait confiance</span>
+          <h2 data-bf="avis.titre">Ce qu’en disent nos clients</h2>
+        </div>
+        <ul class="grille" data-bf-liste="avis">
+          <li class="carte avis" data-bf-element>
+            <blockquote data-bf="texte">« Travail soigné, équipe ponctuelle et devis respecté. »</blockquote>
+            <cite data-bf="nom">Claire, Brives-Charensac</cite>
+          </li>
+          <li class="carte avis" data-bf-element>
+            <blockquote data-bf="texte">« Dépannage le samedi matin, problème réglé en une heure. »</blockquote>
+            <cite data-bf="nom">Marc, Le Puy-en-Velay</cite>
+          </li>
+          <li class="carte avis" data-bf-element>
+            <blockquote data-bf="texte">« De bons conseils pour choisir, nous recommandons. »</blockquote>
+            <cite data-bf="nom">Famille Roche, Espaly</cite>
+          </li>
+        </ul>
+      </div>
+    </section>
+    <section class="section bandeau">
+      <div class="conteneur">
+        <h2 data-bf="appel.titre">Un projet ? Parlons-en</h2>
+        <p data-bf="appel.texte">Devis gratuit et sans engagement, réponse sous 48 h.</p>
+        <a class="bouton" href="contact.html" data-bf="appel.bouton">Demander un devis</a>
+      </div>
+    </section>
+  </main>
+  <footer class="pied">
+    <div class="conteneur">
+      <p><strong data-bf="site.nom">Martin Rénovation</strong><br><span data-bf="pied.adresse">12 rue des Artisans, 43000 Le Puy-en-Velay</span></p>
+      <p><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a><br><a href="mailto:contact@exemple.fr" data-bf="contact.email">contact@exemple.fr</a></p>
+      <p><a href="mentions-legales.html">Mentions légales</a></p>
+    </div>
+  </footer>
+</body>
+</html>

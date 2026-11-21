@@ -21,6 +21,7 @@ import { brancherFormulaires } from './formulaires.html'
 import * as modeDev from './mode-dev.service'
 import * as blocs from './blocs.service'
 import * as theme from './theme.service'
+import * as pagesDev from './pages.service'
 
 export function dossiers(siteId: string) {
   if (!/^[a-zA-Z0-9-]+$/.test(siteId)) throw Errors.badRequest('Site invalide')
@@ -184,6 +185,130 @@ export async function ecrireTheme(siteId: string, modifs: { fichier: string; nom
 /** Mode dev : enregistre un élément d'une page comme bloc réutilisable sur tous les sites. */
 export async function enregistrerBloc(siteId: string, page: string, cible: modeDev.Cible, nom: string, description?: string) {
   return blocs.enregistrer(nom, modeDev.extraire(await lire(siteId, page), page, cible), description)
+}
+
+// ---------- pages (mode dev) ----------
+
+const existe = (siteId: string, page: string) => existsSync(cheminSur(dossiers(siteId).brouillon, page))
+
+/** Nouvelle page : copie l'en-tête, le menu et le pied de page d'une page du site, contenu vide. Ajoutée au menu si demandé. */
+export async function creerPage(siteId: string, o: { chemin?: string; titre: string; depuis?: string; menu: boolean }) {
+  const chemin = pagesDev.verifierChemin(o.chemin || pagesDev.cheminPour(o.titre))
+  if (existe(siteId, chemin)) throw Errors.badRequest(`La page ${chemin} existe déjà`)
+  const toutes = await listerPages(siteId)
+  const source = o.depuis && toutes.includes(o.depuis) ? o.depuis : (toutes.includes('index.html') ? 'index.html' : toutes[0])
+  if (!source) throw Errors.badRequest('Le site n’a aucune page à copier')
+  const cible = cheminSur(dossiers(siteId).brouillon, chemin)
+  await fs.mkdir(path.dirname(cible), { recursive: true })
+  // le contenu de départ est une section Bifrost : sa feuille de style vient avec
+  const html = modeDev.lierFeuilleBlocs(pagesDev.nouvellePage(await lire(siteId, source), source, chemin, o.titre), chemin)
+  for (const [f, src] of Object.entries(blocs.fichiersDuBloc(html))) await copier(src, path.join(dossiers(siteId).brouillon, f))
+  await fs.writeFile(cible, html, 'utf-8')
+  const menus: string[] = []
+  if (o.menu) {
+    for (const p of [...toutes, chemin]) {
+      const html = pagesDev.ajouterAuMenu(await lire(siteId, p), p, chemin, o.titre)
+      if (html !== null) { await ecrire(siteId, p, html); menus.push(p) }
+    }
+  }
+  return { page: chemin, menus: menus.length }
+}
+
+/** Renomme une page : le fichier change de nom et tous les liens du site suivent. */
+export async function renommerPage(siteId: string, ancien: string, nouveauBrut: string) {
+  const nouveau = pagesDev.verifierChemin(nouveauBrut)
+  if (ancien === nouveau) return { page: nouveau, liens: 0 }
+  if (ancien === 'index.html') throw Errors.badRequest('La page d’accueil (index.html) garde son nom')
+  if (!existe(siteId, ancien)) throw Errors.notFound('Page')
+  if (existe(siteId, nouveau)) throw Errors.badRequest(`La page ${nouveau} existe déjà`)
+  const d = dossiers(siteId).brouillon
+  const cible = cheminSur(d, nouveau)
+  await fs.mkdir(path.dirname(cible), { recursive: true })
+  await fs.writeFile(cible, pagesDev.deplacerPage(await lire(siteId, ancien), ancien, nouveau), 'utf-8')
+  await fs.rm(cheminSur(d, ancien))
+  let liens = 0
+  for (const p of await listerPages(siteId)) {
+    const r = pagesDev.suivreRenommage(await lire(siteId, p), p, ancien, nouveau)
+    if (r.touches) { await ecrire(siteId, p, r.html); liens += r.touches }
+  }
+  return { page: nouveau, liens }
+}
+
+/** Supprime une page du brouillon et la retire du menu. Les autres liens vers elle sont comptés pour prévenir le dev. */
+export async function supprimerPage(siteId: string, page: string) {
+  if (page === 'index.html') throw Errors.badRequest('La page d’accueil ne se supprime pas')
+  if (!page.endsWith('.html') || !existe(siteId, page)) throw Errors.notFound('Page')
+  await fs.rm(cheminSur(dossiers(siteId).brouillon, page))
+  const liens: string[] = []
+  for (const p of await listerPages(siteId)) {
+    const r = pagesDev.retirerDuMenu(await lire(siteId, p), p, page)
+    if (r.retires) await ecrire(siteId, p, r.html)
+    if (r.autres) liens.push(p)
+  }
+  return { liensRestants: liens }
+}
+
+// ---------- sites modèles (espace dev) ----------
+
+/** Modèles fournis avec Bifrost : packages/server/modeles/<id>/ avec un modele.json { nom, description, icone }. */
+export const dossierModeles = path.resolve(path.dirname(blocs.dossierBlocsFournis), 'modeles')
+
+export interface ModeleSite { id: string; nom: string; description: string; icone: string }
+
+export async function listerModeles(): Promise<ModeleSite[]> {
+  if (!existsSync(dossierModeles)) return []
+  const res: ModeleSite[] = []
+  for (const e of await fs.readdir(dossierModeles, { withFileTypes: true })) {
+    if (!e.isDirectory()) continue
+    let meta = { nom: e.name, description: '', icone: '🧩', ordre: 99 }
+    try { meta = { ...meta, ...JSON.parse(await fs.readFile(path.join(dossierModeles, e.name, 'modele.json'), 'utf-8')) } } catch { /* sans fiche : valeurs par défaut */ }
+    res.push({ id: e.name, nom: meta.nom, description: meta.description, icone: meta.icone, ordre: meta.ordre } as ModeleSite & { ordre: number })
+  }
+  return (res as (ModeleSite & { ordre: number })[]).sort((a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom, 'fr')).map(({ ordre: _o, ...m }) => m)
+}
+
+/**
+ * Met en place un site depuis un modèle fourni (« modele:<id> ») ou depuis un autre site (sa version en ligne).
+ * vider : chaque liste garde un seul élément et les pages de collection (actualités…) des éléments retirés disparaissent.
+ */
+export async function importerModele(siteId: string, source: string, vider: boolean) {
+  let dossier: string
+  if (source.startsWith('modele:')) {
+    const id = source.slice(7)
+    if (!/^[a-z0-9-]{1,60}$/.test(id) || !existsSync(path.join(dossierModeles, id))) throw Errors.badRequest('Modèle inconnu')
+    dossier = path.join(dossierModeles, id)
+  } else {
+    dossier = dossiers(source).publie
+    if (!existsSync(dossier)) throw Errors.badRequest('Site modèle introuvable')
+  }
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'bifrost-modele-'))
+  try {
+    await fs.cp(dossier, temp, { recursive: true, filter: (s) => path.basename(s) !== 'modele.json' })
+    if (vider) {
+      const pages = await lister(temp, (f) => f.endsWith('.html'))
+      const aRetirer = new Set<string>()
+      for (const p of pages) {
+        const r = pagesDev.viderListes(await fs.readFile(path.join(temp, p), 'utf-8'), p)
+        await fs.writeFile(path.join(temp, p), r.html, 'utf-8')
+        r.pagesRetirees.forEach((x) => aRetirer.add(x))
+      }
+      // une page encore liée ailleurs (premier élément d'une autre liste…) reste
+      const encoreLiees = new Set<string>()
+      for (const p of pages) {
+        const h = await fs.readFile(path.join(temp, p), 'utf-8')
+        if (aRetirer.has(p) || h.includes('data-bf-page=')) continue // liens « précédente / suivante » entre actualités : sans effet
+        pagesDev.liensDe(h, p).forEach((x) => encoreLiees.add(x))
+      }
+      for (const p of aRetirer) {
+        if (encoreLiees.has(p)) continue
+        const f = cheminSur(temp, p)
+        if (existsSync(f) && (await fs.readFile(f, 'utf-8')).includes('data-bf-page=')) await fs.rm(f)
+      }
+    }
+    return await importerDepuis(siteId, temp)
+  } finally {
+    await fs.rm(temp, { recursive: true, force: true })
+  }
 }
 
 /** Pages qui contiennent la version complète (non limitée) d'une collection. */

@@ -35,8 +35,14 @@ const envoiOptions = (progres?: (p: number) => void) => ({
   onUploadProgress: (e: { loaded: number; total?: number }) => progres?.(e.total ? Math.round((e.loaded / e.total) * 100) : 0),
 })
 
+export interface ModeleSite { id: string; nom: string; description: string; icone: string }
+
 export const suiviService = {
   sites: () => donnees<SiteSuivi[]>(api.get('/admin/suivi/sites')),
+  modeles: () => donnees<ModeleSite[]>(api.get('/admin/suivi/modeles')),
+  /** source : « modele:<id> » (modèle fourni) ou l'identifiant d'un site existant (sa version en ligne). */
+  creerDepuisModele: (nom: string, url: string, source: string, vider: boolean) =>
+    donnees<{ id: string; pages: number }>(api.post('/admin/suivi/sites/modele', { nom, url, source, vider }, { timeout: 120000 })),
   creer: (nom: string, url: string, dossier: string) =>
     donnees<{ id: string; pages: number }>(api.post('/admin/suivi/sites', { nom, url, dossier }, { timeout: 120000 })),
   /** Envoi depuis le navigateur (ZIP). `progres` reçoit un pourcentage. */

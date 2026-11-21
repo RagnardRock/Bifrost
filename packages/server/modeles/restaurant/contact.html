@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Réserver | La Table du Marché</title>
+  <meta name="description" content="Cuisine de saison, produits locaux, fait maison.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="lien-evitement" href="#contenu">Aller au contenu</a>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="marque" href="index.html" data-bf="site.nom">La Table du Marché</a>
+      <nav class="menu" aria-label="Menu principal">
+        <ul>
+          <li><a href="index.html" data-bf="menu.accueil">Accueil</a></li>
+          <li><a href="carte.html" data-bf="menu.carte">La carte</a></li>
+          <li><a href="contact.html" data-bf="menu.contact" aria-current="page">Réserver</a></li>
+        </ul>
+      </nav>
+      <a class="bouton" href="contact.html" data-bf="entete.appel">Réserver une table</a>
+    </div>
+  </header>
+  <main id="contenu">
+    <section class="section">
+      <div class="conteneur texte">
+        <span class="surtitre" data-bf="contact.surtitre">Contact</span>
+        <h1 data-bf="contact.titre">Réserver une table</h1>
+        <p class="chapo" data-bf="contact.chapo">Pour ce soir, appelez-nous. Pour les autres jours, laissez-nous un message : nous confirmons rapidement.</p>
+      </div>
+    </section>
+    <section class="section douce">
+      <div class="conteneur deux-colonnes" style="align-items:start">
+        <div>
+          <ul class="coordonnees">
+            <li><strong>Adresse</strong><span data-bf="pied.adresse">3 place du Marché, 43000 Le Puy-en-Velay</span></li>
+            <li><strong>Téléphone</strong><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a></li>
+            <li><strong>E-mail</strong><a href="mailto:reservation@exemple.fr" data-bf="contact.email">reservation@exemple.fr</a></li>
+          </ul>
+          <p data-bf="contact.acces">Parking du Breuil à 3 minutes à pied.</p>
+        </div>
+        <form class="formulaire carte" data-bf-formulaire="contact">
+          <label>Nom <input name="nom" required autocomplete="name"></label>
+          <label>E-mail <input type="email" name="email" required autocomplete="email"></label>
+          <label>Téléphone <input type="tel" name="telephone" autocomplete="tel"></label>
+          <label>Date et heure <input name="date" placeholder="Samedi 20 h"></label>
+          <label>Nombre de personnes <input type="number" name="personnes" min="1" max="30" value="2"></label>
+          <label>Message <textarea name="message" rows="5" required></textarea></label>
+          <button class="bouton" type="submit">Envoyer</button>
+        </form>
+      </div>
+    </section>
+  </main>
+  <footer class="pied">
+    <div class="conteneur">
+      <p><strong data-bf="site.nom">La Table du Marché</strong><br><span data-bf="pied.adresse">3 place du Marché, 43000 Le Puy-en-Velay</span></p>
+      <p><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a><br><a href="mailto:reservation@exemple.fr" data-bf="contact.email">reservation@exemple.fr</a></p>
+      <p><a href="mentions-legales.html">Mentions légales</a></p>
+    </div>
+  </footer>
+</body>
+</html>

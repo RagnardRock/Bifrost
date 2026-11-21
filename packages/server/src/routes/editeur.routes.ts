@@ -302,6 +302,27 @@ router.post('/blocs', adminMiddleware, action(async (req) => {
 }))
 router.delete('/blocs/:bloc', adminMiddleware, action(async (req) => blocs.supprimer(param(req, 'bloc'))))
 
+// Mode dev : pages du site (créer, renommer, supprimer), menu mis à jour
+const schemaPage = z.string().min(1).max(300)
+router.post('/pages', adminMiddleware, action(async (req) => {
+  const b = z.object({ titre: z.string().trim().min(1).max(120), chemin: schemaPage.optional(), depuis: schemaPage.optional(), menu: z.boolean().default(true) }).parse(req.body)
+  const r = await fichiers.creerPage(sid(req), b)
+  journaliser(sid(req), auteur(req), 'mode-dev', `page ${r.page} créée`)
+  return r
+}))
+router.put('/pages', adminMiddleware, action(async (req) => {
+  const b = z.object({ page: schemaPage, nouveau: schemaPage }).parse(req.body)
+  const r = await fichiers.renommerPage(sid(req), b.page, b.nouveau)
+  journaliser(sid(req), auteur(req), 'mode-dev', `page ${b.page} renommée en ${r.page}`)
+  return r
+}))
+router.delete('/pages', adminMiddleware, action(async (req) => {
+  const { page } = z.object({ page: schemaPage }).parse(req.body)
+  const r = await fichiers.supprimerPage(sid(req), page)
+  journaliser(sid(req), auteur(req), 'mode-dev', `page ${page} supprimée`)
+  return r
+}))
+
 // Dev uniquement : importer un dossier de site présent sur le serveur
 router.post('/importer', adminMiddleware, action(async (req) => {
   const { dossier } = z.object({ dossier: z.string().min(1) }).parse(req.body)

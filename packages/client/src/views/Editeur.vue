@@ -167,6 +167,49 @@ async function enregistrerTheme(modifs: { fichier: string; nom: string; valeur: 
     occupe.value = false
   }
 }
+// pages du site : créer, renommer, supprimer (le menu suit)
+async function actionPage(faire: () => Promise<string | void>) {
+  occupe.value = true
+  try {
+    const texte = await faire()
+    await rafraichirEtat()
+    recharger()
+    if (texte) informer(texte)
+  } catch (err) {
+    echec(err)
+  } finally {
+    occupe.value = false
+  }
+}
+const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
+function creerPage(b: { titre: string; chemin: string; depuis: string; menu: boolean }) {
+  void actionPage(async () => {
+    const r = await editeurService.creerPage(siteId.value, b)
+    page.value = r.page
+    selectionDev.value = null
+    return `Page ${r.page} créée${r.menus ? `, ajoutée au menu de ${pluriel(r.menus, 'page')}` : ''}`
+  })
+}
+function renommerPage(ancienne: string, nouveau: string) {
+  void actionPage(async () => {
+    const r = await editeurService.renommerPage(siteId.value, ancienne, nouveau)
+    if (page.value === ancienne) page.value = r.page
+    return `Page renommée en ${r.page}${r.liens ? ` (${pluriel(r.liens, 'lien')} mis à jour)` : ''}`
+  })
+}
+function supprimerPage(p: string) {
+  confirmation.value = {
+    texte: `Supprimer la page ${p} ? Elle sera retirée du menu. Le site en ligne ne change qu’à la prochaine publication.`,
+    action: async () => {
+      await actionPage(async () => {
+        const r = await editeurService.supprimerPage(siteId.value, p)
+        if (page.value === p) { page.value = 'index.html'; selectionDev.value = null }
+        return r.liensRestants.length ? `Page supprimée. Des liens y mènent encore depuis : ${r.liensRestants.slice(0, 4).join(', ')}${r.liensRestants.length > 4 ? '…' : ''}` : 'Page supprimée et retirée du menu'
+      })
+    },
+  }
+}
+function ouvrirPage(p: string) { if (p !== page.value) { page.value = p; selectionDev.value = null; cle.value++ } }
 function selectionnerDev(chemin: number[]) { versCadre({ type: 'selectionner', chemin, defiler: true }) }
 async function operationDev(chemin: number[], balises: string[], operation: OperationDev, confirmerTexte?: string) {
   const faire = async () => {
@@ -444,7 +487,8 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
         @operation="depuisPanneau" @selectionner="selectionnerDev" @fermer="basculerModeDev"
         @glisser="(id) => versCadre({ type: 'glisser', bloc: id })" @fin-glisser="versCadre({ type: 'fin-glisser' })"
         @inserer="insererDepuisPanneau" @enregistrer="enregistrerBloc" @supprimer-bloc="supprimerBloc"
-        :theme="themeDev" @theme-charger="chargerTheme" @theme-apercu="(nom, valeur) => versCadre({ type: 'theme', nom, valeur })" @theme-enregistrer="enregistrerTheme" />
+        :theme="themeDev" :pages="etat?.pages ?? []" :page="page" @page-ouvrir="ouvrirPage" @page-creer="creerPage" @page-renommer="renommerPage" @page-supprimer="supprimerPage"
+        @theme-charger="chargerTheme" @theme-apercu="(nom, valeur) => versCadre({ type: 'theme', nom, valeur })" @theme-enregistrer="enregistrerTheme" />
     </div>
 
     <input ref="choixImage" type="file" accept="image/*" hidden @change="surImage">

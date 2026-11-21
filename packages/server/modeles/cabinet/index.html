@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Le cabinet | Cabinet Durand &amp; Associés</title>
+  <meta name="description" content="Un cabinet à votre écoute, des conseils clairs.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="lien-evitement" href="#contenu">Aller au contenu</a>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="marque" href="index.html" data-bf="site.nom">Cabinet Durand &amp; Associés</a>
+      <nav class="menu" aria-label="Menu principal">
+        <ul>
+          <li><a href="index.html" data-bf="menu.accueil" aria-current="page">Le cabinet</a></li>
+          <li><a href="honoraires.html" data-bf="menu.honoraires">Honoraires</a></li>
+          <li><a href="contact.html" data-bf="menu.contact">Rendez-vous</a></li>
+        </ul>
+      </nav>
+      <a class="bouton" href="contact.html" data-bf="entete.appel">Prendre rendez-vous</a>
+    </div>
+  </header>
+  <main id="contenu">
+    <section class="une">
+      <div class="conteneur">
+        <div>
+          <span class="surtitre" data-bf="accueil.surtitre">Depuis 1998</span>
+          <h1 data-bf="accueil.titre">Des conseils clairs pour décider sereinement</h1>
+          <p class="chapo" data-bf="accueil.chapo">Particuliers, entreprises, associations : nous vous accompagnons avec rigueur, disponibilité et des explications sans jargon.</p>
+          <div class="actions">
+            <a class="bouton" href="contact.html" data-bf="accueil.bouton">Prendre rendez-vous</a>
+          <a class="bouton secondaire" href="honoraires.html" data-bf="accueil.bouton2">Nos honoraires</a>
+          </div>
+        </div>
+        <img src="assets/bifrost-attente.svg" alt="" data-bf="accueil.photo">
+      </div>
+    </section>
+    <section class="section douce">
+      <div class="conteneur">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="expertises.surtitre">Expertises</span>
+          <h2 data-bf="expertises.titre">Nos domaines d’intervention</h2>
+        </div>
+        <ul class="grille" data-bf-liste="expertises">
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">📄</span>
+            <h3 data-bf="titre">Conseil</h3>
+            <p data-bf="texte">Analyse de votre situation et recommandations écrites.</p>
+          </li>
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">🤝</span>
+            <h3 data-bf="titre">Accompagnement</h3>
+            <p data-bf="texte">Suivi de vos démarches de bout en bout.</p>
+          </li>
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">⚖️</span>
+            <h3 data-bf="titre">Défense de vos intérêts</h3>
+            <p data-bf="texte">Négociation et représentation lorsque c’est nécessaire.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+    <section class="section">
+      <div class="conteneur">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="equipe.surtitre">L’équipe</span>
+          <h2 data-bf="equipe.titre">Vos interlocuteurs</h2>
+        </div>
+        <ul class="equipe" data-bf-liste="equipe">
+          <li data-bf-element><img src="assets/bifrost-attente.svg" alt="" data-bf="photo"><strong data-bf="nom">Claire Durand</strong><span data-bf="role">Fondatrice</span></li>
+          <li data-bf-element><img src="assets/bifrost-attente.svg" alt="" data-bf="photo"><strong data-bf="nom">Thomas Morel</strong><span data-bf="role">Associé</span></li>
+          <li data-bf-element><img src="assets/bifrost-attente.svg" alt="" data-bf="photo"><strong data-bf="nom">Inès Bonnet</strong><span data-bf="role">Collaboratrice</span></li>
+        </ul>
+      </div>
+    </section>
+    <section class="section douce">
+      <div class="conteneur deux-colonnes">
+        <div>
+          <span class="surtitre" data-bf="engagements.surtitre">Nos engagements</span>
+          <h2 data-bf="engagements.titre">Écoute, confidentialité, transparence</h2>
+          <div data-bf="engagements.texte" data-bf-type="riche"><p>Un premier rendez-vous pour comprendre votre besoin, une proposition d’honoraires écrite avant tout engagement, et un interlocuteur dédié tout au long du dossier.</p></div>
+        </div>
+        <img src="assets/bifrost-attente.svg" alt="" data-bf="engagements.photo">
+      </div>
+    </section>
+  </main>
+  <footer class="pied">
+    <div class="conteneur">
+      <p><strong data-bf="site.nom">Cabinet Durand &amp; Associés</strong><br><span data-bf="pied.adresse">8 boulevard Saint-Louis, 43000 Le Puy-en-Velay</span></p>
+      <p><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a><br><a href="mailto:cabinet@exemple.fr" data-bf="contact.email">cabinet@exemple.fr</a></p>
+      <p><a href="mentions-legales.html">Mentions légales</a></p>
+    </div>
+  </footer>
+</body>
+</html>

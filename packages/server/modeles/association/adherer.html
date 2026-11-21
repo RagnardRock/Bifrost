@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adhérer | Les Amis du Velay</title>
+  <meta name="description" content="Une association ouverte à tous, pour faire vivre notre territoire.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="lien-evitement" href="#contenu">Aller au contenu</a>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="marque" href="index.html" data-bf="site.nom">Les Amis du Velay</a>
+      <nav class="menu" aria-label="Menu principal">
+        <ul>
+          <li><a href="index.html" data-bf="menu.accueil">Accueil</a></li>
+          <li><a href="agenda.html" data-bf="menu.agenda">Agenda</a></li>
+          <li><a href="adherer.html" data-bf="menu.adherer" aria-current="page">Adhérer</a></li>
+          <li><a href="contact.html" data-bf="menu.contact">Contact</a></li>
+        </ul>
+      </nav>
+      <a class="bouton" href="adherer.html" data-bf="entete.appel">Nous rejoindre</a>
+    </div>
+  </header>
+  <main id="contenu">
+    <section class="section">
+      <div class="conteneur texte">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="adhesion.surtitre">Adhésion</span>
+          <h2 data-bf="adhesion.titre">Rejoindre l’association</h2>
+          <p data-bf="adhesion.texte">L’adhésion donne accès à toutes les activités et au vote à l’assemblée générale.</p>
+        </div>
+        <ul class="tarifs" data-bf-liste="adhesion">
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Adhésion individuelle</span><span class="detail" data-bf="detail">Valable un an, de septembre à août</span></span>
+            <span class="prix" data-bf="prix">15 €</span>
+          </li>
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Adhésion famille</span><span class="detail" data-bf="detail">Tous les membres du foyer</span></span>
+            <span class="prix" data-bf="prix">25 €</span>
+          </li>
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Membre bienfaiteur</span><span class="detail" data-bf="detail">Pour soutenir nos actions</span></span>
+            <span class="prix" data-bf="prix">à partir de 50 €</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+    <section class="section bandeau">
+      <div class="conteneur">
+        <h2 data-bf="appel.titre">Une question avant d’adhérer ?</h2>
+        <p data-bf="appel.texte">Écrivez-nous, un bénévole vous répond.</p>
+        <a class="bouton" href="contact.html" data-bf="appel.bouton">Nous écrire</a>
+      </div>
+    </section>
+  </main>
+  <footer class="pied">
+    <div class="conteneur">
+      <p><strong data-bf="site.nom">Les Amis du Velay</strong><br><span data-bf="pied.adresse">Maison des associations, 43000 Le Puy-en-Velay</span></p>
+      <p><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a><br><a href="mailto:bonjour@exemple.fr" data-bf="contact.email">bonjour@exemple.fr</a></p>
+      <p><a href="mentions-legales.html">Mentions légales</a></p>
+    </div>
+  </footer>
+</body>
+</html>

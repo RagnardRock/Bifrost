@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>La carte | La Table du Marché</title>
+  <meta name="description" content="Entrées, plats et desserts de saison, avec les prix.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="lien-evitement" href="#contenu">Aller au contenu</a>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="marque" href="index.html" data-bf="site.nom">La Table du Marché</a>
+      <nav class="menu" aria-label="Menu principal">
+        <ul>
+          <li><a href="index.html" data-bf="menu.accueil">Accueil</a></li>
+          <li><a href="carte.html" data-bf="menu.carte" aria-current="page">La carte</a></li>
+          <li><a href="contact.html" data-bf="menu.contact">Réserver</a></li>
+        </ul>
+      </nav>
+      <a class="bouton" href="contact.html" data-bf="entete.appel">Réserver une table</a>
+    </div>
+  </header>
+  <main id="contenu">
+    <section class="section">
+      <div class="conteneur texte">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="entrees.surtitre">À la carte</span>
+          <h2 data-bf="entrees.titre">Entrées</h2>
+          <p data-bf="entrees.texte">Les plats changent au fil des saisons. Demandez-nous les allergènes.</p>
+        </div>
+        <ul class="tarifs" data-bf-liste="entrees">
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Velouté de saison</span><span class="detail" data-bf="detail">Croûtons maison</span></span>
+            <span class="prix" data-bf="prix">8 €</span>
+          </li>
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Terrine du chef</span><span class="detail" data-bf="detail">Pickles et pain de campagne</span></span>
+            <span class="prix" data-bf="prix">9 €</span>
+          </li>
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Salade de lentilles vertes</span><span class="detail" data-bf="detail">Œuf parfait, lard fumé</span></span>
+            <span class="prix" data-bf="prix">10 €</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+    <section class="section douce">
+      <div class="conteneur texte">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="plats.surtitre">À la carte</span>
+          <h2 data-bf="plats.titre">Plats</h2>
+        </div>
+        <ul class="tarifs" data-bf-liste="plats">
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Pièce du boucher</span><span class="detail" data-bf="detail">Pommes grenaille, jus corsé</span></span>
+            <span class="prix" data-bf="prix">22 €</span>
+          </li>
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Poisson du jour</span><span class="detail" data-bf="detail">Légumes de saison</span></span>
+            <span class="prix" data-bf="prix">21 €</span>
+          </li>
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Risotto aux champignons</span><span class="detail" data-bf="detail">Parmesan, herbes fraîches</span></span>
+            <span class="prix" data-bf="prix">17 €</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+    <section class="section">
+      <div class="conteneur texte">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="desserts.surtitre">À la carte</span>
+          <h2 data-bf="desserts.titre">Desserts</h2>
+        </div>
+        <ul class="tarifs" data-bf-liste="desserts">
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Tarte du moment</span><span class="detail" data-bf="detail">Crème fouettée</span></span>
+            <span class="prix" data-bf="prix">7 €</span>
+          </li>
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Mousse au chocolat</span><span class="detail" data-bf="detail">Grué de cacao</span></span>
+            <span class="prix" data-bf="prix">7 €</span>
+          </li>
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Assiette de fromages</span><span class="detail" data-bf="detail">Producteurs du coin</span></span>
+            <span class="prix" data-bf="prix">8 €</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+  </main>
+  <footer class="pied">
+    <div class="conteneur">
+      <p><strong data-bf="site.nom">La Table du Marché</strong><br><span data-bf="pied.adresse">3 place du Marché, 43000 Le Puy-en-Velay</span></p>
+      <p><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a><br><a href="mailto:reservation@exemple.fr" data-bf="contact.email">reservation@exemple.fr</a></p>
+      <p><a href="mentions-legales.html">Mentions légales</a></p>
+    </div>
+  </footer>
+</body>
+</html>

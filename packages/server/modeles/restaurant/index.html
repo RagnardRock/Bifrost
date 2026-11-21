@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accueil | La Table du Marché</title>
+  <meta name="description" content="Cuisine de saison, produits locaux, fait maison.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="lien-evitement" href="#contenu">Aller au contenu</a>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="marque" href="index.html" data-bf="site.nom">La Table du Marché</a>
+      <nav class="menu" aria-label="Menu principal">
+        <ul>
+          <li><a href="index.html" data-bf="menu.accueil" aria-current="page">Accueil</a></li>
+          <li><a href="carte.html" data-bf="menu.carte">La carte</a></li>
+          <li><a href="contact.html" data-bf="menu.contact">Réserver</a></li>
+        </ul>
+      </nav>
+      <a class="bouton" href="contact.html" data-bf="entete.appel">Réserver une table</a>
+    </div>
+  </header>
+  <main id="contenu">
+    <section class="une">
+      <div class="conteneur">
+        <div>
+          <span class="surtitre" data-bf="accueil.surtitre">Bistrot de saison</span>
+          <h1 data-bf="accueil.titre">Une cuisine simple, de saison et faite maison</h1>
+          <p class="chapo" data-bf="accueil.chapo">Le chef cuisine chaque jour les produits des producteurs du coin. Le midi, formule du jour ; le soir, la carte.</p>
+          <div class="actions">
+            <a class="bouton" href="contact.html" data-bf="accueil.bouton">Réserver une table</a>
+          <a class="bouton secondaire" href="carte.html" data-bf="accueil.bouton2">Voir la carte</a>
+          </div>
+        </div>
+        <img src="assets/bifrost-attente.svg" alt="" data-bf="accueil.photo">
+      </div>
+    </section>
+    <section class="section douce">
+      <div class="conteneur deux-colonnes">
+        <div>
+          <span class="surtitre" data-bf="maison.surtitre">La maison</span>
+          <h2 data-bf="maison.titre">Du marché à l’assiette</h2>
+          <div data-bf="maison.texte" data-bf-type="riche"><p>Tout est préparé sur place, du pain aux desserts. La carte change avec les saisons et l’ardoise suit les arrivages.</p></div>
+        </div>
+        <img src="assets/bifrost-attente.svg" alt="" data-bf="maison.photo">
+      </div>
+    </section>
+    <section class="section">
+      <div class="conteneur texte">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="formules.surtitre">Le midi</span>
+          <h2 data-bf="formules.titre">Nos formules</h2>
+        </div>
+        <ul class="tarifs" data-bf-liste="formules">
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Plat du jour</span><span class="detail" data-bf="detail">Selon le marché</span></span>
+            <span class="prix" data-bf="prix">14 €</span>
+          </li>
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Entrée + plat ou plat + dessert</span><span class="detail" data-bf="detail">Du mardi au vendredi</span></span>
+            <span class="prix" data-bf="prix">18 €</span>
+          </li>
+          <li data-bf-element>
+            <span><span class="nom" data-bf="nom">Menu complet</span><span class="detail" data-bf="detail">Entrée, plat, dessert</span></span>
+            <span class="prix" data-bf="prix">23 €</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+    <section class="section douce">
+      <div class="conteneur">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="horaires.surtitre">Horaires</span>
+          <h2 data-bf="horaires.titre">Quand nous trouver</h2>
+        </div>
+        <ul class="horaires" data-bf-liste="horaires">
+          <li data-bf-element><span data-bf="jour">Lundi</span><span data-bf="heures">Fermé</span></li>
+          <li data-bf-element><span data-bf="jour">Mardi – Vendredi</span><span data-bf="heures">12 h – 14 h, 19 h – 22 h</span></li>
+          <li data-bf-element><span data-bf="jour">Samedi</span><span data-bf="heures">19 h – 22 h 30</span></li>
+          <li data-bf-element><span data-bf="jour">Dimanche</span><span data-bf="heures">12 h – 14 h 30</span></li>
+        </ul>
+      </div>
+    </section>
+    <section class="section bandeau">
+      <div class="conteneur">
+        <h2 data-bf="appel.titre">Une table pour ce soir ?</h2>
+        <p data-bf="appel.texte">Réservez en ligne ou par téléphone.</p>
+        <a class="bouton" href="contact.html" data-bf="appel.bouton">Réserver</a>
+      </div>
+    </section>
+  </main>
+  <footer class="pied">
+    <div class="conteneur">
+      <p><strong data-bf="site.nom">La Table du Marché</strong><br><span data-bf="pied.adresse">3 place du Marché, 43000 Le Puy-en-Velay</span></p>
+      <p><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a><br><a href="mailto:reservation@exemple.fr" data-bf="contact.email">reservation@exemple.fr</a></p>
+      <p><a href="mentions-legales.html">Mentions légales</a></p>
+    </div>
+  </footer>
+</body>
+</html>

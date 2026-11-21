@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rendez-vous | Cabinet Durand &amp; Associés</title>
+  <meta name="description" content="Un cabinet à votre écoute, des conseils clairs.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="lien-evitement" href="#contenu">Aller au contenu</a>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="marque" href="index.html" data-bf="site.nom">Cabinet Durand &amp; Associés</a>
+      <nav class="menu" aria-label="Menu principal">
+        <ul>
+          <li><a href="index.html" data-bf="menu.accueil">Le cabinet</a></li>
+          <li><a href="honoraires.html" data-bf="menu.honoraires">Honoraires</a></li>
+          <li><a href="contact.html" data-bf="menu.contact" aria-current="page">Rendez-vous</a></li>
+        </ul>
+      </nav>
+      <a class="bouton" href="contact.html" data-bf="entete.appel">Prendre rendez-vous</a>
+    </div>
+  </header>
+  <main id="contenu">
+    <section class="section">
+      <div class="conteneur texte">
+        <span class="surtitre" data-bf="contact.surtitre">Contact</span>
+        <h1 data-bf="contact.titre">Prendre rendez-vous</h1>
+        <p class="chapo" data-bf="contact.chapo">Indiquez vos disponibilités et l’objet de votre demande : nous vous proposons un créneau rapidement.</p>
+      </div>
+    </section>
+    <section class="section douce">
+      <div class="conteneur deux-colonnes" style="align-items:start">
+        <div>
+          <ul class="coordonnees">
+            <li><strong>Adresse</strong><span data-bf="pied.adresse">8 boulevard Saint-Louis, 43000 Le Puy-en-Velay</span></li>
+            <li><strong>Téléphone</strong><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a></li>
+            <li><strong>E-mail</strong><a href="mailto:cabinet@exemple.fr" data-bf="contact.email">cabinet@exemple.fr</a></li>
+          </ul>
+          <p data-bf="contact.acces">Accès de plain-pied, place réservée devant le cabinet.</p>
+        </div>
+        <form class="formulaire carte" data-bf-formulaire="contact">
+          <label>Nom <input name="nom" required autocomplete="name"></label>
+          <label>E-mail <input type="email" name="email" required autocomplete="email"></label>
+          <label>Téléphone <input type="tel" name="telephone" autocomplete="tel"></label>
+          <label>Disponibilités <input name="disponibilites" placeholder="Mardi matin, jeudi après-midi…"></label>
+          <label>Message <textarea name="message" rows="5" required></textarea></label>
+          <button class="bouton" type="submit">Envoyer</button>
+        </form>
+      </div>
+    </section>
+  </main>
+  <footer class="pied">
+    <div class="conteneur">
+      <p><strong data-bf="site.nom">Cabinet Durand &amp; Associés</strong><br><span data-bf="pied.adresse">8 boulevard Saint-Louis, 43000 Le Puy-en-Velay</span></p>
+      <p><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a><br><a href="mailto:cabinet@exemple.fr" data-bf="contact.email">cabinet@exemple.fr</a></p>
+      <p><a href="mentions-legales.html">Mentions légales</a></p>
+    </div>
+  </footer>
+</body>
+</html>

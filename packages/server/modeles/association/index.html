@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accueil | Les Amis du Velay</title>
+  <meta name="description" content="Une association ouverte à tous, pour faire vivre notre territoire.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="lien-evitement" href="#contenu">Aller au contenu</a>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="marque" href="index.html" data-bf="site.nom">Les Amis du Velay</a>
+      <nav class="menu" aria-label="Menu principal">
+        <ul>
+          <li><a href="index.html" data-bf="menu.accueil" aria-current="page">Accueil</a></li>
+          <li><a href="agenda.html" data-bf="menu.agenda">Agenda</a></li>
+          <li><a href="adherer.html" data-bf="menu.adherer">Adhérer</a></li>
+          <li><a href="contact.html" data-bf="menu.contact">Contact</a></li>
+        </ul>
+      </nav>
+      <a class="bouton" href="adherer.html" data-bf="entete.appel">Nous rejoindre</a>
+    </div>
+  </header>
+  <main id="contenu">
+    <section class="une">
+      <div class="conteneur">
+        <div>
+          <span class="surtitre" data-bf="accueil.surtitre">Association loi 1901</span>
+          <h1 data-bf="accueil.titre">Ensemble, faisons vivre notre village</h1>
+          <p class="chapo" data-bf="accueil.chapo">Sorties, ateliers, fêtes et entraide : plus de 120 bénévoles et adhérents, de 7 à 87 ans.</p>
+          <div class="actions">
+            <a class="bouton" href="adherer.html" data-bf="accueil.bouton">Nous rejoindre</a>
+          <a class="bouton secondaire" href="agenda.html" data-bf="accueil.bouton2">Voir l’agenda</a>
+          </div>
+        </div>
+        <img src="assets/bifrost-attente.svg" alt="" data-bf="accueil.photo">
+      </div>
+    </section>
+    <section class="section douce">
+      <div class="conteneur">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="activites.surtitre">Nos activités</span>
+          <h2 data-bf="activites.titre">Ce que nous proposons toute l’année</h2>
+        </div>
+        <ul class="grille" data-bf-liste="activites">
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">🥾</span>
+            <h3 data-bf="titre">Randonnées</h3>
+            <p data-bf="texte">Une sortie par mois, tous niveaux, covoiturage organisé.</p>
+          </li>
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">🎨</span>
+            <h3 data-bf="titre">Ateliers</h3>
+            <p data-bf="texte">Couture, peinture, informatique : chaque semaine à la Maison des associations.</p>
+          </li>
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">🎉</span>
+            <h3 data-bf="titre">Fêtes</h3>
+            <p data-bf="texte">La fête d’été, le marché de Noël et le repas des aînés.</p>
+          </li>
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">🤲</span>
+            <h3 data-bf="titre">Entraide</h3>
+            <p data-bf="texte">Coups de main, prêt de matériel, accompagnement des nouveaux arrivants.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+    <section class="section">
+      <div class="conteneur deux-colonnes">
+        <div>
+          <span class="surtitre" data-bf="mot.surtitre">Le mot de la présidente</span>
+          <h2 data-bf="mot.titre">Une association qui vous ressemble</h2>
+          <div data-bf="mot.texte" data-bf-type="riche"><p>Chaque adhérent peut proposer une activité. Nous mettons à disposition la salle, le matériel et les bonnes volontés : il ne manque plus que vous.</p></div>
+        </div>
+        <img src="assets/bifrost-attente.svg" alt="" data-bf="mot.photo">
+      </div>
+    </section>
+    <section class="section douce">
+      <div class="conteneur">
+        <div class="entete-section">
+          <span class="surtitre" data-bf="partenaires.surtitre">Ils nous soutiennent</span>
+          <h2 data-bf="partenaires.titre">Nos partenaires</h2>
+        </div>
+        <ul class="grille" data-bf-liste="partenaires">
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">🏛️</span>
+            <h3 data-bf="titre">La mairie</h3>
+            <p data-bf="texte">Prêt de salles et soutien aux fêtes.</p>
+          </li>
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">🏪</span>
+            <h3 data-bf="titre">Les commerçants</h3>
+            <p data-bf="texte">Lots de la tombola et buvette.</p>
+          </li>
+          <li class="carte" data-bf-element>
+            <span class="icone" data-bf="icone">🏦</span>
+            <h3 data-bf="titre">La banque locale</h3>
+            <p data-bf="texte">Partenaire de la fête d’été.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+  </main>
+  <footer class="pied">
+    <div class="conteneur">
+      <p><strong data-bf="site.nom">Les Amis du Velay</strong><br><span data-bf="pied.adresse">Maison des associations, 43000 Le Puy-en-Velay</span></p>
+      <p><a href="tel:+33400000000" data-bf="contact.telephone">04 00 00 00 00</a><br><a href="mailto:bonjour@exemple.fr" data-bf="contact.email">bonjour@exemple.fr</a></p>
+      <p><a href="mentions-legales.html">Mentions légales</a></p>
+    </div>
+  </footer>
+</body>
+</html>

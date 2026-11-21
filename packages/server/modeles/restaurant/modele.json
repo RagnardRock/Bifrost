@@ -1,0 +1,6 @@
+{
+  "nom": "Restaurant",
+  "description": "Restaurant, café, traiteur : la carte avec les prix, les horaires, la réservation.",
+  "icone": "🍽️",
+  "ordre": 2
+}
