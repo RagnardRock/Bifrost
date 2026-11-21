@@ -55,3 +55,38 @@ describe('pages', () => {
     expect(p.liensDe(accueil, 'index.html').sort()).toEqual(['index.html', 'tarifs.html'])
   })
 })
+
+describe('retouches sur place', () => {
+  const ecrit = `<!doctype html>
+<html lang="fr">
+<head>
+  <link rel="preconnect" href="https://x" crossorigin>
+  <title>Accueil | Site</title>
+</head>
+<body>
+  <nav>
+    <ul>
+      <li><a href="index.html">Accueil</a></li>
+      <li><a href="tarifs.html">Tarifs</a></li>
+    </ul>
+  </nav>
+  <main>
+    <p>A &amp; B</p>
+  </main>
+</body>
+</html>
+`
+  it('ne touche qu’aux lignes concernées', () => {
+    const h = p.ajouterAuMenu(ecrit, 'index.html', 'contact.html', 'Contact') as string
+    expect(h).toBe(ecrit.replace('      <li><a href="tarifs.html">Tarifs</a></li>\n', '      <li><a href="tarifs.html">Tarifs</a></li>\n      <li><a href="contact.html">Contact</a></li>\n'))
+    expect(p.retirerDuMenu(ecrit, 'index.html', 'tarifs.html').html).toBe(ecrit.replace('      <li><a href="tarifs.html">Tarifs</a></li>\n', ''))
+    expect(p.suivreRenommage(ecrit, 'index.html', 'tarifs.html', 'prix.html').html).toBe(ecrit.replace('tarifs.html', 'prix.html'))
+  })
+
+  it('garde l’en-tête de la page copiée tel quel', () => {
+    const h = p.nouvellePage(ecrit, 'index.html', 'contact.html', 'Contact')
+    expect(h.startsWith('<!doctype html>\n<html lang="fr">\n<head>\n  <link rel="preconnect" href="https://x" crossorigin>\n  <title>Contact | Site</title>')).toBe(true)
+    expect(h).not.toContain('A &amp; B')
+    expect(h).toContain('data-bf="contact.titre">Contact</h1>')
+  })
+})

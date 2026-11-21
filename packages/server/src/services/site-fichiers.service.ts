@@ -20,8 +20,8 @@ import * as flags from './flags.service'
 import { brancherFormulaires } from './formulaires.html'
 import * as modeDev from './mode-dev.service'
 import * as blocs from './blocs.service'
-import * as theme from './theme.service'
 import * as pagesDev from './pages.service'
+import * as outils from './outils.service'
 
 export function dossiers(siteId: string) {
   if (!/^[a-zA-Z0-9-]+$/.test(siteId)) throw Errors.badRequest('Site invalide')
@@ -135,50 +135,31 @@ export async function insererBloc(siteId: string, page: string, cible: modeDev.C
 }
 
 /** Mode dev : variables CSS du site (:root de ses feuilles) et variables des sections Bifrost. */
-export async function lireTheme(siteId: string) {
+/** Pages HTML et feuilles CSS du brouillon, en mémoire, pour les opérations de outils.service. */
+async function textesDuBrouillon(siteId: string, filtre: (f: string) => boolean = (f) => /\.(html|css)$/.test(f)): Promise<outils.Fichiers> {
   const d = dossiers(siteId).brouillon
-  const feuilles = (await lister(d, (f) => f.endsWith('.css'))).filter((f) => !/(^|\/)(bifrost-blocs|bf-theme)\.css$/.test(f) && !/(^|\/)medias\//.test(f))
-  const site: { fichier: string; nom: string; valeur: string }[] = []
-  for (const f of feuilles) for (const v of theme.lireVariables(await fs.readFile(path.join(d, f), 'utf-8'))) site.push({ fichier: f, ...v })
-  const fichierTheme = path.join(d, theme.FICHIER_THEME)
-  const definies = existsSync(fichierTheme) ? theme.lireVariables(await fs.readFile(fichierTheme, 'utf-8')) : []
-  const bifrost = theme.VARIABLES_BIFROST.map((v) => {
-    const x = definies.find((y) => y.nom === v.nom)
-    return { fichier: theme.FICHIER_THEME, nom: v.nom, libelle: v.libelle, defaut: v.valeur, valeur: x?.valeur ?? v.valeur, definie: !!x }
-  })
-  return { site, bifrost }
+  const res: outils.Fichiers = {}
+  for (const f of await lister(d, filtre)) res[f] = await fs.readFile(path.join(d, f), 'utf-8')
+  return res
+}
+async function appliquer(siteId: string, c: outils.Changements) {
+  const d = dossiers(siteId).brouillon
+  for (const [f, texte] of Object.entries(c.ecrits)) {
+    const cible = cheminSur(d, f)
+    await fs.mkdir(path.dirname(cible), { recursive: true })
+    await fs.writeFile(cible, texte, 'utf-8')
+  }
+  for (const f of c.supprimes) await fs.rm(cheminSur(d, f), { force: true })
+}
+
+/** Mode dev : variables CSS du site (:root) et des sections Bifrost. */
+export async function lireTheme(siteId: string) {
+  return outils.lireTheme(await textesDuBrouillon(siteId, (f) => f.endsWith('.css')))
 }
 
 /** Mode dev : écrit des variables du thème. Les --bf-… vont dans assets/bf-theme.css, lié à toutes les pages. */
 export async function ecrireTheme(siteId: string, modifs: { fichier: string; nom: string; valeur: string }[]) {
-  const d = dossiers(siteId).brouillon
-  const parFichier = new Map<string, { nom: string; valeur: string }[]>()
-  for (const m of modifs) {
-    if (!m.fichier.endsWith('.css')) throw Errors.badRequest('Fichier de thème invalide')
-    if (m.fichier === theme.FICHIER_THEME && !theme.VARIABLES_BIFROST.some((v) => v.nom === m.nom)) throw Errors.badRequest(`Variable inconnue : ${m.nom}`)
-    if (!theme.valeurValide(m.valeur)) throw Errors.badRequest(`Valeur refusée pour ${m.nom}`)
-    parFichier.set(m.fichier, [...(parFichier.get(m.fichier) ?? []), m])
-  }
-  for (const [fichier, vars] of parFichier) {
-    const chemin = cheminSur(d, fichier)
-    const nouveau = fichier === theme.FICHIER_THEME && !existsSync(chemin)
-    if (!nouveau && !existsSync(chemin)) throw Errors.badRequest(`Feuille introuvable : ${fichier}`)
-    let css = nouveau ? '/* Thème des sections Bifrost : réglé depuis le mode dev (onglet Thème). */\n' : await fs.readFile(chemin, 'utf-8')
-    try {
-      for (const v of vars) css = theme.ecrireVariable(css, v.nom, v.valeur)
-    } catch (e) {
-      throw Errors.badRequest((e as Error).message)
-    }
-    await fs.mkdir(path.dirname(chemin), { recursive: true })
-    await fs.writeFile(chemin, css, 'utf-8')
-    if (fichier === theme.FICHIER_THEME) {
-      for (const p of await listerPages(siteId)) {
-        const h = await lire(siteId, p)
-        const lie = modeDev.lierFeuilleBlocs(h, p, theme.FICHIER_THEME)
-        if (lie !== h) await ecrire(siteId, p, lie)
-      }
-    }
-  }
+  await appliquer(siteId, outils.ecrireTheme(await textesDuBrouillon(siteId), modifs))
   return lireTheme(siteId)
 }
 
@@ -189,63 +170,25 @@ export async function enregistrerBloc(siteId: string, page: string, cible: modeD
 
 // ---------- pages (mode dev) ----------
 
-const existe = (siteId: string, page: string) => existsSync(cheminSur(dossiers(siteId).brouillon, page))
-
 /** Nouvelle page : copie l'en-tête, le menu et le pied de page d'une page du site, contenu vide. Ajoutée au menu si demandé. */
 export async function creerPage(siteId: string, o: { chemin?: string; titre: string; depuis?: string; menu: boolean }) {
-  const chemin = pagesDev.verifierChemin(o.chemin || pagesDev.cheminPour(o.titre))
-  if (existe(siteId, chemin)) throw Errors.badRequest(`La page ${chemin} existe déjà`)
-  const toutes = await listerPages(siteId)
-  const source = o.depuis && toutes.includes(o.depuis) ? o.depuis : (toutes.includes('index.html') ? 'index.html' : toutes[0])
-  if (!source) throw Errors.badRequest('Le site n’a aucune page à copier')
-  const cible = cheminSur(dossiers(siteId).brouillon, chemin)
-  await fs.mkdir(path.dirname(cible), { recursive: true })
-  // le contenu de départ est une section Bifrost : sa feuille de style vient avec
-  const html = modeDev.lierFeuilleBlocs(pagesDev.nouvellePage(await lire(siteId, source), source, chemin, o.titre), chemin)
-  for (const [f, src] of Object.entries(blocs.fichiersDuBloc(html))) await copier(src, path.join(dossiers(siteId).brouillon, f))
-  await fs.writeFile(cible, html, 'utf-8')
-  const menus: string[] = []
-  if (o.menu) {
-    for (const p of [...toutes, chemin]) {
-      const html = pagesDev.ajouterAuMenu(await lire(siteId, p), p, chemin, o.titre)
-      if (html !== null) { await ecrire(siteId, p, html); menus.push(p) }
-    }
-  }
-  return { page: chemin, menus: menus.length }
+  const r = await outils.creerPage(await textesDuBrouillon(siteId, (f) => f.endsWith('.html')), o)
+  await appliquer(siteId, r)
+  return { page: r.page, menus: r.menus }
 }
 
 /** Renomme une page : le fichier change de nom et tous les liens du site suivent. */
-export async function renommerPage(siteId: string, ancien: string, nouveauBrut: string) {
-  const nouveau = pagesDev.verifierChemin(nouveauBrut)
-  if (ancien === nouveau) return { page: nouveau, liens: 0 }
-  if (ancien === 'index.html') throw Errors.badRequest('La page d’accueil (index.html) garde son nom')
-  if (!existe(siteId, ancien)) throw Errors.notFound('Page')
-  if (existe(siteId, nouveau)) throw Errors.badRequest(`La page ${nouveau} existe déjà`)
-  const d = dossiers(siteId).brouillon
-  const cible = cheminSur(d, nouveau)
-  await fs.mkdir(path.dirname(cible), { recursive: true })
-  await fs.writeFile(cible, pagesDev.deplacerPage(await lire(siteId, ancien), ancien, nouveau), 'utf-8')
-  await fs.rm(cheminSur(d, ancien))
-  let liens = 0
-  for (const p of await listerPages(siteId)) {
-    const r = pagesDev.suivreRenommage(await lire(siteId, p), p, ancien, nouveau)
-    if (r.touches) { await ecrire(siteId, p, r.html); liens += r.touches }
-  }
-  return { page: nouveau, liens }
+export async function renommerPage(siteId: string, ancien: string, nouveau: string) {
+  const r = outils.renommerPage(await textesDuBrouillon(siteId, (f) => f.endsWith('.html')), ancien, nouveau)
+  await appliquer(siteId, r)
+  return { page: r.page, liens: r.liens }
 }
 
 /** Supprime une page du brouillon et la retire du menu. Les autres liens vers elle sont comptés pour prévenir le dev. */
 export async function supprimerPage(siteId: string, page: string) {
-  if (page === 'index.html') throw Errors.badRequest('La page d’accueil ne se supprime pas')
-  if (!page.endsWith('.html') || !existe(siteId, page)) throw Errors.notFound('Page')
-  await fs.rm(cheminSur(dossiers(siteId).brouillon, page))
-  const liens: string[] = []
-  for (const p of await listerPages(siteId)) {
-    const r = pagesDev.retirerDuMenu(await lire(siteId, p), p, page)
-    if (r.retires) await ecrire(siteId, p, r.html)
-    if (r.autres) liens.push(p)
-  }
-  return { liensRestants: liens }
+  const r = outils.supprimerPage(await textesDuBrouillon(siteId, (f) => f.endsWith('.html')), page)
+  await appliquer(siteId, r)
+  return { liensRestants: r.liensRestants }
 }
 
 // ---------- sites modèles (espace dev) ----------

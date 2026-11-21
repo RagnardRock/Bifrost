@@ -170,3 +170,8 @@ Le panneau Bifrost de Rune (icône globe) utilise l'API `/api/dev` :
   L'envoi devient une **publication** du dev, avec historique (on peut revenir en arrière). Il est refusé si le client a des modifications non publiées, sauf `ecraserBrouillon`.
   Les fichiers absents du dossier du dev restent en ligne, sauf `supprimer`. Les formulaires sont branchés comme à l'import.
 - `GET /api/dev/blocs` et `POST /api/dev/blocs/:bloc/preparer` `{ pris: [préfixes déjà utilisés] }` → `{ html, fichiers, feuille }` : la bibliothèque de sections du mode dev, pour « Insérer un bloc » dans Rune (clés renommées si besoin, `fichiers` = `assets/bifrost-blocs.css` et l’image d’attente à copier dans le site, `feuille` = la feuille à lier).
+- Outils du mode dev sur le dossier local (onglets Pages et Thème de Rune) : Rune envoie les textes `{ fichiers: { chemin: texte } }` et reçoit `{ ecrits: { chemin: texte }, supprimes: [chemins] }`, rien n'est gardé côté serveur.
+  `POST /outils/pages/creer` `{ titre, chemin?, depuis?, menu }`, `POST /outils/pages/renommer` `{ page, nouveau }`, `POST /outils/pages/supprimer` `{ page }`,
+  `POST /outils/theme/lire` (feuilles CSS) et `POST /outils/theme/ecrire` `{ modifs }` (pages et feuilles). Même moteur que l'éditeur web (`outils.service.ts`).
+  Les pages existantes sont **retouchées sur place** (`retouche.ts`) : seules les lignes concernées changent, le reste garde sa mise en forme.
+- `GET /api/dev/modeles` et `GET /api/dev/modeles/:id` → `{ fichiers: { chemin: base64 } }` : les modèles de site, pour « Nouveau projet › Site Bifrost » dans Rune.
