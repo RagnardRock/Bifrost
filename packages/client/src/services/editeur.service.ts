@@ -24,6 +24,9 @@ export interface BlocDev { id: string; nom: string; icone: string; description: 
 const base = (siteId: string) => `/editeur/${siteId}`
 const donnees = <T>(p: Promise<any>) => p.then((r) => r.data as T)
 
+export interface CompteReseau { id: string; reseau: string; nom: string; collection: string; mode: 'brouillon' | 'publier'; depuis: string; derniereVerif: string | null; erreur: string | null; expireLe: string }
+export interface EtatReseaux { instagram: { configure: boolean; compte: CompteReseau | null }; collections: string[] }
+
 export const editeurService = {
   etat: (siteId: string) => donnees<EtatEditeur>(api.get(base(siteId))),
   ouvrirSession: (siteId: string) => api.post(`${base(siteId)}/session`),
@@ -46,6 +49,11 @@ export const editeurService = {
   annulerInvitation: (siteId: string, id: string) => api.delete(`${base(siteId)}/equipe/invitations/${id}`),
   changerRole: (siteId: string, id: string, role: RoleSite) => api.put(`${base(siteId)}/equipe/membres/${id}`, { role }),
   retirer: (siteId: string, id: string) => api.delete(`${base(siteId)}/equipe/membres/${id}`),
+  reseaux: (siteId: string) => donnees<EtatReseaux>(api.get(`${base(siteId)}/reseaux`)),
+  connexionInstagram: (siteId: string) => donnees<{ adresse: string }>(api.post(`${base(siteId)}/reseaux/instagram/connexion`)),
+  reglerReseau: (siteId: string, id: string, r: { collection?: string; mode?: 'brouillon' | 'publier' }) => donnees<CompteReseau>(api.put(`${base(siteId)}/reseaux/${id}`, r)),
+  importerReseau: (siteId: string, id: string, recents?: number) => donnees<{ importes: number; publie: boolean }>(api.post(`${base(siteId)}/reseaux/${id}/importer`, { recents })),
+  delierReseau: (siteId: string, id: string) => api.delete(`${base(siteId)}/reseaux/${id}`),
   reglages: (siteId: string) => donnees<Reglages>(api.get(`${base(siteId)}/reglages`)),
   modifierReglages: (siteId: string, r: { nom?: string; emailMessages?: string }) => donnees<Reglages>(api.put(`${base(siteId)}/reglages`, r)),
   messages: (siteId: string) => donnees<Message[]>(api.get(`${base(siteId)}/messages`)),

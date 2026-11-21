@@ -4,6 +4,7 @@ import editeurRoutes from './editeur.routes'
 import comptesRoutes from './comptes.routes'
 import suiviRoutes from './suivi.routes'
 import clientsRoutes from './clients.routes'
+import reseauxRoutes from './reseaux.routes'
 
 const router = Router()
 
@@ -12,6 +13,9 @@ router.use('/auth', authRoutes)
 
 // Comptes clients : connexion par e-mail, invitations, mot de passe oublié
 router.use('/comptes', comptesRoutes)
+
+// Réseaux sociaux : retour d'Instagram après l'autorisation
+router.use('/reseaux', reseauxRoutes)
 
 // Éditeur sur place : dev et clients du site
 router.use('/editeur/:siteId', editeurRoutes)

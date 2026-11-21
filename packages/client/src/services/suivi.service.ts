@@ -101,6 +101,7 @@ export const TYPES: Record<string, { icone: string; texte: string }> = {
   reprise: { icone: '▶️', texte: 'a remis le site en ligne' },
   restauration: { icone: '♻️', texte: 'a restauré le site supprimé' },
   'mode-dev': { icone: '🛠️', texte: 'a modifié la structure (mode dev)' },
+  reseau: { icone: '📸', texte: 'réseaux sociaux :' },
 }
 
 export function ilYa(d: string) {

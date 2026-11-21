@@ -18,6 +18,8 @@ import { siteParCle } from '../services/slug.service'
 import * as formulaires from '../services/formulaires.service'
 import * as blocs from '../services/blocs.service'
 import { modificationsAPublier } from '../services/notifications.service'
+import { publierSite } from '../services/publication.service'
+import * as reseaux from '../services/reseaux.service'
 
 const router = Router({ mergeParams: true })
 
@@ -145,19 +147,17 @@ router.post('/collection/:nom', action(async (req) => {
   return r
 }))
 
-router.post('/publier', responsable, action(async (req) => {
-  const siteId = sid(req)
-  const pub = await prisma.publication.create({ data: { siteId, auteur: auteur(req), ajoutes: [], modifies: [], supprimes: [] } })
-  const avant = await fichiers.differences(siteId)
-  const changements = await fichiers.changements(siteId, avant)
-  const diff = await fichiers.publier(siteId, pub.id)
-  if (!diff.ajoutes.length && !diff.modifies.length && !diff.supprimes.length) {
-    await prisma.publication.delete({ where: { id: pub.id } })
-    return { publication: null }
-  }
-  journaliser(siteId, auteur(req), 'publication', `${changements.length} modification(s)`)
-  return { publication: await prisma.publication.update({ where: { id: pub.id }, data: { ...diff, changements: changements as never } }) }
-}))
+// Réseaux sociaux (responsables) : relier Instagram, rubrique et mode d'import, import à la demande
+router.get('/reseaux', responsable, action(async (req) => reseaux.etat(sid(req))))
+router.post('/reseaux/instagram/connexion', responsable, action(async (req) => ({ adresse: reseaux.adresseConnexion(sid(req), req.user?.userId || null) })))
+const idCompte = (req: Request) => String((req.params as Record<string, string>).id)
+router.put('/reseaux/:id', responsable, action(async (req) =>
+  reseaux.regler(sid(req), idCompte(req), z.object({ collection: z.string().max(100).optional(), mode: z.enum(['brouillon', 'publier']).optional() }).parse(req.body))))
+router.post('/reseaux/:id/importer', responsable, action(async (req) =>
+  reseaux.importerMaintenant(sid(req), idCompte(req), z.object({ recents: z.number().int().min(0).max(25).optional() }).parse(req.body ?? {}).recents, auteur(req))))
+router.delete('/reseaux/:id', responsable, action(async (req) => reseaux.delier(sid(req), idCompte(req), req.user?.userId || null)))
+
+router.post('/publier', responsable, action(async (req) => ({ publication: await publierSite(sid(req), auteur(req)) })))
 
 router.post('/abandonner', responsable, action(async (req) => {
   await fichiers.abandonnerBrouillon(sid(req))

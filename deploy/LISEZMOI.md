@@ -83,6 +83,31 @@ le lien d'invitation s'affiche à la personne qui invite, à transmettre à la m
    Chaque « Publier » du client met le site à jour aussitôt : nginx lit directement la version en ligne.
 
 
+## 9. Instagram (posts → actualités)
+
+Le client relie son compte Instagram dans **Mon site › Réseaux**. Toutes les 30 minutes, Bifrost récupère
+ses nouveaux posts et en fait des actualités du site (titre, date, texte, photos copiées sur le site), à relire
+ou publiées tout de suite selon son choix. Bifrost ne publie jamais rien sur Instagram.
+
+Il faut une appli Meta, une seule pour tous les clients (les menus de Meta changent souvent : les noms peuvent varier un peu) :
+
+1. Sur [developers.facebook.com](https://developers.facebook.com/apps), **Créer une app**, cas d'usage
+   « Gérer les messages et le contenu sur Instagram », type **Entreprise**.
+2. Dans **Instagram › Configuration de l'API avec connexion Instagram** :
+   - noter l'**ID de l'app Instagram** et la **clé secrète de l'app Instagram** (ce ne sont pas ceux de l'app Facebook) ;
+   - à l'étape « Configurer la connexion professionnelle Instagram », ajouter l'adresse de retour :
+     `<APP_URL>/api/reseaux/instagram/retour` (par exemple `https://bifrost.exemple.fr/api/reseaux/instagram/retour`).
+3. Dans `.env` : `INSTAGRAM_APP_ID=…` et `INSTAGRAM_APP_SECRET=…`, puis relancer (`docker compose up -d`).
+4. **Tant que l'app est « en développement »**, seuls les comptes ajoutés comme testeurs peuvent se relier :
+   **Rôles de l'app › Rôles › Ajouter des personnes › Testeur Instagram**, puis le client accepte l'invitation dans
+   Instagram (**Paramètres › Applications et sites web › Invitations de testeur**). C'est suffisant pour quelques clients.
+5. Pour tous les clients sans invitation : passer l'app **en direct**, ce qui demande une URL de politique de
+   confidentialité, la vérification de l'entreprise et l'**examen de l'app** pour la permission `instagram_business_basic`.
+
+Le compte Instagram du client doit être **professionnel ou créateur** (gratuit : Paramètres › Type de compte et outils).
+Le jeton dure 60 jours et Bifrost le renouvelle tout seul ; si Instagram le refuse un jour, la carte affiche
+« reliez à nouveau le compte ».
+
 ## Sauvegarde
 
 Deux choses comptent : la base et `donnees/sites`. Par exemple, chaque nuit (`crontab -e`) :
