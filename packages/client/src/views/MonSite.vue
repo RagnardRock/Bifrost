@@ -8,6 +8,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { editeurService, type EtatEditeur, type Message, type Membre, type Invitation, type RoleSite, type Reglages } from '@/services/editeur.service'
 import { comptesService } from '@/services/comptes.service'
 import DoubleAuth from '@/components/compte/DoubleAuth.vue'
+import InstallerAppli from '@/components/appli/InstallerAppli.vue'
 import { adresseSite } from '@/services/suivi.service'
 import { useAuthStore } from '@/stores/auth.store'
 
@@ -282,6 +283,11 @@ onMounted(async () => {
           <h2>Connecté avec</h2>
           <p>{{ auth.currentUser?.email || 'Compte développeur' }}</p>
           <button type="button" class="ms-btn ms-debut" @click="deconnexion">Se déconnecter</button>
+        </div>
+        <div class="ms-carte ms-appli">
+          <h2>Appli sur le téléphone</h2>
+          <InstallerAppli />
+          <p class="ms-aide">Bifrost s’installe depuis le navigateur, sans passer par un store. L’appli s’ouvre directement sur votre site.</p>
         </div>
         <form v-if="auth.role === 'client'" class="ms-carte" @submit.prevent="changerMotDePasse">
           <h2>Changer mon mot de passe</h2>

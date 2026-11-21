@@ -72,7 +72,14 @@ app.use('/api', routes)
 // En production, le serveur sert aussi l'interface (application Vue) : toute adresse
 // qui n'est ni l'API, ni un aperçu, ni un site renvoie index.html et Vue affiche la bonne page.
 if (config.nodeEnv === 'production') {
-  app.use(express.static(config.clientDir, { index: false }))
+  app.use(express.static(config.clientDir, {
+    index: false,
+    // Appli installable : le service worker et le manifeste sont toujours relus (mise à jour de l'appli)
+    setHeaders: (res, fichier) => {
+      if (/[\\/](sw\.js|manifest\.webmanifest)$/.test(fichier)) res.setHeader('Cache-Control', 'no-cache')
+      if (fichier.endsWith('.webmanifest')) res.setHeader('Content-Type', 'application/manifest+json')
+    },
+  }))
   app.get(/^\/(?!api\/|apercu\/|sites\/|editeur\/|health$).*/, (_req, res) => {
     res.sendFile(path.join(config.clientDir, 'index.html'))
   })
