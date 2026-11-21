@@ -16,6 +16,7 @@ import * as comptes from '../services/comptes.service'
 import { journaliser } from '../services/suivi.service'
 import { siteParCle } from '../services/slug.service'
 import * as formulaires from '../services/formulaires.service'
+import * as blocs from '../services/blocs.service'
 
 const router = Router({ mergeParams: true })
 
@@ -230,11 +231,15 @@ router.delete('/messages/:id', responsable, action(async (req) => formulaires.su
 
 // Mode dev : poser des flags, modifier, dupliquer, déplacer ou supprimer n'importe quel élément (dev uniquement)
 const nomFlag = z.string().max(100).nullable().optional()
+const schemaChemin = z.array(z.number().int().min(0).max(10_000)).min(1).max(200)
+const schemaBalises = z.array(z.string().regex(/^[a-z][a-z0-9-]*$/).max(40)).min(1).max(200)
+const schemaPosition = z.enum(['avant', 'apres', 'dedans'])
 const schemaDev = z.object({
   page: z.string().min(1).max(300),
-  chemin: z.array(z.number().int().min(0).max(10_000)).min(1).max(200),
-  balises: z.array(z.string().regex(/^[a-z][a-z0-9-]*$/).max(40)).min(1).max(200),
+  chemin: schemaChemin,
+  balises: schemaBalises,
   operation: z.discriminatedUnion('op', [
+    z.object({ op: z.literal('deplacer-vers'), vers: z.object({ chemin: schemaChemin, balises: schemaBalises }), position: schemaPosition }),
     z.object({ op: z.literal('flags'), flags: z.object({
       'data-bf': nomFlag,
       'data-bf-type': z.enum(['texte', 'riche', 'image', 'lien']).nullable().optional(),
@@ -250,13 +255,37 @@ const schemaDev = z.object({
     z.object({ op: z.literal('deplacer'), sens: z.enum(['haut', 'bas']) }),
   ]),
 })
-const libellesDev: Record<string, string> = { flags: 'flags', texte: 'texte', attribut: 'attribut', supprimer: 'supprimé', dupliquer: 'dupliqué', deplacer: 'déplacé' }
+const libellesDev: Record<string, string> = { 'deplacer-vers': 'déplacé', flags: 'flags', texte: 'texte', attribut: 'attribut', supprimer: 'supprimé', dupliquer: 'dupliqué', deplacer: 'déplacé' }
 router.post('/dev', adminMiddleware, action(async (req) => {
   const b = schemaDev.parse(req.body)
   const r = await fichiers.operationDev(sid(req), b.page, { chemin: b.chemin, balises: b.balises }, b.operation)
   journaliser(sid(req), auteur(req), 'mode-dev', `${b.page} · <${b.balises[b.balises.length - 1]}> ${libellesDev[b.operation.op]}`)
   return r
 }))
+
+// Mode dev : bibliothèque de sections (blocs fournis + blocs enregistrés par le dev)
+router.get('/blocs', adminMiddleware, action(async () => blocs.lister()))
+router.post('/blocs/inserer', adminMiddleware, action(async (req) => {
+  const b = z.object({
+    page: z.string().min(1).max(300),
+    bloc: z.string().min(1).max(100),
+    position: schemaPosition,
+    chemin: schemaChemin.optional(),
+    balises: schemaBalises.optional(),
+  }).parse(req.body)
+  const cible = b.chemin && b.balises ? { chemin: b.chemin, balises: b.balises } : null
+  const r = await fichiers.insererBloc(sid(req), b.page, cible, b.position, b.bloc)
+  journaliser(sid(req), auteur(req), 'mode-dev', `${b.page} · section « ${b.bloc} » ajoutée`)
+  return r
+}))
+router.post('/blocs', adminMiddleware, action(async (req) => {
+  const b = z.object({
+    page: z.string().min(1).max(300), chemin: schemaChemin, balises: schemaBalises,
+    nom: z.string().trim().min(1).max(60), description: z.string().max(160).optional(),
+  }).parse(req.body)
+  return fichiers.enregistrerBloc(sid(req), b.page, { chemin: b.chemin, balises: b.balises }, b.nom, b.description)
+}))
+router.delete('/blocs/:bloc', adminMiddleware, action(async (req) => blocs.supprimer(param(req, 'bloc'))))
 
 // Dev uniquement : importer un dossier de site présent sur le serveur
 router.post('/importer', adminMiddleware, action(async (req) => {
