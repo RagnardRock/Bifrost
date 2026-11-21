@@ -124,3 +124,16 @@ Le compte dev voit un bouton **🛠️ Dev** dans la barre de l'éditeur. En mod
 Tout est écrit dans le brouillon, comme les modifications du client, puis publié avec « Publier ».
 Côté serveur : `POST /api/editeur/<site>/dev`, réservé au compte dev ; l'élément est désigné par son chemin depuis `<body>`
 avec la balise attendue à chaque étape (refus si la page a changé entre-temps).
+
+## Depuis Rune (l'IDE du dev)
+
+Le panneau Bifrost de Rune (icône globe) utilise l'API `/api/dev` :
+
+- `POST /api/dev/connexion` `{ email, motDePasse, appareil }` → un jeton `bfd_…` long et révocable (seule son empreinte est gardée, table `jetons_dev`).
+  Les autres appels l'envoient en `Authorization: Bearer`. `GET /jetons` et `DELETE /jetons/:id` listent et retirent les appareils connectés.
+- `GET /sites`, `GET /sites/:site` : les sites, et la fiche d'un site avec les modifications pas encore publiées (`enAttente`) et les publications.
+- `GET /sites/:site/manifeste?version=publie|brouillon` et `GET /sites/:site/fichier?chemin=…&version=…` : pour rapatrier les modifications du client dans les fichiers du dev.
+- `POST /sites/:site/envoi/essai` puis `POST /sites/:site/envoi` : `{ manifeste: { chemin: sha1 }, fichiers: { chemin: base64 }, supprimer, ecraserBrouillon, depuis }`.
+  L'essai répond ce qui changerait en ligne, les fichiers que Bifrost n'a pas encore (`manquants`), les modifications non publiées du client et ses publications depuis `depuis`.
+  L'envoi devient une **publication** du dev, avec historique (on peut revenir en arrière). Il est refusé si le client a des modifications non publiées, sauf `ecraserBrouillon`.
+  Les fichiers absents du dossier du dev restent en ligne, sauf `supprimer`. Les formulaires sont branchés comme à l'import.
