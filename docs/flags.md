@@ -12,7 +12,7 @@ Le dev pose les flags, le client modifie le contenu directement sur la page, pui
 
 Une clé hors liste est modifiée sur **toutes les pages** où elle apparaît (`site.nom`, `contact.telephone`…).
 Si un champ ne contient qu'un lien, c'est le texte du lien qui est modifié.
-Pour un lien `tel:` ou `mailto:`, l'adresse du lien suit le numéro ou l'e-mail saisi (`04 71 22 33 44` → `tel:+33471223344` si l'ancien lien était en +33).
+Pour un lien `tel:` ou `mailto:`, l'adresse du lien suit le numéro ou l'e-mail saisi (`04 71 22 33 44` → `tel:+33471223344` si l'ancien lien était en +33), ainsi que les autres liens de la page vers le même numéro (un bouton « Appeler », par exemple).
 
 ```html
 <h1 data-bf="accueil.titre">Bienvenue</h1>

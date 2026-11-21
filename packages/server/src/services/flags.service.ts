@@ -193,9 +193,19 @@ export function modifierChamp(html: string, cheminPage: string, cle: string, val
   const $ = charger(html)
   const dossier = path.posix.dirname(cheminPage)
   let touches = 0
+  const anciens = new Map<string, string>()
   champsDirects($, $.root().children() as Cheerio<Element>, false)
     .filter((_, el) => $(el).attr('data-bf') === cle)
-    .each((_, el) => { ecrireChamp($, $(el) as Cheerio<Element>, valeur, dossier); touches++ })
+    .each((_, el) => {
+      const cible = cibleTexte($, $(el) as Cheerio<Element>)
+      const avant = cible.is('a[href]') ? cible.attr('href') || '' : ''
+      ecrireChamp($, $(el) as Cheerio<Element>, valeur, dossier)
+      const apres = cible.attr('href') || ''
+      if (avant && apres !== avant && /^(tel|mailto):/i.test(avant)) anciens.set(avant, apres)
+      touches++
+    })
+  // Les autres liens vers le même numéro ou la même adresse (bouton « Appeler »…) suivent aussi
+  for (const [avant, apres] of anciens) $('a[href]').filter((_, a) => $(a).attr('href') === avant).attr('href', apres)
   return { html: $.html(), touches }
 }
 
