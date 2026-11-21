@@ -105,8 +105,10 @@ router.get('/blocs', action(async () => blocs.lister()))
 router.post('/blocs/:bloc/preparer', action(async (req) => {
   const { pris } = z.object({ pris: z.array(z.string().max(100)).max(5000).default([]) }).parse(req.body ?? {})
   const html = modeDev.renommerBloc(await blocs.lire(String(req.params.bloc)), new Set(pris))
-  const css = html.includes('class="bfb') ? await fs.readFile(blocs.feuilleBlocs(), 'utf-8') : null
-  return { html, css }
+  // fichiers à copier dans le site (feuille des blocs, image d'attente), en texte
+  const fichiers: Record<string, string> = {}
+  for (const [cible, source] of Object.entries(blocs.fichiersDuBloc(html))) fichiers[cible] = await fs.readFile(source, 'utf-8')
+  return { html, fichiers, feuille: fichiers['assets/bifrost-blocs.css'] ? 'assets/bifrost-blocs.css' : null }
 }))
 
 // ---------- un site (par son nom court ou son identifiant) ----------

@@ -192,7 +192,8 @@ export function renommerBloc(blocHtml: string, pris: Set<string>): string {
     const [p, ...reste] = v.split('.')
     $(el).attr('data-bf', [nouveau(p as string), ...reste].join('.'))
   })
-  return $('body').html() || ''
+  // data-bf-element s'écrit sans valeur, comme dans les sites écrits à la main
+  return ($('body').html() || '').replace(/ data-bf-element=""/g, ' data-bf-element')
 }
 
 /** Insère le HTML d'un bloc (chemins depuis la racine du site) avant, après ou dans l'élément ciblé. */

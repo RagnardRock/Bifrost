@@ -121,13 +121,13 @@ export async function insererBloc(siteId: string, page: string, cible: modeDev.C
   const bloc = modeDev.renommerBloc(await blocs.lire(blocId), pris)
   const r = modeDev.inserer(await lire(siteId, page), page, cible, bloc, position)
   let html = r.html
-  if (bloc.includes('class="bfb')) {
-    // la feuille des blocs fournis est remise à jour à chaque ajout
-    const d = dossiers(siteId).brouillon
-    await fs.mkdir(path.join(d, 'assets'), { recursive: true })
-    await fs.copyFile(blocs.feuilleBlocs(), path.join(d, 'assets', 'bifrost-blocs.css'))
-    html = modeDev.lierFeuilleBlocs(html, page) // ne touche qu'au <head> : le chemin dans <body> reste bon
+  // feuille des blocs et image d'attente : remises à jour à chaque ajout
+  const d = dossiers(siteId).brouillon
+  for (const [cible, source] of Object.entries(blocs.fichiersDuBloc(bloc))) {
+    await fs.mkdir(path.dirname(path.join(d, cible)), { recursive: true })
+    await fs.copyFile(source, path.join(d, cible))
   }
+  if (bloc.includes('class="bfb')) html = modeDev.lierFeuilleBlocs(html, page) // ne touche qu'au <head> : le chemin dans <body> reste bon
   html = brancherFormulaires(html, (nom) => adresseFormulaire(siteId, nom)) ?? html
   await ecrire(siteId, page, html)
   return { chemin: r.chemin }
