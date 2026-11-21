@@ -34,6 +34,9 @@ services:
       SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Réseaux sociaux : appli Meta « API Instagram avec connexion Instagram » (vide = carte Instagram indisponible)
+      INSTAGRAM_APP_ID: ${INSTAGRAM_APP_ID:-}
+      INSTAGRAM_APP_SECRET: ${INSTAGRAM_APP_SECRET:-}
     volumes:
       # Les fichiers des sites (brouillon, version en ligne, historique) : nginx sert « publie » directement
       - ${SITES_DIR:-./donnees/sites}:/data/sites

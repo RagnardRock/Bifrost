@@ -84,6 +84,9 @@ export async function analyserPage(siteId: string, page: string) {
   return flags.analyser(await lire(siteId, page), page)
 }
 
+/** Noms des collections du site (actualités…), pour y ranger des posts importés. */
+export const listerCollections = async (siteId: string) => [...(await collections(siteId)).keys()]
+
 /** Noms des collections : les listes qui ont une page modèle (data-bf-page). */
 async function collections(siteId: string): Promise<Map<string, string>> {
   const res = new Map<string, string>()
@@ -307,7 +310,7 @@ export async function operationListe(siteId: string, page: string, nom: string, 
 }
 
 /** Crée un élément de collection : sa page (depuis le modèle) et sa carte en tête des listes. */
-export async function nouvelElement(siteId: string, nom: string, donnees: { titre: string; date?: string; texte?: string; photos: string[] }) {
+export async function nouvelElement(siteId: string, nom: string, donnees: { titre: string; date?: string; texte?: string; photos: string[]; source?: flags.NouvelElement['source'] }) {
   const cols = await collections(siteId)
   const modele = cols.get(nom)
   if (!modele) throw Errors.badRequest(`Pas de page modèle pour « ${nom} »`)

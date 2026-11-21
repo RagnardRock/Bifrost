@@ -4,6 +4,7 @@ import { logger } from './utils/logger'
 import { prisma } from './config/database'
 import { completerSlugs } from './services/slug.service'
 import { purgerCorbeille } from './services/clients.service'
+import { verifierTous } from './services/reseaux.service'
 
 async function main() {
   try {
@@ -15,6 +16,10 @@ async function main() {
     const purger = () => purgerCorbeille().catch((e) => logger.warn(e, 'Corbeille non vidée'))
     void purger()
     setInterval(purger, 24 * 3600 * 1000).unref()
+    // Réseaux sociaux : nouveaux posts Instagram toutes les 30 minutes (Instagram ne prévient pas)
+    const reseauxPosts = () => verifierTous().catch((e) => logger.warn(e, 'Réseaux : vérification impossible'))
+    setTimeout(reseauxPosts, 60_000).unref()
+    setInterval(reseauxPosts, 30 * 60 * 1000).unref()
 
     // Start server
     app.listen(config.port, () => {

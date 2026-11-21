@@ -10,10 +10,11 @@ import { comptesService } from '@/services/comptes.service'
 import DoubleAuth from '@/components/compte/DoubleAuth.vue'
 import InstallerAppli from '@/components/appli/InstallerAppli.vue'
 import NotificationsAppli from '@/components/appli/NotificationsAppli.vue'
+import ReseauxSociaux from '@/components/reseaux/ReseauxSociaux.vue'
 import { adresseSite } from '@/services/suivi.service'
 import { useAuthStore } from '@/stores/auth.store'
 
-type Onglet = 'messages' | 'equipe' | 'reglages' | 'compte'
+type Onglet = 'messages' | 'equipe' | 'reseaux' | 'reglages' | 'compte'
 
 const route = useRoute()
 const router = useRouter()
@@ -29,6 +30,7 @@ const info = ref('')
 const ONGLETS: { id: Onglet; nom: string; icone: string; responsable: boolean }[] = [
   { id: 'messages', nom: 'Messages', icone: '📨', responsable: true },
   { id: 'equipe', nom: 'Équipe', icone: '👥', responsable: true },
+  { id: 'reseaux', nom: 'Réseaux', icone: '📸', responsable: true },
   { id: 'reglages', nom: 'Réglages', icone: '⚙️', responsable: true },
   { id: 'compte', nom: 'Mon compte', icone: '👤', responsable: false },
 ]
@@ -257,6 +259,11 @@ onMounted(async () => {
       </section>
 
       <!-- Réglages -->
+      <section v-else-if="onglet === 'reseaux'">
+        <h1>Réseaux sociaux</h1>
+        <ReseauxSociaux :site-id="siteId" @info="informer" />
+      </section>
+
       <section v-else-if="onglet === 'reglages'">
         <h1>Réglages du site</h1>
         <form v-if="reglages" class="ms-carte" @submit.prevent="enregistrerReglages">

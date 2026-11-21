@@ -169,6 +169,7 @@ model Site {
   jetons          Jeton[]
   evenements      Evenement[]
   messages        Message[]
+  comptesReseaux  CompteReseau[]
 
   @@index([clientId])
   @@map("sites")
@@ -342,4 +343,50 @@ model JetonDev {
 
   @@index([adminId])
   @@map("jetons_dev")
+}
+
+// ============================================
+// RÉSEAUX SOCIAUX : posts importés comme actualités
+// ============================================
+
+/// Un compte de réseau social relié à un site (Instagram pour l'instant)
+model CompteReseau {
+  id            String    @id @default(uuid())
+  siteId        String    @map("site_id")
+  reseau        String    @default("instagram")
+  /// identifiant et nom du compte chez le réseau
+  compteId      String    @map("compte_id")
+  nom           String
+  /// jeton d'accès chiffré, et sa date d'expiration (renouvelé tout seul)
+  jeton         String
+  expireLe      DateTime  @map("expire_le")
+  /// collection du site où les posts arrivent (ex. actualites)
+  collection    String
+  /// brouillon (un responsable relit et publie) ou publier (en ligne tout de suite)
+  mode          String    @default("brouillon")
+  /// seuls les posts publiés après cette date sont importés automatiquement
+  depuis        DateTime  @default(now())
+  derniereVerif DateTime? @map("derniere_verif")
+  erreur        String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  site    Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  imports PostImporte[]
+
+  @@unique([siteId, reseau])
+  @@map("comptes_reseaux")
+}
+
+/// Un post déjà importé (jamais deux fois, même s'il a été supprimé du site depuis)
+model PostImporte {
+  id        String   @id @default(uuid())
+  compteId  String   @map("compte_id")
+  postId    String   @map("post_id")
+  page      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  compte CompteReseau @relation(fields: [compteId], references: [id], onDelete: Cascade)
+
+  @@unique([compteId, postId])
+  @@map("posts_importes")
 }
