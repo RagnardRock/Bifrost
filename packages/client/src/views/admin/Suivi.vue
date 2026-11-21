@@ -4,7 +4,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Journal from '@/components/suivi/Journal.vue'
 import EnvoiSite, { type Envoi } from '@/components/suivi/EnvoiSite.vue'
-import { suiviService, adresseSite, ilYa, type SiteSuivi, type Evenement } from '@/services/suivi.service'
+import { suiviService, adresseSite, ilYa, type SiteSuivi, type Evenement, type SiteSupprime } from '@/services/suivi.service'
 
 const router = useRouter()
 const sites = ref<SiteSuivi[] | null>(null)
@@ -15,9 +15,11 @@ const occupe = ref(false)
 const envoi = ref<Envoi | null>(null)
 const progres = ref(0)
 
+const corbeille = ref<SiteSupprime[]>([])
+
 async function charger() {
   try {
-    ;[sites.value, activite.value] = await Promise.all([suiviService.sites(), suiviService.activite(undefined, 15)])
+    ;[sites.value, activite.value, corbeille.value] = await Promise.all([suiviService.sites(), suiviService.activite(undefined, 15), suiviService.corbeille().catch(() => [])])
   } catch (e: any) {
     erreur.value = e?.response?.data?.error?.message || 'Impossible de charger les sites.'
   }
@@ -42,6 +44,19 @@ async function creer() {
   } finally {
     occupe.value = false
   }
+}
+
+async function restaurer(s: SiteSupprime) {
+  try {
+    const r = await suiviService.restaurer(s.id)
+    router.push(`/admin/sites/${r.slug || r.id}`)
+  } catch (e: any) {
+    erreur.value = e?.response?.data?.error?.message || 'Restauration impossible.'
+  }
+}
+async function effacer(s: SiteSupprime) {
+  if (!window.confirm(`Effacer définitivement ${s.nom} ? Ses fichiers et ses messages seront perdus.`)) return
+  try { await suiviService.effacer(s.id); await charger() } catch (e: any) { erreur.value = e?.response?.data?.error?.message || 'Effacement impossible.' }
 }
 
 const enLigne = (s: SiteSuivi) => s.url || adresseSite(s)
@@ -70,6 +85,10 @@ onMounted(charger)
         <header>
           <router-link :to="`/admin/sites/${s.slug || s.id}`" class="nom">{{ s.nom }}</router-link>
           <a :href="enLigne(s)" target="_blank" rel="noopener" class="adresse">{{ s.url || `bifrost › ${s.slug || 'site'}` }}</a>
+          <div v-if="s.client || s.enPause" class="etiquettes">
+            <router-link v-if="s.client" :to="`/admin/clients/${s.client.id}`" class="etiquette">{{ s.client.nom }}</router-link>
+            <span v-if="s.enPause" class="etiquette etiquette--pause">En pause</span>
+          </div>
         </header>
 
         <div class="chiffres">
@@ -106,6 +125,22 @@ onMounted(charger)
         </footer>
       </article>
     </div>
+
+    <section v-if="corbeille.length" class="mt-10">
+      <h2 class="text-xl mb-3">Sites supprimés</h2>
+      <ul class="corbeille">
+        <li v-for="s in corbeille" :key="s.id" class="glass-card">
+          <div>
+            <strong>{{ s.nom }}</strong>
+            <span>supprimé {{ ilYa(s.supprimeLe) }} · effacé le {{ new Date(s.effaceLe).toLocaleDateString('fr-FR') }}<template v-if="s.messages"> · {{ s.messages }} message(s)</template></span>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" class="glass-button" @click="restaurer(s)">Restaurer</button>
+            <button type="button" class="glass-button text-red-500" @click="effacer(s)">Effacer</button>
+          </div>
+        </li>
+      </ul>
+    </section>
 
     <section class="mt-14">
       <div class="flex items-center justify-between mb-3">
@@ -157,6 +192,14 @@ onMounted(charger)
 .dates dt { width: 64px; flex: none; color: var(--bf-doux); }
 .dates dd { margin: 0; overflow-wrap: anywhere; }
 .carte footer { display: flex; gap: 8px; }
+.etiquettes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.etiquette { padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--bf-verre-fort); color: var(--bf-texte); text-decoration: none; }
+a.etiquette:hover { color: var(--bf-fort); }
+.etiquette--pause { background: rgba(224, 122, 74, .16); color: var(--bf-accent); }
+.corbeille { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.corbeille li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; box-shadow: none; }
+.corbeille li > div:first-child { display: grid; gap: 2px; }
+.corbeille span { font-size: 13px; color: var(--bf-doux); }
 .fond { position: fixed; inset: 0; background: var(--bf-voile); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 16px; z-index: 40; }
 .fenetre { width: 100%; max-width: 520px; padding: 24px; display: grid; gap: 14px; background: var(--bf-surface); }
 .fenetre label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }

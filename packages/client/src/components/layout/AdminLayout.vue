@@ -9,6 +9,7 @@ const route = useRoute()
 
 const navItems = [
   { name: 'Sites', path: '/admin' },
+  { name: 'Clients', path: '/admin/clients' },
   { name: 'Activité', path: '/admin/activite' },
 ]
 

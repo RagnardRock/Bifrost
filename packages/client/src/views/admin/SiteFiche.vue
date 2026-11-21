@@ -6,6 +6,7 @@ import Journal from '@/components/suivi/Journal.vue'
 import EnvoiSite, { type Envoi } from '@/components/suivi/EnvoiSite.vue'
 import { suiviService, adresseSite, ilYa, type FicheSite, type Evenement } from '@/services/suivi.service'
 import { editeurService, type Membre, type Invitation } from '@/services/editeur.service'
+import { clientsService, type Client } from '@/services/clients.service'
 
 const route = useRoute()
 const router = useRouter()
@@ -73,10 +74,54 @@ async function reimporter() {
   }
 }
 
+// ---------- client, pause, export, suppression ----------
+const clients = ref<Client[]>([])
+const clientChoisi = ref('')
+async function chargerClients() {
+  clients.value = await clientsService.lister().catch(() => [])
+  clientChoisi.value = fiche.value?.site.client?.id ?? ''
+}
+async function changerClient() {
+  try {
+    await suiviService.rattacher(id.value, clientChoisi.value || null)
+    message.value = clientChoisi.value ? 'Site rattaché au client' : 'Site détaché'
+    await charger()
+  } catch (e: any) {
+    erreur.value = e?.response?.data?.error?.message || 'Rattachement impossible.'
+  }
+}
+
+async function basculerPause() {
+  const pause = !fiche.value?.site.enPause
+  if (pause && !window.confirm('Mettre le site en pause ? Les visiteurs verront « site momentanément indisponible » et le formulaire n’enverra plus rien. L’éditeur reste accessible.')) return
+  try {
+    await suiviService.pause(id.value, pause)
+    message.value = pause ? 'Site en pause' : 'Site remis en ligne'
+    await charger()
+  } catch (e: any) {
+    erreur.value = e?.response?.data?.error?.message || 'Impossible.'
+  }
+}
+
+async function exporter(version: 'publie' | 'brouillon') {
+  try { await suiviService.exporter(id.value, fiche.value?.site.slug || id.value, version) } catch { erreur.value = 'Export impossible.' }
+}
+
+const suppression = ref<string | null>(null)
+async function supprimer() {
+  if (!fiche.value || suppression.value === null) return
+  try {
+    await suiviService.supprimer(id.value, suppression.value)
+    router.push('/admin')
+  } catch (e: any) {
+    erreur.value = e?.response?.data?.error?.message || 'Suppression impossible.'
+  }
+}
+
 const dateLongue = (d: string) => new Date(d).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
 const ROLES: Record<string, string> = { responsable: 'Responsable', redacteur: 'Rédacteur' }
 
-onMounted(charger)
+onMounted(async () => { await charger(); await chargerClients() })
 </script>
 
 <template>
@@ -89,8 +134,8 @@ onMounted(charger)
     <template v-if="fiche">
       <div class="flex flex-wrap items-end justify-between gap-4 mb-10">
         <div>
-          <h1>{{ fiche.site.name }}</h1>
-          <p class="chapeau">{{ fiche.pages }} pages · créé le {{ new Date(fiche.site.createdAt).toLocaleDateString('fr-FR') }}</p>
+          <h1>{{ fiche.site.name }} <span v-if="fiche.site.enPause" class="badge-pause">En pause</span></h1>
+          <p class="chapeau">{{ fiche.pages }} page{{ fiche.pages > 1 ? 's' : '' }} · créé le {{ new Date(fiche.site.createdAt).toLocaleDateString('fr-FR') }}</p>
         </div>
         <div class="flex gap-2">
           <a :href="fiche.site.url || adresseSite(fiche.site)" target="_blank" rel="noopener" class="glass-button">Voir en ligne</a>
@@ -137,13 +182,25 @@ onMounted(charger)
           <section class="glass-card bloc">
             <div class="flex items-center justify-between">
               <h2>Équipe</h2>
-              <a :href="`/edition/${fiche.site.slug || fiche.site.id}`" target="_blank" rel="noopener" class="text-sm text-blue-500 hover:underline" title="L’équipe se gère depuis le bouton 👥 de l’éditeur">Gérer</a>
+              <a :href="`/mon-site/${fiche.site.slug || fiche.site.id}?onglet=equipe`" target="_blank" rel="noopener" class="text-sm text-blue-500 hover:underline">Gérer</a>
             </div>
-            <p v-if="equipe && !equipe.membres.length" class="text-sm text-gray-500">Personne pour l’instant. Invitez le client depuis l’éditeur (👥).</p>
+            <p v-if="equipe && !equipe.membres.length" class="text-sm text-gray-500">Personne pour l’instant. Invitez le client depuis l’éditeur, bouton « Mon site ».</p>
             <ul v-if="equipe" class="lignes">
               <li v-for="m in equipe.membres" :key="m.id"><div><strong>{{ m.email }}</strong><span>{{ ROLES[m.role] }} · depuis {{ ilYa(m.createdAt) }}</span></div></li>
               <li v-for="i in equipe.invitations" :key="i.id" class="opacity-60"><div><strong>{{ i.email }}</strong><span>Invité · {{ ROLES[i.role] }}</span></div></li>
             </ul>
+          </section>
+
+          <section class="glass-card bloc">
+            <div class="flex items-center justify-between">
+              <h2>Client</h2>
+              <router-link v-if="fiche.site.client" :to="`/admin/clients/${fiche.site.client.id}`" class="text-sm text-blue-500 hover:underline">Fiche</router-link>
+            </div>
+            <select v-model="clientChoisi" class="input-field" aria-label="Client du site" @change="changerClient">
+              <option value="">Aucun client</option>
+              <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.nom }}</option>
+            </select>
+            <router-link v-if="!clients.length" to="/admin/clients" class="text-sm text-blue-500 hover:underline">Créer une fiche client</router-link>
           </section>
 
           <form class="glass-card bloc" @submit.prevent="enregistrer">
@@ -170,9 +227,51 @@ onMounted(charger)
             </details>
             <button type="submit" class="glass-button justify-self-start text-red-500" :disabled="occupe || (!envoi && !dossier.trim())">{{ occupe ? (envoi && progres < 100 ? `Envoi… ${progres} %` : 'Import…') : 'Réimporter' }}</button>
           </form>
+
+          <section class="glass-card bloc">
+            <h2>Exporter</h2>
+            <p class="text-xs text-gray-500">Le site en ZIP, pour le déposer chez un autre hébergeur. Ses formulaires continuent d’envoyer les messages à Bifrost.</p>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="glass-button" @click="exporter('publie')">Version en ligne</button>
+              <button type="button" class="glass-button" @click="exporter('brouillon')">Brouillon</button>
+            </div>
+          </section>
+
+          <section class="glass-card bloc sensible">
+            <h2>Zone sensible</h2>
+            <div class="action">
+              <div>
+                <strong>{{ fiche.site.enPause ? 'Site en pause' : 'Mettre en pause' }}</strong>
+                <span>{{ fiche.site.enPause ? 'Les visiteurs voient « momentanément indisponible ».' : 'Impayé, travaux… Le site affiche « momentanément indisponible ».' }}</span>
+              </div>
+              <button type="button" class="glass-button" @click="basculerPause">{{ fiche.site.enPause ? 'Remettre en ligne' : 'Mettre en pause' }}</button>
+            </div>
+            <div class="action">
+              <div>
+                <strong>Supprimer le site</strong>
+                <span>Fichiers, équipe, publications et messages vont dans la corbeille 30 jours, puis sont effacés.</span>
+              </div>
+              <button type="button" class="glass-button text-red-500" @click="suppression = ''">Supprimer</button>
+            </div>
+            <p class="ident">Identifiant (pour nginx) : <code>{{ fiche.site.id }}</code></p>
+          </section>
         </div>
       </div>
     </template>
+
+    <div v-if="suppression !== null && fiche" class="fond" @click.self="suppression = null">
+      <form class="glass-card fenetre" @submit.prevent="supprimer">
+        <h2 class="text-xl">Supprimer {{ fiche.site.name }} ?</h2>
+        <p class="text-sm">Le site disparaît de Bifrost et de son adresse. Vous pourrez le restaurer depuis la liste des sites pendant 30 jours.</p>
+        <label>Pour confirmer, tapez le nom du site : <strong>{{ fiche.site.name }}</strong>
+          <input v-model="suppression" class="input-field" autocomplete="off" aria-label="Nom du site">
+        </label>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="glass-button" @click="suppression = null">Annuler</button>
+          <button type="submit" class="btn-primary danger" :disabled="suppression.trim() !== fiche.site.name.trim()">Supprimer</button>
+        </div>
+      </form>
+    </div>
   </div>
 </template>
 
@@ -198,4 +297,18 @@ onMounted(charger)
 .aide { font-size: 12.5px; font-weight: 400; color: var(--bf-doux); }
 .avance { font-size: 13px; color: var(--bf-doux); }
 .avance summary { cursor: pointer; margin-bottom: 8px; }
+.badge-pause { display: inline-block; vertical-align: middle; margin-left: 8px; padding: 3px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: rgba(224, 122, 74, .16); color: var(--bf-accent); letter-spacing: 0; }
+.sensible { box-shadow: inset 0 0 0 1px rgba(239, 68, 68, .25); }
+.action { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.action > div { display: grid; gap: 2px; min-width: 0; }
+.action strong { font-size: 14px; }
+.action span { font-size: 12.5px; color: var(--bf-doux); }
+.action .glass-button { flex: none; }
+.ident { font-size: 12px; color: var(--bf-doux); margin: 0; overflow-wrap: anywhere; }
+.ident code { font-size: 11.5px; user-select: all; }
+.fond { position: fixed; inset: 0; background: var(--bf-voile); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 16px; z-index: 40; }
+.fenetre { width: 100%; max-width: 480px; padding: 24px; display: grid; gap: 14px; background: var(--bf-surface); }
+.fenetre label { display: grid; gap: 8px; font-size: 14px; }
+.danger { background: var(--bf-danger) !important; }
+.danger:disabled { opacity: .45; }
 </style>
