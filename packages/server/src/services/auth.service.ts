@@ -5,9 +5,10 @@ import { comparePassword, hashPassword } from '../utils/hash'
 import { signToken } from '../utils/jwt'
 import { Errors } from '../utils/errors'
 import type { LoginResponse, TokenPayload } from '@bifrost/shared'
+import { verifierConnexionParId } from '../services/double-auth.service'
 
 export const authService = {
-  async adminLogin(email: string, password: string): Promise<LoginResponse> {
+  async adminLogin(email: string, password: string, code?: string): Promise<LoginResponse> {
     // Find admin by email
     const admin = await adminRepository.findByEmail(email)
 
@@ -21,6 +22,9 @@ export const authService = {
     if (!isValid) {
       throw Errors.unauthorized('Email ou mot de passe incorrect')
     }
+
+    // Double authentification (si active)
+    await verifierConnexionParId('admin', admin.id, code)
 
     // Generate JWT
     const payload: Omit<TokenPayload, 'iat' | 'exp'> = {

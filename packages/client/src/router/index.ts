@@ -54,6 +54,11 @@ export const router = createRouter({
           component: () => import('@/views/admin/ClientFiche.vue'),
         },
         {
+          path: 'compte',
+          name: 'admin-compte',
+          component: () => import('@/views/admin/MonCompteDev.vue'),
+        },
+        {
           path: 'activite',
           name: 'admin-activity',
           component: () => import('@/views/admin/JournalActivite.vue'),

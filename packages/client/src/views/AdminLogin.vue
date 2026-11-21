@@ -1,18 +1,27 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth.store'
+import { codeDemande } from '@/services/comptes.service'
 
 const auth = useAuthStore()
 
 const email = ref('')
 const password = ref('')
+// Double authentification : le champ apparaît quand le serveur le demande
+const code = ref('')
+const avecCode = ref(false)
 
 async function handleLogin() {
   try {
-    await auth.loginAdmin(email.value, password.value)
+    await auth.loginAdmin(email.value, password.value, code.value)
     // Redirect handled by the store
-  } catch {
-    // Error handled by the store
+  } catch (e) {
+    if (codeDemande(e)) {
+      avecCode.value = true
+      auth.error = null
+      setTimeout(() => document.getElementById('code')?.focus(), 50)
+    }
+    // Other errors handled by the store
   }
 }
 </script>
@@ -53,6 +62,12 @@ async function handleLogin() {
           />
         </div>
 
+        <div v-if="avecCode">
+          <label for="code" class="block text-sm font-medium mb-2">Code de vérification</label>
+          <input id="code" v-model="code" required inputmode="numeric" autocomplete="one-time-code" maxlength="20" class="input-field code" placeholder="123 456">
+          <p class="text-xs text-gray-500 mt-2">Le code à 6 chiffres de votre appli d’authentification, ou un code de secours.</p>
+        </div>
+
         <div v-if="auth.error" class="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
           <p class="text-red-500 text-sm text-center">
             {{ auth.error }}
@@ -77,3 +92,7 @@ async function handleLogin() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.code { font-size: 20px; letter-spacing: .2em; text-align: center; font-variant-numeric: tabular-nums; }
+</style>

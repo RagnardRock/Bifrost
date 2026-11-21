@@ -16,6 +16,7 @@ import * as dev from '../services/dev.service'
 import * as suivi from '../services/suivi.service'
 import * as fichiers from '../services/site-fichiers.service'
 import { siteParCle } from '../services/slug.service'
+import { verifierConnexion } from '../services/double-auth.service'
 
 const router = Router()
 
@@ -31,9 +32,11 @@ const limiteConnexion = rateLimit({
 })
 
 router.post('/connexion', limiteConnexion, action(async (req) => {
-  const b = z.object({ email: z.string().trim().toLowerCase().email(), motDePasse: z.string().min(1).max(200), appareil: z.string().trim().max(80).default('Rune') }).parse(req.body)
+  const b = z.object({ email: z.string().trim().toLowerCase().email(), motDePasse: z.string().min(1).max(200), appareil: z.string().trim().max(80).default('Rune'), code: z.string().trim().max(20).optional() }).parse(req.body)
   const admin = await prisma.admin.findUnique({ where: { email: b.email } })
   if (!admin || !(await comparePassword(b.motDePasse, admin.passwordHash))) throw Errors.unauthorized('E-mail ou mot de passe incorrect')
+  // Double authentification du compte dev : CODE_REQUIS si le code manque (Rune redemande avec le code)
+  await verifierConnexion('admin', admin, b.code)
   const { jeton, id } = await dev.creerJeton(admin.id, b.appareil)
   return { jeton, id, email: admin.email }
 }))

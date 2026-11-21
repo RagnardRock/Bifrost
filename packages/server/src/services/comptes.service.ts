@@ -14,6 +14,7 @@ import { Errors } from '../utils/errors'
 import { envoyer } from './mail.service'
 import { journaliser } from './suivi.service'
 import { siteParCle } from './slug.service'
+import * as doubleAuth from './double-auth.service'
 
 export type Role = 'responsable' | 'redacteur'
 export const ROLES: Role[] = ['responsable', 'redacteur']
@@ -42,13 +43,16 @@ function session(user: { id: string; email: string }, site: { id: string; nom: s
  * Connexion par e-mail et mot de passe, sans identifiant de site.
  * Si la personne fait partie de plusieurs sites, on renvoie la liste pour qu'elle choisisse.
  */
-export async function connexion(email: string, motDePasse: string, cle?: string) {
+export async function connexion(email: string, motDePasse: string, cle?: string, code?: string) {
   const user = await parEmail(email)
   if (!user || !(await comparePassword(motDePasse, user.passwordHash))) throw Errors.unauthorized('E-mail ou mot de passe incorrect')
   const sites = await mesSites(user.id)
   if (!sites.length) throw Errors.forbidden('Ce compte ne fait plus partie d’aucune équipe')
   const voulu = cle ? await siteParCle(cle) : null
   const site = sites.find((s) => s.id === voulu) ?? (sites.length === 1 ? sites[0] : null)
+  // Double authentification : le code est vérifié avant de montrer la liste des sites,
+  // puis consommé quand la session s'ouvre (le même code sert pour les deux étapes)
+  await doubleAuth.verifierConnexion('user', user, code, !site)
   if (!site) return { sites: sites.map(({ id, nom }) => ({ id, nom })) }
   return session(user, site)
 }
@@ -136,6 +140,8 @@ export async function utiliserJeton(jeton: string, motDePasse: string) {
   }
   await prisma.jeton.update({ where: { id: j.id }, data: { utiliseLe: new Date() } })
   journaliser(j.siteId, user.id, j.type === 'invitation' ? 'arrivee' : 'mot-de-passe', user.email)
+  // Double authentification active : le lien ne suffit pas, la personne se connecte avec son code
+  if (user.totpActif) return { connexion: true as const, email: user.email }
   const sites = await mesSites(user.id)
   const site = sites.find((s) => s.id === j.siteId) ?? sites[0]
   if (!site) throw Errors.forbidden('Ce compte ne fait plus partie d’aucune équipe')
@@ -165,13 +171,13 @@ export async function changerDeSite(userId: string, cle: string) {
 
 export async function equipe(siteId: string) {
   const [membres, invitations] = await Promise.all([
-    prisma.membre.findMany({ where: { siteId }, include: { user: { select: { email: true } } }, orderBy: { createdAt: 'asc' } }),
+    prisma.membre.findMany({ where: { siteId }, include: { user: { select: { email: true, totpActif: true } } }, orderBy: { createdAt: 'asc' } }),
     prisma.jeton.findMany({
       where: { siteId, type: 'invitation', utiliseLe: null, expireLe: { gt: new Date() } },
       select: { id: true, email: true, role: true, expireLe: true }, orderBy: { createdAt: 'desc' },
     }),
   ])
-  return { membres: membres.map((m) => ({ id: m.userId, email: m.user.email, role: m.role, createdAt: m.createdAt })), invitations }
+  return { membres: membres.map((m) => ({ id: m.userId, email: m.user.email, role: m.role, createdAt: m.createdAt, doubleAuth: m.user.totpActif })), invitations }
 }
 
 async function resteUnResponsable(siteId: string, sauf: string) {

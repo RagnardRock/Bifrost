@@ -12,6 +12,7 @@ import { success } from '../utils/response'
 import * as suivi from '../services/suivi.service'
 import * as fichiers from '../services/site-fichiers.service'
 import * as clients from '../services/clients.service'
+import { reinitialiserClient } from '../services/double-auth.service'
 import { slugLibre, SLUG_VALIDE, oublierSlug, siteParCle } from '../services/slug.service'
 
 const router = Router()
@@ -132,6 +133,12 @@ router.get('/sites/:id/export', async (req, res, next) => {
 router.delete('/sites/:id', action(async (req) => {
   const { nom } = z.object({ nom: z.string().max(200) }).parse(req.body)
   return clients.supprimerSite(id(req), nom)
+}))
+
+// Un client a perdu son téléphone et ses codes de secours : on retire sa double authentification
+router.post('/comptes/:id/double-auth/reinitialiser', action(async (req) => {
+  await reinitialiserClient(z.string().uuid().parse(id(req)))
+  return { actif: false }
 }))
 
 router.get('/corbeille', action(async () => clients.corbeille()))

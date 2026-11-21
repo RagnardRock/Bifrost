@@ -15,6 +15,12 @@ model Admin {
   id           String   @id @default(uuid())
   email        String   @unique
   passwordHash String   @map("password_hash")
+  /// Double authentification : secret de l'appli d'authentification (chiffré), active ou non,
+  /// dernier pas de temps accepté (un code ne sert qu'une fois), codes de secours (empreintes)
+  totpSecret   String?  @map("totp_secret")
+  totpActif    Boolean  @default(false) @map("totp_actif")
+  totpDernier  Int?     @map("totp_dernier")
+  codesSecours String[] @default([]) @map("codes_secours")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -29,6 +35,12 @@ model User {
   /// toujours en minuscules
   email        String   @unique
   passwordHash String   @map("password_hash")
+  /// Double authentification : secret de l'appli d'authentification (chiffré), active ou non,
+  /// dernier pas de temps accepté (un code ne sert qu'une fois), codes de secours (empreintes)
+  totpSecret   String?  @map("totp_secret")
+  totpActif    Boolean  @default(false) @map("totp_actif")
+  totpDernier  Int?     @map("totp_dernier")
+  codesSecours String[] @default([]) @map("codes_secours")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
