@@ -10,6 +10,7 @@ import { adresseSite } from '@/services/suivi.service'
 import { comptesService, type MonSite } from '@/services/comptes.service'
 import { useAuthStore } from '@/stores/auth.store'
 import { useUIStore } from '@/stores/ui.store'
+import InstallerAppli from '@/components/appli/InstallerAppli.vue'
 import PanneauDev, { type SelectionDev, type FlagPage, type AlerteDev, type OperationDev } from '@/components/editeur/PanneauDev.vue'
 
 const route = useRoute()
@@ -76,6 +77,8 @@ async function changerDeSite(id: string) {
 
 async function rafraichirEtat() {
   etat.value = await editeurService.etat(siteId.value)
+  // L'appli installée rouvre ce site au démarrage
+  try { localStorage.setItem('bf-dernier-site', etat.value.site.slug || etat.value.site.id) } catch { /* stockage indisponible */ }
   const slug = etat.value.site.slug
   if (slug && route.params.siteId !== slug) router.replace({ params: { siteId: slug }, query: route.query })
 }
@@ -464,6 +467,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
         </template>
         <a :href="adresseSite(etat?.site ?? { id: siteId })" target="_blank" rel="noopener" @click="menuMobile = false"><span aria-hidden="true">↗</span>Voir le site</a>
         <router-link v-if="etat?.moi.dev" :to="`/admin/sites/${etat?.site.slug || siteId}`"><span aria-hidden="true">🛠️</span>Fiche du site</router-link>
+        <InstallerAppli compact class="ed-menu-appli" @fait="menuMobile = false" />
         <button type="button" @click="ui.basculerTheme()"><span aria-hidden="true">{{ ui.theme === 'dark' ? '🌙' : ui.theme === 'light' ? '☀️' : '💻' }}</span>Thème : {{ ui.theme === 'system' ? 'comme le téléphone' : ui.theme === 'dark' ? 'sombre' : 'clair' }}</button>
         <button type="button" @click="depuisMenu(deconnexion)"><span aria-hidden="true">🚪</span>Se déconnecter</button>
         <button type="button" class="ed-menu-fermer" @click="menuMobile = false">Fermer</button>

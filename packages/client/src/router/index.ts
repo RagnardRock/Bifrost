@@ -7,7 +7,15 @@ export const router = createRouter({
     {
       path: '/',
       name: 'home',
-      redirect: '/login',
+      // Ouverture de l'appli : le dev va à son espace, le client sur le dernier site modifié
+      redirect: () => {
+        let role: string | null = null
+        let dernier: string | null = null
+        try { role = localStorage.getItem('token') ? localStorage.getItem('role') : null; dernier = localStorage.getItem('bf-dernier-site') } catch { /* stockage indisponible */ }
+        if (role === 'admin') return '/admin'
+        if (role === 'client' && dernier) return `/edition/${dernier}`
+        return '/login'
+      },
     },
     {
       path: '/login',
