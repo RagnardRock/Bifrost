@@ -142,6 +142,15 @@ export async function utiliserJeton(jeton: string, motDePasse: string) {
   return session(user, site)
 }
 
+/** Changer son mot de passe depuis « Mon compte » (l'ancien est demandé). */
+export async function changerMotDePasse(userId: string, siteId: string | undefined, actuel: string, nouveau: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user || !(await comparePassword(actuel, user.passwordHash))) throw Errors.badRequest('Mot de passe actuel incorrect')
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(nouveau) } })
+  if (siteId) journaliser(siteId, user.id, 'mot-de-passe', user.email)
+  return { change: true }
+}
+
 /** Changer de site sans retaper son mot de passe. */
 export async function changerDeSite(userId: string, cle: string) {
   const id = await siteParCle(cle)

@@ -204,6 +204,21 @@ router.delete('/equipe/membres/:id', responsable, action(async (req) => {
   return r
 }))
 
+// Réglages du site modifiables par ses responsables (espace « Mon site »)
+const selectReglages = { id: true, name: true, url: true, slug: true, emailMessages: true } as const
+router.get('/reglages', responsable, action(async (req) => prisma.site.findUnique({ where: { id: sid(req) }, select: selectReglages })))
+router.put('/reglages', responsable, action(async (req) => {
+  const b = z.object({ nom: z.string().trim().min(1).max(120).optional(), emailMessages: z.string().trim().max(500).optional() }).parse(req.body)
+  const adresses = b.emailMessages?.split(/[,;\s]+/).map((a) => a.trim()).filter(Boolean)
+  if (adresses?.some((a) => !z.string().email().safeParse(a).success)) throw Errors.badRequest('Adresse de réception des messages invalide')
+  if (adresses && adresses.length > 5) throw Errors.badRequest('5 adresses de réception au maximum')
+  return prisma.site.update({
+    where: { id: sid(req) },
+    data: { ...(b.nom ? { name: b.nom } : {}), ...(adresses ? { emailMessages: adresses.join(', ') || null } : {}) },
+    select: selectReglages,
+  })
+}))
+
 // Messages reçus par les formulaires du site : responsables et dev
 router.get('/messages', responsable, action(async (req) => formulaires.lister(sid(req))))
 router.put('/messages/:id', responsable, action(async (req) => {

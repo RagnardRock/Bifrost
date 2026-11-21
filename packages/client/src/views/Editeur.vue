@@ -5,7 +5,7 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { editeurService, type EtatEditeur, type Publication, type Membre, type Invitation, type RoleSite, type Message } from '@/services/editeur.service'
+import { editeurService, type EtatEditeur, type Publication } from '@/services/editeur.service'
 import { adresseSite } from '@/services/suivi.service'
 import { comptesService, type MonSite } from '@/services/comptes.service'
 import { useAuthStore } from '@/stores/auth.store'
@@ -176,73 +176,8 @@ async function creerNouvelle() {
   }
 }
 
-// ---------- équipe ----------
-const equipe = ref<{ membres: Membre[]; invitations: Invitation[] } | null>(null)
-const invitation = ref<{ email: string; role: RoleSite }>({ email: '', role: 'redacteur' })
-const lienInvitation = ref<{ email: string; lien: string; envoye: boolean; ajoute: boolean } | null>(null)
-const ROLES: Record<RoleSite, string> = { responsable: 'Responsable', redacteur: 'Rédacteur' }
-async function ouvrirEquipe() {
-  lienInvitation.value = null
-  equipe.value = await editeurService.equipe(siteId.value)
-}
-async function inviter() {
-  const email = invitation.value.email.trim()
-  if (!email) return
-  try {
-    const r = await editeurService.inviter(siteId.value, email, invitation.value.role)
-    lienInvitation.value = { email, ...r }
-    invitation.value.email = ''
-    equipe.value = await editeurService.equipe(siteId.value)
-  } catch (err) {
-    echec(err, 'L’invitation n’a pas pu être créée.')
-  }
-}
-async function copier(t: string) {
-  try { await navigator.clipboard.writeText(t); informer('Lien copié') } catch { informer('Sélectionnez le lien pour le copier') }
-}
-async function changerRole(m: Membre, role: RoleSite) {
-  try { await editeurService.changerRole(siteId.value, m.id, role); m.role = role; informer('Rôle modifié') } catch (err) { echec(err); equipe.value = await editeurService.equipe(siteId.value) }
-}
-function retirer(m: Membre) {
-  confirmation.value = {
-    texte: `Retirer ${m.email} de l’équipe ? Cette personne ne pourra plus modifier le site.`,
-    action: async () => { await editeurService.retirer(siteId.value, m.id); equipe.value = await editeurService.equipe(siteId.value) },
-  }
-}
-async function annulerInvitation(i: Invitation) {
-  try { await editeurService.annulerInvitation(siteId.value, i.id); equipe.value = await editeurService.equipe(siteId.value) } catch (err) { echec(err) }
-}
-
-// ---------- messages reçus par les formulaires du site ----------
-const messages = ref<Message[] | null>(null)
-const ouvert = ref<string | null>(null)
-async function ouvrirMessages() {
-  ouvert.value = null
-  try { messages.value = await editeurService.messages(siteId.value) } catch (err) { echec(err, 'Impossible de charger les messages.') }
-}
-async function lireMessage(m: Message) {
-  ouvert.value = ouvert.value === m.id ? null : m.id
-  if (m.lu) return
-  m.lu = true
-  try { await editeurService.marquerLu(siteId.value, m.id, true); await rafraichirEtat() } catch { m.lu = false }
-}
-async function marquerNonLu(m: Message) {
-  try { await editeurService.marquerLu(siteId.value, m.id, false); m.lu = false; ouvert.value = null; await rafraichirEtat() } catch (err) { echec(err) }
-}
-function supprimerMessage(m: Message) {
-  confirmation.value = {
-    texte: 'Supprimer ce message ? Il ne pourra pas être récupéré.',
-    action: async () => {
-      await editeurService.supprimerMessage(siteId.value, m.id)
-      messages.value = (messages.value ?? []).filter((x) => x.id !== m.id)
-      await rafraichirEtat()
-    },
-  }
-}
-// En titre : le nom (premier champ rempli qui n'est pas l'adresse), sinon l'adresse ; en dessous, le reste du message
-const titreMessage = (m: Message) => m.champs.find((c) => c.valeur && c.valeur !== m.email)?.valeur.slice(0, 80) || m.email || 'Message'
-const apercuMessage = (m: Message) => m.champs.filter((c) => c.valeur && c.valeur !== m.email && c.valeur !== titreMessage(m)).map((c) => c.valeur).join(' · ').slice(0, 140)
-const repondre = (m: Message) => `mailto:${m.email}?subject=${encodeURIComponent(`Re : votre message sur ${etat.value?.site.name ?? 'notre site'}`)}`
+// ---------- espace « Mon site » (messages, équipe, réglages, compte) ----------
+const lienMonSite = computed(() => ({ name: 'mon-site', params: { siteId: etat.value?.site.slug || siteId.value }, query: responsable.value && etat.value?.messagesNonLus ? { onglet: 'messages' } : {} }))
 
 // ---------- publication et historique ----------
 const historique = ref<Publication[] | null>(null)
@@ -337,11 +272,10 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
       <div class="ed-actions">
         <button class="ed-btn ed-btn--clair" type="button" @click="ouvrirNouvelle">+ Actualité</button>
         <button class="ed-btn ed-btn--icone" type="button" :aria-pressed="vueMobile" title="Voir comme sur un téléphone" @click="vueMobile = !vueMobile">📱</button>
+        <router-link :to="lienMonSite" class="ed-btn ed-btn--clair ed-btn--badge ed-mon-site" :title="responsable && etat?.messagesNonLus ? `Messages, équipe, réglages (${etat.messagesNonLus} message${etat.messagesNonLus > 1 ? 's' : ''} non lu${etat.messagesNonLus > 1 ? 's' : ''})` : 'Messages, équipe, réglages et compte'">
+          Mon site<span v-if="responsable && etat?.messagesNonLus" class="ed-badge">{{ etat.messagesNonLus > 99 ? '99+' : etat.messagesNonLus }}</span>
+        </router-link>
         <template v-if="responsable">
-          <button class="ed-btn ed-btn--icone ed-btn--badge" type="button" :title="etat?.messagesNonLus ? `Messages reçus (${etat.messagesNonLus} non lu${etat.messagesNonLus > 1 ? 's' : ''})` : 'Messages reçus par le formulaire du site'" @click="ouvrirMessages">
-            📨<span v-if="etat?.messagesNonLus" class="ed-badge">{{ etat.messagesNonLus > 99 ? '99+' : etat.messagesNonLus }}</span>
-          </button>
-          <button class="ed-btn ed-btn--icone" type="button" title="Équipe : qui peut modifier le site" @click="ouvrirEquipe">👥</button>
           <button class="ed-btn ed-btn--icone" type="button" title="Historique des publications" @click="ouvrirHistorique">🕘</button>
           <button class="ed-btn ed-btn--publier" type="button" :disabled="!nbModifs || occupe" :title="detailModifs" @click="publier">
             {{ nbModifs ? `Publier (${nbModifs})` : 'À jour' }}
@@ -384,9 +318,8 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
     <div v-if="menuMobile" class="ed-fond ed-fond--bas" @click.self="menuMobile = false">
       <nav class="ed-menu" aria-label="Actions">
         <p v-if="!responsable && etat" class="ed-menu-info">{{ nbModifs ? `${modifsTexte(nbModifs)} en attente : un responsable du site les publiera.` : 'Tout est publié.' }}</p>
+        <router-link :to="lienMonSite"><span aria-hidden="true">🏠</span>Mon site<small>Messages, équipe, réglages</small><b v-if="responsable && etat?.messagesNonLus" class="ed-badge ed-badge--ligne">{{ etat.messagesNonLus }}</b></router-link>
         <template v-if="responsable">
-          <button type="button" @click="depuisMenu(ouvrirMessages)"><span aria-hidden="true">📨</span>Messages reçus<b v-if="etat?.messagesNonLus" class="ed-badge ed-badge--ligne">{{ etat.messagesNonLus }}</b></button>
-          <button type="button" @click="depuisMenu(ouvrirEquipe)"><span aria-hidden="true">👥</span>Équipe</button>
           <button type="button" @click="depuisMenu(ouvrirHistorique)"><span aria-hidden="true">🕘</span>Historique des publications</button>
           <button v-if="nbModifs" type="button" class="ed-rouge" @click="depuisMenu(abandonner)"><span aria-hidden="true">🗑️</span>Effacer mes modifications</button>
         </template>
@@ -434,83 +367,6 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
           </li>
         </ul>
         <div class="ed-boutons"><button type="button" class="ed-btn ed-btn--clair" @click="historique = null">Fermer</button></div>
-      </div>
-    </div>
-
-    <!-- Messages reçus -->
-    <div v-if="messages" class="ed-fond" @click.self="messages = null">
-      <div class="ed-fenetre ed-fenetre--large">
-        <h2>Messages reçus</h2>
-        <p v-if="!messages.length" class="ed-note">Aucun message pour l’instant. Ceux envoyés par le formulaire du site arriveront ici, et par e-mail aux responsables.</p>
-        <ul class="ed-messages">
-          <li v-for="m in messages" :key="m.id" :class="{ 'ed-non-lu': !m.lu, 'ed-ouvert': ouvert === m.id }">
-            <button type="button" class="ed-message-tete" :aria-expanded="ouvert === m.id" @click="lireMessage(m)">
-              <span class="ed-point" aria-hidden="true" />
-              <span class="ed-message-resume">
-                <strong>{{ titreMessage(m) }}</strong>
-                <span>{{ apercuMessage(m) }}</span>
-              </span>
-              <time :datetime="m.createdAt">{{ dateLisible(m.createdAt) }}</time>
-            </button>
-            <div v-if="ouvert === m.id" class="ed-message-corps">
-              <dl>
-                <template v-for="c in m.champs" :key="c.nom">
-                  <dt>{{ c.libelle }}</dt>
-                  <dd>{{ c.valeur || '—' }}</dd>
-                </template>
-              </dl>
-              <div class="ed-ligne">
-                <a v-if="m.email" :href="repondre(m)" class="ed-btn ed-btn--publier">Répondre</a>
-                <button type="button" class="ed-btn ed-btn--clair" @click="marquerNonLu(m)">Marquer non lu</button>
-                <button type="button" class="ed-btn ed-btn--clair ed-rouge" @click="supprimerMessage(m)">Supprimer</button>
-              </div>
-            </div>
-          </li>
-        </ul>
-        <div class="ed-boutons"><button type="button" class="ed-btn ed-btn--clair" @click="messages = null">Fermer</button></div>
-      </div>
-    </div>
-
-    <!-- Équipe -->
-    <div v-if="equipe" class="ed-fond" @click.self="equipe = null">
-      <div class="ed-fenetre">
-        <h2>Équipe du site</h2>
-        <p class="ed-note">Les <strong>responsables</strong> publient et gèrent l’équipe. Les <strong>rédacteurs</strong> modifient le site ; un responsable publie ensuite.</p>
-        <ul class="ed-histo">
-          <li v-for="m in equipe.membres" :key="m.id">
-            <div><strong>{{ m.email }}</strong><span v-if="m.id === etat?.moi.id">C’est vous</span></div>
-            <div class="ed-ligne">
-              <select :value="m.role" class="ed-select" :disabled="m.id === etat?.moi.id" aria-label="Rôle" @change="changerRole(m, ($event.target as HTMLSelectElement).value as RoleSite)">
-                <option v-for="(lib, r) in ROLES" :key="r" :value="r">{{ lib }}</option>
-              </select>
-              <button v-if="m.id !== etat?.moi.id" type="button" class="ed-btn ed-btn--clair" title="Retirer de l’équipe" @click="retirer(m)">✕</button>
-            </div>
-          </li>
-          <li v-for="i in equipe.invitations" :key="i.id" class="ed-annulee">
-            <div><strong>{{ i.email }}</strong><span>Invitation envoyée · {{ ROLES[i.role] }}</span></div>
-            <button type="button" class="ed-btn ed-btn--clair" @click="annulerInvitation(i)">Annuler</button>
-          </li>
-        </ul>
-        <form class="ed-inviter" @submit.prevent="inviter">
-          <span class="ed-etiquette">Inviter quelqu’un</span>
-          <div class="ed-ligne">
-            <input v-model="invitation.email" type="email" required placeholder="adresse e-mail" aria-label="Adresse e-mail">
-            <select v-model="invitation.role" class="ed-select" aria-label="Rôle">
-              <option v-for="(lib, r) in ROLES" :key="r" :value="r">{{ lib }}</option>
-            </select>
-            <button type="submit" class="ed-btn ed-btn--publier">Inviter</button>
-          </div>
-        </form>
-        <div v-if="lienInvitation" class="ed-lien-invit">
-          <p v-if="lienInvitation.ajoute"><strong>{{ lienInvitation.email }}</strong> avait déjà un compte Bifrost : la personne fait maintenant partie de l’équipe{{ lienInvitation.envoye ? ' et a reçu un e-mail' : '' }}. Elle se connecte avec son mot de passe habituel :</p>
-          <p v-else-if="lienInvitation.envoye">Un e-mail est parti pour <strong>{{ lienInvitation.email }}</strong>. Vous pouvez aussi lui transmettre ce lien (valable 7 jours) :</p>
-          <p v-else>Envoyez ce lien à <strong>{{ lienInvitation.email }}</strong> (valable 7 jours) :</p>
-          <div class="ed-ligne">
-            <input :value="lienInvitation.lien" readonly aria-label="Lien d’invitation" @focus="($event.target as HTMLInputElement).select()">
-            <button type="button" class="ed-btn ed-btn--clair" @click="copier(lienInvitation.lien)">Copier</button>
-          </div>
-        </div>
-        <div class="ed-boutons"><button type="button" class="ed-btn ed-btn--clair" @click="equipe = null">Fermer</button></div>
       </div>
     </div>
 
@@ -574,32 +430,11 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 .ed-menu span { width: 24px; text-align: center; }
 .ed-menu .ed-menu-fermer { justify-content: center; margin-top: 6px; background: var(--bf-verre); font-weight: 600; }
 .ed-menu .ed-badge--ligne { position: static; margin-left: auto; }
+.ed-menu > a small { margin-left: -4px; font-size: 13px; font-weight: 400; color: var(--bf-doux); }
+.ed-mon-site { position: relative; text-decoration: none; }
 .ed-menu-info { margin: 4px 14px 8px; font-size: 14px; color: var(--bf-doux); }
 .ed-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--bf-accent, #e07a4a); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
-.ed-messages { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.ed-messages li { border-radius: 12px; background: var(--bf-verre); }
-.ed-message-tete { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 12px; }
-.ed-message-tete:hover { background: var(--bf-verre-fort); }
-.ed-point { width: 8px; height: 8px; flex: none; border-radius: 50%; background: transparent; }
-.ed-non-lu .ed-point { background: var(--bf-accent, #e07a4a); }
-.ed-message-resume { flex: 1; min-width: 0; display: grid; }
-.ed-message-resume strong, .ed-message-resume span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ed-message-resume strong { font-size: 14px; font-weight: 500; }
-.ed-non-lu .ed-message-resume strong { font-weight: 700; }
-.ed-message-resume span { font-size: 13px; color: var(--bf-doux); }
-.ed-message-tete time { flex: none; font-size: 12px; color: var(--bf-doux); }
-.ed-message-corps { padding: 0 12px 14px 32px; display: grid; gap: 12px; }
-.ed-message-corps dl { margin: 0; display: grid; gap: 4px 16px; grid-template-columns: minmax(80px, max-content) 1fr; font-size: 14px; }
-.ed-message-corps dt { color: var(--bf-doux); }
-.ed-message-corps dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.ed-message-corps a.ed-btn { text-decoration: none; }
 .ed-rouge { color: var(--bf-danger); }
-@media (max-width: 560px) {
-  .ed-message-tete time { display: none; }
-  .ed-message-corps { padding-left: 12px; }
-  .ed-message-corps dl { grid-template-columns: 1fr; }
-  .ed-message-corps dd { margin-bottom: 6px; }
-}
 .ed-fenetre h2 { margin: 0; font-size: 20px; font-weight: 700; }
 .ed-fenetre label, .ed-etiquette { display: grid; gap: 6px; font-size: 14px; font-weight: 600; color: var(--bf-texte); }
 .ed-fenetre input, .ed-fenetre textarea { background: var(--bf-champ); border: 1px solid var(--bf-bord-fort); border-radius: 10px; padding: 12px; color: var(--bf-texte); font: inherit; font-weight: 400; }
@@ -619,16 +454,13 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 .ed-ligne input { flex: 1 1 200px; min-width: 0; }
 .ed-select { background: var(--bf-champ); border: 1px solid var(--bf-bord-fort); border-radius: 10px; padding: 10px; color: var(--bf-texte); font: inherit; }
 .ed-select option { color: var(--bf-texte); background: var(--bf-fond); }
-.ed-inviter { display: grid; gap: 8px; }
-.ed-lien-invit { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: rgba(224, 122, 74, .12); font-size: 14px; }
-.ed-lien-invit p { margin: 0; }
 .ed-fondu-enter-active, .ed-fondu-leave-active { transition: opacity .2s; }
 .ed-fondu-enter-from, .ed-fondu-leave-to { opacity: 0; }
 @media (max-width: 720px) {
   .ed-barre { padding: 8px 10px; }
   .ed-btn { padding: 9px 12px; font-size: 13px; }
   .ed-aide { display: none; }
-  .ed-btn--icone { display: none; }
+  .ed-btn--icone, .ed-mon-site { display: none; }
   .ed-btn--icone.ed-btn--plus { display: inline-block; }
   .ed-attente { display: none; }
 }

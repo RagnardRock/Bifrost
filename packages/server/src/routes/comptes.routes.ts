@@ -45,6 +45,12 @@ router.post('/oubli', action(async (req) => comptes.oubli(z.object({ email: z.st
 
 const jeton = (req: Request) => z.string().min(20).max(100).parse((req.params as Record<string, string>).jeton)
 router.get('/acces/:jeton', action(async (req) => comptes.lireJeton(jeton(req))))
+// Client connecté : changer son mot de passe (tentatives limitées ci-dessus)
+router.post('/mot-de-passe', authMiddleware, action(async (req) => {
+  const b = z.object({ actuel: z.string().min(1).max(200), nouveau: motDePasse }).parse(req.body)
+  return comptes.changerMotDePasse(client(req), req.user?.siteId, b.actuel, b.nouveau)
+}))
+
 router.post('/acces/:jeton', action(async (req) => comptes.utiliserJeton(jeton(req), z.object({ motDePasse }).parse(req.body).motDePasse)))
 
 export default router

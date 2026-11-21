@@ -13,5 +13,6 @@ export const comptesService = {
     donnees<Session | ChoixSites>(api.post('/comptes/connexion', { email, motDePasse, siteId })),
   oubli: (email: string) => api.post('/comptes/oubli', { email }),
   lireAcces: (jeton: string) => donnees<{ type: 'invitation' | 'reinitialisation'; email: string; site: { nom: string } }>(api.get(`/comptes/acces/${jeton}`)),
+  changerMotDePasse: (actuel: string, nouveau: string) => api.post('/comptes/mot-de-passe', { actuel, nouveau }),
   utiliserAcces: (jeton: string, motDePasse: string) => donnees<Session>(api.post(`/comptes/acces/${jeton}`, { motDePasse })),
 }
