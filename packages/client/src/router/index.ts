@@ -51,6 +51,13 @@ export const router = createRouter({
         { path: 'activity', redirect: '/admin/activite' },
       ],
     },
+    // Espace « Mon site » : messages, équipe, réglages, mon compte
+    {
+      path: '/mon-site/:siteId',
+      name: 'mon-site',
+      component: () => import('@/views/MonSite.vue'),
+      meta: { requiresAuth: true },
+    },
     // Éditeur sur place (v2) : dev et client
     {
       path: '/edition/:siteId',
