@@ -32,7 +32,9 @@ const isActive = (path: string) =>
       </nav>
 
       <div class="moi">
-        <span class="adresse" :title="auth.admin?.email">{{ auth.admin?.email }}</span>
+        <RouterLink to="/admin/compte" class="lien compte" :class="{ actif: route.path === '/admin/compte' }" title="Mon compte : double authentification">
+          <span class="adresse">{{ auth.admin?.email }}</span><span class="compte-icone" aria-hidden="true">👤</span>
+        </RouterLink>
         <button type="button" class="lien icone" :title="`Thème : ${ui.theme === 'system' ? 'comme l’appareil' : ui.theme === 'dark' ? 'sombre' : 'clair'}`" @click="ui.basculerTheme()">{{ ui.theme === 'dark' ? '🌙' : ui.theme === 'light' ? '☀️' : '💻' }}</button>
         <button type="button" class="lien" title="Déconnexion" @click="auth.logout()"><span class="sortie-texte">Déconnexion</span><span class="sortie-icone" aria-hidden="true">⏻</span></button>
       </div>
@@ -62,11 +64,14 @@ const isActive = (path: string) =>
 .lien:hover, .lien.actif { background: var(--bf-verre-fort); color: var(--bf-fort); }
 .lien.icone { padding: 7px 10px; }
 .moi { margin-left: auto; display: flex; align-items: center; gap: 2px; min-width: 0; }
-.adresse { font-size: 13px; color: var(--bf-doux); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 6px; }
+.adresse { font-size: 13px; color: var(--bf-doux); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.compte { min-width: 0; }
+.compte-icone { display: none; }
 .sortie-icone { display: none; }
 .contenu { max-width: 1200px; margin: 0 auto; padding: 32px clamp(16px, 4vw, 48px) 80px; min-width: 0; }
 @media (max-width: 860px) {
   .adresse, .sortie-texte { display: none; }
+  .compte-icone { display: inline; }
   .sortie-icone { display: inline; }
   .barre { gap: 6px; padding-left: 14px; }
   .lien { padding: 7px 10px; }

@@ -55,6 +55,8 @@ export const suiviService = {
   modifier: (id: string, nom: string, url: string, slug?: string, emailMessages?: string) => api.put(`/admin/suivi/sites/${id}`, { nom, url, slug: slug || undefined, emailMessages }),
   reimporter: (id: string, dossier: string) => api.post(`/admin/suivi/sites/${id}/importer`, { dossier }, { timeout: 120000 }),
   fiche: (id: string) => donnees<FicheSite>(api.get(`/admin/suivi/sites/${id}`)),
+  /** Retire la double authentification d'un client (téléphone et codes perdus). */
+  reinitialiserDoubleAuth: (userId: string) => api.post(`/admin/suivi/comptes/${userId}/double-auth/reinitialiser`),
   rattacher: (id: string, client: string | null) => api.put(`/admin/suivi/sites/${id}/client`, { client }),
   pause: (id: string, pause: boolean) => api.put(`/admin/suivi/sites/${id}/pause`, { pause }),
   /** Télécharge le site en ZIP (version en ligne ou brouillon). */

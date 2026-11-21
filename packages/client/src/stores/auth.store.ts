@@ -31,12 +31,12 @@ export const useAuthStore = defineStore('auth', () => {
   const currentUser = computed(() => admin.value || client.value)
 
   // Actions
-  async function loginAdmin(email: string, password: string) {
+  async function loginAdmin(email: string, password: string, code?: string) {
     isLoading.value = true
     error.value = null
 
     try {
-      const response = await authService.adminLogin({ email, password })
+      const response = await authService.adminLogin({ email, password, code: code || undefined })
 
       // Save token and role
       token.value = response.token

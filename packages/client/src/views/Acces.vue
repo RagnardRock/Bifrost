@@ -4,11 +4,12 @@
  * La personne choisit son mot de passe et arrive directement dans l'éditeur.
  */
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import { comptesService } from '@/services/comptes.service'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const jeton = computed(() => route.params.jeton as string)
 
@@ -33,7 +34,10 @@ async function valider() {
   if (motDePasse.value !== confirmation.value) { erreur.value = 'Les deux mots de passe ne sont pas identiques.'; return }
   occupe.value = true
   try {
-    auth.ouvrirSession(await comptesService.utiliserAcces(jeton.value, motDePasse.value))
+    const r = await comptesService.utiliserAcces(jeton.value, motDePasse.value)
+    // Compte protégé par la double authentification : connexion avec le code
+    if ('connexion' in r) router.push({ name: 'login', query: { email: r.email, info: 'mot-de-passe' } })
+    else auth.ouvrirSession(r)
   } catch (e: any) {
     erreur.value = e?.response?.data?.error?.message || 'Impossible d’enregistrer le mot de passe.'
   } finally {

@@ -7,6 +7,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { editeurService, type EtatEditeur, type Message, type Membre, type Invitation, type RoleSite, type Reglages } from '@/services/editeur.service'
 import { comptesService } from '@/services/comptes.service'
+import DoubleAuth from '@/components/compte/DoubleAuth.vue'
 import { adresseSite } from '@/services/suivi.service'
 import { useAuthStore } from '@/stores/auth.store'
 
@@ -291,6 +292,9 @@ onMounted(async () => {
           <label>Nouveau mot de passe, encore une fois<input v-model="mdp.confirmation" type="password" class="ms-champ" autocomplete="new-password" minlength="10" required></label>
           <button type="submit" class="ms-btn ms-btn--fort ms-debut">Changer le mot de passe</button>
         </form>
+        <div v-if="auth.role === 'client'" class="ms-carte">
+          <DoubleAuth :api="comptesService.doubleAuth" :compte="auth.currentUser?.email" />
+        </div>
       </section>
     </main>
 

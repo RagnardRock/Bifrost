@@ -16,4 +16,6 @@ export interface AdminCreateInput {
 export interface AdminLoginInput {
   email: string
   password: string
+  /** Code de double authentification, si elle est active */
+  code?: string
 }
