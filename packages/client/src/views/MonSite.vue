@@ -9,6 +9,7 @@ import { editeurService, type EtatEditeur, type Message, type Membre, type Invit
 import { comptesService } from '@/services/comptes.service'
 import DoubleAuth from '@/components/compte/DoubleAuth.vue'
 import InstallerAppli from '@/components/appli/InstallerAppli.vue'
+import NotificationsAppli from '@/components/appli/NotificationsAppli.vue'
 import { adresseSite } from '@/services/suivi.service'
 import { useAuthStore } from '@/stores/auth.store'
 
@@ -288,6 +289,10 @@ onMounted(async () => {
           <h2>Appli sur le téléphone</h2>
           <InstallerAppli />
           <p class="ms-aide">Bifrost s’installe depuis le navigateur, sans passer par un store. L’appli s’ouvre directement sur votre site.</p>
+        </div>
+        <div v-if="auth.role === 'client' && responsable" class="ms-carte">
+          <h2>Notifications</h2>
+          <NotificationsAppli />
         </div>
         <form v-if="auth.role === 'client'" class="ms-carte" @submit.prevent="changerMotDePasse">
           <h2>Changer mon mot de passe</h2>

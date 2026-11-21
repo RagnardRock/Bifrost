@@ -17,6 +17,7 @@ import { journaliser } from '../services/suivi.service'
 import { siteParCle } from '../services/slug.service'
 import * as formulaires from '../services/formulaires.service'
 import * as blocs from '../services/blocs.service'
+import { modificationsAPublier } from '../services/notifications.service'
 
 const router = Router({ mergeParams: true })
 
@@ -54,6 +55,8 @@ declare global {
 /** Identifiant du site : l'adresse peut donner le nom court ou l'uuid, résolu une fois par requête. */
 const sid = (req: Request) => (req as Request & { siteResolu?: string }).siteResolu ?? String((req.params as Record<string, string>).siteId)
 const auteur = (req: Request) => req.user?.userId || req.user?.adminId || null
+/** Un rédacteur vient de modifier le brouillon : les responsables sont prévenus sur leur téléphone. */
+const signaler = (req: Request) => { if (req.roleSite === 'redacteur') void modificationsAPublier(sid(req), req.user?.userId || null) }
 const action = (fn: (req: Request, res: Response) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res).then((d) => res.json(success(d))).catch(next)
 
@@ -95,6 +98,7 @@ router.put('/champ', action(async (req) => {
   const { cle, valeur } = schemaChamp.parse(req.body)
   const r = await fichiers.modifierChamp(sid(req), cle, valeur)
   journaliser(sid(req), auteur(req), /^medias\//.test(valeur) ? 'image' : 'modification', cle)
+  signaler(req)
   return r
 }))
 
@@ -113,6 +117,7 @@ router.post('/liste', action(async (req) => {
     : b.op === 'deplacer' ? { op: b.op, index: b.index, vers: b.vers ?? b.index }
     : { op: b.op, index: b.index }
   const r = await fichiers.operationListe(sid(req), b.page, b.nom, o as never)
+  signaler(req)
   journaliser(sid(req), auteur(req), b.op === 'modifier' && /^medias\//.test(b.valeur || '') ? 'image' : b.op === 'modifier' ? 'modification' : 'liste',
     b.op === 'modifier' ? `${b.nom} n°${b.index + 1} · ${b.cle}` : `${b.nom} n°${b.index + 1} · ${({ supprimer: 'supprimé', deplacer: 'déplacé', dupliquer: 'dupliqué' } as Record<string, string>)[b.op]}`)
   return r
@@ -136,6 +141,7 @@ router.post('/collection/:nom', action(async (req) => {
   const d = schemaElement.parse(req.body)
   const r = await fichiers.nouvelElement(sid(req), String((req.params as Record<string, string>).nom), d)
   journaliser(sid(req), auteur(req), 'actualite', d.titre)
+  signaler(req)
   return r
 }))
 

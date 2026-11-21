@@ -41,13 +41,32 @@ model User {
   totpActif    Boolean  @default(false) @map("totp_actif")
   totpDernier  Int?     @map("totp_dernier")
   codesSecours String[] @default([]) @map("codes_secours")
+  /// Notifications sur le téléphone : nouveaux messages, modifications à publier (responsables)
+  notifMessages Boolean @default(true) @map("notif_messages")
+  notifAPublier Boolean @default(true) @map("notif_a_publier")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   membres        Membre[]
+  abonnementsPush AbonnementPush[]
   contentHistory ContentHistory[] @relation("ChangedBy")
 
   @@map("users")
+}
+
+/// Un appareil (téléphone, ordinateur) qui reçoit les notifications d'une personne
+model AbonnementPush {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("abonnements_push")
 }
 
 /// Une personne dans l'équipe d'un site

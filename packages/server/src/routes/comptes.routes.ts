@@ -10,6 +10,7 @@ import * as comptes from '../services/comptes.service'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { Errors } from '../utils/errors'
 import { routesDoubleAuth } from './double-auth.routes'
+import * as notifications from '../services/notifications.service'
 
 const router = Router()
 
@@ -24,6 +25,18 @@ const client = (req: Request) => {
 router.get('/mes-sites', authMiddleware, action(async (req) => comptes.mesSites(client(req))))
 router.post('/changer-site', authMiddleware, action(async (req) =>
   comptes.changerDeSite(client(req), z.object({ site: z.string().min(1).max(80) }).parse(req.body).site)))
+
+// Client connecté : notifications sur ses appareils
+router.get('/notifications', authMiddleware, action(async (req) => notifications.reglages(client(req))))
+router.put('/notifications', authMiddleware, action(async (req) =>
+  notifications.modifierReglages(client(req), z.object({ messages: z.boolean().optional(), aPublier: z.boolean().optional() }).parse(req.body))))
+const schemaAbonnement = z.object({
+  endpoint: z.string().url().max(1000).refine((u) => u.startsWith('https://'), 'Adresse de notification invalide'),
+  keys: z.object({ p256dh: z.string().min(20).max(200), auth: z.string().min(8).max(100) }),
+})
+router.post('/notifications/appareils', authMiddleware, action(async (req) => notifications.abonner(client(req), schemaAbonnement.parse(req.body))))
+router.post('/notifications/appareils/retirer', authMiddleware, action(async (req) =>
+  notifications.desabonner(client(req), z.object({ endpoint: z.string().max(1000) }).parse(req.body).endpoint)))
 
 // Le reste est public : nombre de tentatives limité
 
