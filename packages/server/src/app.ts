@@ -14,6 +14,7 @@ import routes from './routes'
 import cookieParser from 'cookie-parser'
 import { apercuRouter } from './routes/apercu.routes'
 import formulairesRouter from './routes/formulaires.routes'
+import devRouter from './routes/dev.routes'
 
 export const app = express()
 
@@ -41,6 +42,9 @@ app.use(express.static(path.join(__dirname, '../public')))
 // Aperçu du brouillon (dans l'éditeur) et site publié (essais en local)
 app.use(cookieParser())
 app.use(apercuRouter)
+
+// Outils du dev (Rune) : un envoi contient tout le site, d'où la limite plus haute
+app.use('/api/dev', express.json({ limit: '300mb' }), devRouter)
 
 // Body parsing
 app.use(express.json())
