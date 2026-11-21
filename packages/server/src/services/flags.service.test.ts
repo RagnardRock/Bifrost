@@ -73,3 +73,31 @@ describe('flags', () => {
     expect(f.depuisRacine('https://x.fr/a.png', 'actualites')).toBe('https://x.fr/a.png')
   })
 })
+
+describe('liens d’appel et d’e-mail', () => {
+  it('le numéro du lien tel: suit le texte, partout sur la page', () => {
+    const html = '<a href="tel:+33471004187" data-bf="contact.telephone">04 71 00 41 87</a><p data-bf="contact.telephone"><a href="tel:0471004187">04 71 00 41 87</a></p>'
+    const r = f.modifierChamp(html, 'index.html', 'contact.telephone', '04 71 22 33 44')
+    expect(r.touches).toBe(2)
+    expect(r.html).toContain('href="tel:+33471223344" data-bf="contact.telephone">04 71 22 33 44</a>')
+    expect(r.html).toContain('href="tel:0471223344">04 71 22 33 44</a>')
+  })
+
+  it('les autres liens vers le même numéro suivent (bouton « Appeler »), pas les autres numéros', () => {
+    const html = '<a href="tel:+33471004187" data-bf="contact.telephone">04 71 00 41 87</a><a class="bouton" href="tel:+33471004187">Appeler</a><a href="tel:+33471638822">Hébergeur</a>'
+    const r = f.modifierChamp(html, 'index.html', 'contact.telephone', '04 71 22 33 44')
+    expect(r.html).toContain('<a class="bouton" href="tel:+33471223344">Appeler</a>')
+    expect(r.html).toContain('<a href="tel:+33471638822">Hébergeur</a>')
+  })
+
+  it('l’adresse du lien mailto: suit le texte si c’est une adresse', () => {
+    const html = '<a href="mailto:a@ex.fr?subject=Bonjour" data-bf="contact.email">a@ex.fr</a>'
+    expect(f.modifierChamp(html, 'index.html', 'contact.email', 'accueil@ex.fr').html).toContain('href="mailto:accueil@ex.fr?subject=Bonjour"')
+    expect(f.modifierChamp(html, 'index.html', 'contact.email', 'Écrivez-nous').html).toContain('href="mailto:a@ex.fr?subject=Bonjour"')
+  })
+
+  it('un texte qui n’est pas un numéro ne touche pas au lien', () => {
+    expect(f.lienTelephone('Appelez-nous')).toBeNull()
+    expect(f.lienTelephone('+41 22 123 45 67', 'tel:+33')).toBe('tel:+41221234567')
+  })
+})

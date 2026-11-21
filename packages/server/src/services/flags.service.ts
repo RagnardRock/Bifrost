@@ -165,6 +165,27 @@ function ecrireChamp($: CheerioAPI, $el: Cheerio<Element>, valeur: string, dossi
   const cible = cibleTexte($, $el)
   cible.text(valeur)
   if (cible.is('time') && /^\d{4}-\d{2}-\d{2}$/.test(valeur)) cible.attr('datetime', valeur)
+  if (cible.is('a[href]')) suivreLien(cible, valeur)
+}
+
+/** Lien d'appel ou d'e-mail : l'adresse du lien suit le numéro ou l'adresse saisis. */
+export function suivreLien($a: Cheerio<Element>, valeur: string) {
+  const href = $a.attr('href') || ''
+  if (/^tel:/i.test(href)) {
+    const nouveau = lienTelephone(valeur, href)
+    if (nouveau) $a.attr('href', nouveau)
+  } else if (/^mailto:/i.test(href)) {
+    const email = valeur.trim()
+    if (/^[^\s@<>]+@[^\s@<>]+\.[a-z]{2,}$/i.test(email)) $a.attr('href', `mailto:${email}${href.includes('?') ? href.slice(href.indexOf('?')) : ''}`)
+  }
+}
+
+/** « 04 71 00 41 87 » -> tel:+33471004187 si l'ancien lien était au format international français, sinon tel:0471004187. */
+export function lienTelephone(valeur: string, ancien = ''): string | null {
+  const brut = valeur.replace(/[\s.\-()\/]/g, '')
+  if (!/^\+?\d{3,15}$/.test(brut)) return null
+  if (/^0\d{9}$/.test(brut) && /^tel:\+33/i.test(ancien)) return `tel:+33${brut.slice(1)}`
+  return `tel:${brut}`
 }
 
 /** Modifie un champ hors liste. Renvoie le HTML et le nombre d'éléments touchés. */
@@ -172,9 +193,19 @@ export function modifierChamp(html: string, cheminPage: string, cle: string, val
   const $ = charger(html)
   const dossier = path.posix.dirname(cheminPage)
   let touches = 0
+  const anciens = new Map<string, string>()
   champsDirects($, $.root().children() as Cheerio<Element>, false)
     .filter((_, el) => $(el).attr('data-bf') === cle)
-    .each((_, el) => { ecrireChamp($, $(el) as Cheerio<Element>, valeur, dossier); touches++ })
+    .each((_, el) => {
+      const cible = cibleTexte($, $(el) as Cheerio<Element>)
+      const avant = cible.is('a[href]') ? cible.attr('href') || '' : ''
+      ecrireChamp($, $(el) as Cheerio<Element>, valeur, dossier)
+      const apres = cible.attr('href') || ''
+      if (avant && apres !== avant && /^(tel|mailto):/i.test(avant)) anciens.set(avant, apres)
+      touches++
+    })
+  // Les autres liens vers le même numéro ou la même adresse (bouton « Appeler »…) suivent aussi
+  for (const [avant, apres] of anciens) $('a[href]').filter((_, a) => $(a).attr('href') === avant).attr('href', apres)
   return { html: $.html(), touches }
 }
 

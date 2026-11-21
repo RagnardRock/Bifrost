@@ -28,6 +28,9 @@ const erreur = ref('')
 const message = ref('')
 const occupe = ref(false)
 const vueMobile = ref(false)
+// Sur téléphone, les boutons de la barre et les raccourcis passent dans un menu « ⋯ »
+const menuMobile = ref(false)
+function depuisMenu(action: () => unknown) { menuMobile.value = false; void action() }
 
 const nbModifs = computed(() => etat.value?.changements.length ?? 0)
 const detailModifs = computed(() => (etat.value?.changements ?? []).map((c) => `• ${c.texte}`).join('\n'))
@@ -347,6 +350,9 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
         <span v-else-if="etat" class="ed-attente" :title="nbModifs ? `${detailModifs}\n\nUn responsable du site publiera vos modifications.` : ''">
           {{ nbModifs ? `${modifsTexte(nbModifs)} en attente de publication` : 'Tout est publié' }}
         </span>
+        <button class="ed-btn ed-btn--icone ed-btn--plus" type="button" aria-label="Plus d’actions" :aria-expanded="menuMobile" @click="menuMobile = true">
+          ⋯<span v-if="responsable && etat?.messagesNonLus" class="ed-badge">{{ etat.messagesNonLus > 99 ? '99+' : etat.messagesNonLus }}</span>
+        </button>
       </div>
     </header>
 
@@ -373,6 +379,24 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
       </div>
     </transition>
     <div v-if="occupe" class="ed-occupe" aria-live="polite">Un instant…</div>
+
+    <!-- Menu « ⋯ » (téléphone) -->
+    <div v-if="menuMobile" class="ed-fond ed-fond--bas" @click.self="menuMobile = false">
+      <nav class="ed-menu" aria-label="Actions">
+        <p v-if="!responsable && etat" class="ed-menu-info">{{ nbModifs ? `${modifsTexte(nbModifs)} en attente : un responsable du site les publiera.` : 'Tout est publié.' }}</p>
+        <template v-if="responsable">
+          <button type="button" @click="depuisMenu(ouvrirMessages)"><span aria-hidden="true">📨</span>Messages reçus<b v-if="etat?.messagesNonLus" class="ed-badge ed-badge--ligne">{{ etat.messagesNonLus }}</b></button>
+          <button type="button" @click="depuisMenu(ouvrirEquipe)"><span aria-hidden="true">👥</span>Équipe</button>
+          <button type="button" @click="depuisMenu(ouvrirHistorique)"><span aria-hidden="true">🕘</span>Historique des publications</button>
+          <button v-if="nbModifs" type="button" class="ed-rouge" @click="depuisMenu(abandonner)"><span aria-hidden="true">🗑️</span>Effacer mes modifications</button>
+        </template>
+        <a :href="adresseSite(etat?.site ?? { id: siteId })" target="_blank" rel="noopener" @click="menuMobile = false"><span aria-hidden="true">↗</span>Voir le site</a>
+        <router-link v-if="etat?.moi.dev" :to="`/admin/sites/${etat?.site.slug || siteId}`"><span aria-hidden="true">🛠️</span>Fiche du site</router-link>
+        <button type="button" @click="ui.basculerTheme()"><span aria-hidden="true">{{ ui.theme === 'dark' ? '🌙' : ui.theme === 'light' ? '☀️' : '💻' }}</span>Thème : {{ ui.theme === 'system' ? 'comme le téléphone' : ui.theme === 'dark' ? 'sombre' : 'clair' }}</button>
+        <button type="button" @click="depuisMenu(deconnexion)"><span aria-hidden="true">🚪</span>Se déconnecter</button>
+        <button type="button" class="ed-menu-fermer" @click="menuMobile = false">Fermer</button>
+      </nav>
+    </div>
 
     <!-- Nouvelle actualité -->
     <div v-if="nouvelle" class="ed-fond" @click.self="nouvelle = null">
@@ -542,6 +566,15 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 .ed-fenetre--petite { max-width: 400px; }
 .ed-fenetre--large { max-width: 680px; }
 .ed-btn--badge { position: relative; }
+.ed-btn--plus { display: none; position: relative; font-weight: 800; letter-spacing: 1px; }
+.ed-fond--bas { place-items: end center; padding: 0; }
+.ed-menu { width: 100%; max-width: 520px; display: grid; gap: 2px; padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); background: var(--bf-surface); backdrop-filter: blur(20px); border: 1px solid var(--bf-bord); border-bottom: 0; border-radius: 20px 20px 0 0; box-shadow: 0 -20px 60px rgba(0, 0, 0, .4); }
+.ed-menu > a, .ed-menu > button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 50px; padding: 0 14px; border: 0; border-radius: 12px; background: none; color: var(--bf-texte); font: inherit; font-size: 15px; font-weight: 500; text-align: left; text-decoration: none; cursor: pointer; }
+.ed-menu > a:hover, .ed-menu > button:hover { background: var(--bf-verre-fort); }
+.ed-menu span { width: 24px; text-align: center; }
+.ed-menu .ed-menu-fermer { justify-content: center; margin-top: 6px; background: var(--bf-verre); font-weight: 600; }
+.ed-menu .ed-badge--ligne { position: static; margin-left: auto; }
+.ed-menu-info { margin: 4px 14px 8px; font-size: 14px; color: var(--bf-doux); }
 .ed-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--bf-accent, #e07a4a); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
 .ed-messages { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .ed-messages li { border-radius: 12px; background: var(--bf-verre); }
@@ -596,6 +629,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
   .ed-btn { padding: 9px 12px; font-size: 13px; }
   .ed-aide { display: none; }
   .ed-btn--icone { display: none; }
-  .ed-btn--icone.ed-btn--badge { display: inline-block; }
+  .ed-btn--icone.ed-btn--plus { display: inline-block; }
+  .ed-attente { display: none; }
 }
 </style>
