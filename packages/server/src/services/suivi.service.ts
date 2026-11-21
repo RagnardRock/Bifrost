@@ -9,6 +9,7 @@ export type TypeEvenement =
   | 'modification' | 'image' | 'liste' | 'actualite'
   | 'publication' | 'annulation' | 'abandon' | 'import'
   | 'invitation' | 'arrivee' | 'mot-de-passe' | 'role' | 'retrait' | 'message'
+  | 'pause' | 'reprise' | 'restauration'
 
 /** Ajoute un événement au journal. Ne fait jamais échouer l'action qui l'appelle. */
 export function journaliser(siteId: string, auteur: string | null | undefined, type: TypeEvenement, detail = '') {
@@ -41,7 +42,8 @@ export async function sites() {
   const liste = await prisma.site.findMany({
     orderBy: { name: 'asc' },
     select: {
-      id: true, name: true, url: true, slug: true, createdAt: true,
+      id: true, name: true, url: true, slug: true, createdAt: true, enPause: true,
+      client: { select: { id: true, nom: true, statut: true } },
       _count: { select: { membres: true } },
       publications: { where: { annulee: false }, orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true, auteur: true } },
       evenements: { orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true, auteur: true, type: true } },
@@ -59,6 +61,8 @@ export async function sites() {
       nom: s.name,
       url: s.url,
       slug: s.slug,
+      enPause: s.enPause,
+      client: s.client,
       pages,
       enAttente: await nbDifferences(s.id),
       membres: s._count.membres,
@@ -87,7 +91,7 @@ export async function activite(siteId?: string, limite = 100) {
 
 /** Fiche d'un site : modifications en attente (détail), publications avec leur auteur. */
 export async function site(siteId: string) {
-  const s = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, name: true, url: true, slug: true, emailMessages: true, createdAt: true } })
+  const s = await prisma.site.findUnique({ where: { id: siteId }, select: { id: true, name: true, url: true, slug: true, emailMessages: true, createdAt: true, enPause: true, client: { select: { id: true, nom: true, statut: true } } } })
   if (!s) return null
   const pubs = await prisma.publication.findMany({ where: { siteId }, orderBy: { createdAt: 'desc' }, take: 30 })
   const qui = await emails(pubs.map((p) => p.auteur))

@@ -75,7 +75,7 @@ le lien d'invitation s'affiche à la personne qui invite, à transmettre à la m
 3. *(Facultatif)* **Servir le site sous son propre domaine** (sinon il reste visible sur `/sites/<id>/`) : DNS du domaine (`A` et `www`) vers l'IP du VPS, puis
    ```bash
    sudo curl -fsSLo /etc/nginx/sites-available/ehpad https://raw.githubusercontent.com/RagnardRock/Bifrost/master/deploy/nginx-site-client.conf
-   sudo nano /etc/nginx/sites-available/ehpad   # remplacer DOMAINE et ID_DU_SITE (lu dans l'adresse de sa fiche)
+   sudo nano /etc/nginx/sites-available/ehpad   # remplacer DOMAINE et ID_DU_SITE (affiché en bas de sa fiche, « Zone sensible »)
    sudo ln -s /etc/nginx/sites-available/ehpad /etc/nginx/sites-enabled/
    sudo nginx -t && sudo systemctl reload nginx
    sudo certbot --nginx -d ehpad-saintpaulien.fr -d www.ehpad-saintpaulien.fr

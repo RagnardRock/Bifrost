@@ -3,6 +3,7 @@ import { config } from './config'
 import { logger } from './utils/logger'
 import { prisma } from './config/database'
 import { completerSlugs } from './services/slug.service'
+import { purgerCorbeille } from './services/clients.service'
 
 async function main() {
   try {
@@ -10,6 +11,10 @@ async function main() {
     await prisma.$connect()
     logger.info('Database connected')
     await completerSlugs().catch((e) => logger.warn(e, 'Noms courts des sites non complétés'))
+    // Sites supprimés depuis plus de 30 jours : effacés au démarrage puis chaque jour
+    const purger = () => purgerCorbeille().catch((e) => logger.warn(e, 'Corbeille non vidée'))
+    void purger()
+    setInterval(purger, 24 * 3600 * 1000).unref()
 
     // Start server
     app.listen(config.port, () => {

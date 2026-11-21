@@ -54,6 +54,35 @@ model Membre {
 }
 
 // ============================================
+// CLIENTS (espace dev : fiche et contrat)
+// ============================================
+
+model Client {
+  id         String    @id @default(uuid())
+  nom        String
+  contactNom String?   @map("contact_nom")
+  email      String?
+  telephone  String?
+  adresse    String?
+  notes      String    @default("")
+  /// essai | actif | suspendu | termine
+  statut     String    @default("actif")
+  formule    String?
+  /// Prix en centimes, par période
+  prix       Int?
+  /// mois | an | unique
+  periode    String?
+  debut      DateTime?
+  echeance   DateTime?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  sites Site[]
+
+  @@map("clients")
+}
+
+// ============================================
 // SITES
 // ============================================
 
@@ -68,9 +97,14 @@ model Site {
   apiKey     String   @unique @map("api_key")
   schema     Json?    @db.JsonB
   webhookUrl String?  @map("webhook_url")
+  /// Client (fiche et contrat) auquel le site appartient
+  clientId   String?  @map("client_id")
+  /// En pause : le site en ligne affiche « momentanément indisponible »
+  enPause    Boolean  @default(false) @map("en_pause")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
+  client          Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   membres         Membre[]
   contents        Content[]
   collectionItems CollectionItem[]
@@ -81,6 +115,7 @@ model Site {
   evenements      Evenement[]
   messages        Message[]
 
+  @@index([clientId])
   @@map("sites")
 }
 

@@ -11,6 +11,7 @@ import { Errors } from '../utils/errors'
 import { success } from '../utils/response'
 import * as suivi from '../services/suivi.service'
 import * as fichiers from '../services/site-fichiers.service'
+import * as clients from '../services/clients.service'
 import { slugLibre, SLUG_VALIDE, oublierSlug, siteParCle } from '../services/slug.service'
 
 const router = Router()
@@ -98,6 +99,48 @@ router.get('/sites/:id', action(async (req) => {
   if (!f) throw Errors.notFound('Site')
   return f
 }))
+
+// ---------- cycle de vie d'un site ----------
+
+router.put('/sites/:id/client', action(async (req) => {
+  const { client } = z.object({ client: z.string().uuid().nullable() }).parse(req.body)
+  await clients.rattacher(id(req), client)
+  return { client }
+}))
+
+router.put('/sites/:id/pause', action(async (req) => {
+  const { pause } = z.object({ pause: z.boolean() }).parse(req.body)
+  await clients.mettreEnPause(id(req), pause)
+  suivi.journaliser(id(req), req.user?.adminId, pause ? 'pause' : 'reprise')
+  return { pause }
+}))
+
+// Le site en ZIP, pour le déplacer chez un autre hébergeur
+router.get('/sites/:id/export', async (req, res, next) => {
+  try {
+    const { version } = z.object({ version: z.enum(['publie', 'brouillon']).default('publie') }).parse(req.query)
+    const site = await prisma.site.findUnique({ where: { id: id(req) }, select: { slug: true, id: true } })
+    if (!site) throw Errors.notFound('Site')
+    const zip = await fichiers.exporterZip(site.id, version)
+    const nom = `${site.slug || site.id}${version === 'brouillon' ? '-brouillon' : ''}.zip`
+    res.set({ 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="${nom}"`, 'Content-Length': String(zip.length) }).send(zip)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.delete('/sites/:id', action(async (req) => {
+  const { nom } = z.object({ nom: z.string().max(200) }).parse(req.body)
+  return clients.supprimerSite(id(req), nom)
+}))
+
+router.get('/corbeille', action(async () => clients.corbeille()))
+router.post('/corbeille/:id/restaurer', action(async (req) => {
+  const r = await clients.restaurerSite(id(req))
+  suivi.journaliser(r.id, req.user?.adminId, 'restauration')
+  return r
+}))
+router.delete('/corbeille/:id', action(async (req) => { await clients.effacerDefinitivement(id(req)); return { id: id(req) } }))
 
 router.get('/activite', action(async (req) => {
   const q = z.object({ site: z.string().uuid().optional(), limite: z.coerce.number().int().optional() }).parse(req.query)
