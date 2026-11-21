@@ -37,9 +37,9 @@ describe('notifications', () => {
   it('nouveau message : prévient les responsables qui le veulent, avec le lien vers les messages', async () => {
     await n.nouveauMessage('s1', 'contact', 'Bonjour, je voudrais un devis')
     expect(envois.map((e) => e.endpoint)).toEqual(['https://push.test/resp'])
-    const charge = JSON.parse(envois[0].charge)
+    const charge = JSON.parse(envois[0]!.charge)
     expect(charge).toMatchObject({ titre: 'Nouveau message · Vroom', url: '/mon-site/vroom?onglet=messages' })
-    expect(membres.mock.calls[0][0]).toMatchObject({ where: { siteId: 's1', role: 'responsable', user: { notifMessages: true } } })
+    expect(membres.mock.calls[0]![0]).toMatchObject({ where: { siteId: 's1', role: 'responsable', user: { notifMessages: true } } })
   })
 
   it('modifications à publier : pas à l’auteur, et une seule fois par heure et par site', async () => {
@@ -49,7 +49,7 @@ describe('notifications', () => {
     await n.modificationsAPublier('s1', 'redac-auteur')
     await n.modificationsAPublier('s1', 'redac-auteur')
     expect(envois).toHaveLength(1)
-    expect(JSON.parse(envois[0].charge).url).toBe('/edition/vroom')
+    expect(JSON.parse(envois[0]!.charge).url).toBe('/edition/vroom')
     await n.modificationsAPublier('s2', 'redac-auteur')
     expect(envois).toHaveLength(2)
   })

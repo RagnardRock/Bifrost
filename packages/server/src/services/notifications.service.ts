@@ -2,7 +2,8 @@
  * Notifications sur le téléphone (Web Push) : nouveaux messages des formulaires,
  * modifications d'un rédacteur qui attendent d'être publiées.
  *
- * Les clés VAPID sont créées au premier besoin et gardées dans donnees/vapid.json
+ * Les clés VAPID sont créées au premier besoin et gardées dans donnees/sites/_vapid.json
+ * (le dossier des sites est le seul gardé entre deux déploiements Docker, et il est sauvegardé)
  * (ou lues dans VAPID_PUBLIQUE / VAPID_PRIVEE). Ne pas les changer ensuite :
  * les appareils déjà abonnés ne recevraient plus rien.
  */
@@ -16,7 +17,7 @@ import { logger } from '../utils/logger'
 interface Cles { publique: string; privee: string }
 let cles: Promise<Cles> | null = null
 
-const fichierCles = () => path.join(path.dirname(config.sitesDir), 'vapid.json')
+const fichierCles = () => path.join(config.sitesDir, '_vapid.json')
 
 async function chargerCles(): Promise<Cles> {
   if (process.env.VAPID_PUBLIQUE && process.env.VAPID_PRIVEE) return { publique: process.env.VAPID_PUBLIQUE, privee: process.env.VAPID_PRIVEE }
