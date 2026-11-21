@@ -194,7 +194,7 @@ onMounted(async () => { await charger(); await chargerClients() })
           <section class="glass-card bloc">
             <div class="flex items-center justify-between">
               <h2>Équipe</h2>
-              <a :href="`/mon-site/${fiche.site.slug || fiche.site.id}?onglet=equipe`" target="_blank" rel="noopener" class="text-sm text-blue-500 hover:underline">Gérer</a>
+              <a :href="`/espace/sites/${fiche.site.slug || fiche.site.id}?onglet=equipe`" target="_blank" rel="noopener" class="text-sm text-blue-500 hover:underline">Gérer</a>
             </div>
             <p v-if="equipe && !equipe.membres.length" class="text-sm text-gray-500">Personne pour l’instant. Invitez le client depuis l’éditeur, bouton « Mon site ».</p>
             <ul v-if="equipe" class="lignes">

@@ -1,14 +1,15 @@
 <script setup lang="ts">
 /**
  * Connexion des clients : e-mail et mot de passe, sans identifiant de site.
- * Si la personne gère plusieurs sites, elle choisit lequel ouvrir.
+ * Arrivée sur l'espace client (tous ses sites), ou sur l'éditeur si un lien visait un site.
  */
 import { ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
-import { comptesService, codeDemande, type ChoixSites } from '@/services/comptes.service'
+import { comptesService, codeDemande, type Session } from '@/services/comptes.service'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 
 const mode = ref<'connexion' | 'oubli' | 'oubli-envoye'>('connexion')
@@ -20,29 +21,31 @@ const avecCode = ref(false)
 const info = ref(route.query.info === 'mot-de-passe' ? 'Mot de passe enregistré. Connectez-vous avec votre code d’authentification.' : '')
 const erreur = ref('')
 const occupe = ref(false)
-const choix = ref<ChoixSites['sites'] | null>(null)
 
-async function seConnecter(siteId?: string) {
+/** Le lien visait un site de la personne : on l'ouvre dans l'éditeur. Sinon, son espace. */
+function entrer(r: Session) {
+  auth.ouvrirSession(r, false)
+  const voulu = route.query.site as string | undefined
+  router.push(voulu && (voulu === r.user.siteId || voulu === r.user.site.slug) ? `/edition/${r.user.site.slug || r.user.siteId}` : '/espace')
+}
+
+async function seConnecter() {
   erreur.value = ''
   occupe.value = true
   try {
-    const r = await comptesService.connexion(email.value, motDePasse.value, siteId || (route.query.site as string) || undefined, code.value)
-    if ('sites' in r) choix.value = r.sites
-    else auth.ouvrirSession(r)
+    entrer(await comptesService.connexion(email.value, motDePasse.value, (route.query.site as string) || undefined, code.value))
   } catch (e: any) {
     if (codeDemande(e)) {
       avecCode.value = true
-      choix.value = null
       erreur.value = ''
       setTimeout(() => document.getElementById('code')?.focus(), 50)
       return
     }
     // un ?site= ancien ne doit pas bloquer : on réessaie sans
-    if (!siteId && route.query.site && e?.response?.status === 401) {
+    if (route.query.site && e?.response?.status === 401) {
       try {
-        const r = await comptesService.connexion(email.value, motDePasse.value, undefined, code.value)
-        if ('sites' in r) choix.value = r.sites
-        else auth.ouvrirSession(r)
+        auth.ouvrirSession(await comptesService.connexion(email.value, motDePasse.value, undefined, code.value), false)
+        router.push('/espace')
         return
       } catch { /* même message ci-dessous */ }
     }
@@ -77,13 +80,7 @@ async function demanderLien() {
         </p>
       </div>
 
-      <!-- Choix du site -->
-      <div v-if="choix" class="space-y-3">
-        <p class="text-sm text-center">Vous gérez plusieurs sites. Lequel voulez-vous ouvrir ?</p>
-        <button v-for="s in choix" :key="s.id" type="button" class="btn-primary w-full" :disabled="occupe" @click="seConnecter(s.id)">{{ s.nom }}</button>
-      </div>
-
-      <form v-else-if="mode === 'connexion'" class="space-y-6" @submit.prevent="seConnecter()">
+      <form v-if="mode === 'connexion'" class="space-y-6" @submit.prevent="seConnecter()">
         <div>
           <label for="email" class="block text-sm font-medium mb-2">E-mail</label>
           <input id="email" v-model="email" type="email" required autocomplete="email" class="input-field" placeholder="vous@exemple.com">

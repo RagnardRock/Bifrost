@@ -350,8 +350,13 @@ async function creerNouvelle() {
   }
 }
 
-// ---------- espace « Mon site » (messages, équipe, réglages, compte) ----------
-const lienMonSite = computed(() => ({ name: 'mon-site', params: { siteId: etat.value?.site.slug || siteId.value }, query: responsable.value && etat.value?.messagesNonLus ? { onglet: 'messages' } : {} }))
+// ---------- espace client (ses sites, messages, compte) ; le dev va directement à la gestion du site ----------
+const lienMonSite = computed(() => {
+  const nonLus = responsable.value && !!etat.value?.messagesNonLus
+  if (etat.value?.moi.dev || nonLus) return { name: 'mon-site', params: { siteId: etat.value?.site.slug || siteId.value }, query: nonLus ? { onglet: 'messages' } : {} }
+  return { name: 'espace' }
+})
+const nomEspace = computed(() => (etat.value?.moi.dev ? 'Gérer' : 'Mon espace'))
 
 // ---------- publication et historique ----------
 const historique = ref<Publication[] | null>(null)
@@ -449,8 +454,8 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
         <div class="ed-apercus" role="group" aria-label="Largeur de l’aperçu">
           <button v-for="a in APERCUS" :key="a.id" type="button" class="ed-apercu" :aria-pressed="apercu === a.id" :title="a.titre" :aria-label="a.titre" @click="apercu = a.id">{{ a.icone }}</button>
         </div>
-        <router-link :to="lienMonSite" class="ed-btn ed-btn--clair ed-btn--badge ed-mon-site" :title="responsable && etat?.messagesNonLus ? `Messages, équipe, réglages (${etat.messagesNonLus} message${etat.messagesNonLus > 1 ? 's' : ''} non lu${etat.messagesNonLus > 1 ? 's' : ''})` : 'Messages, équipe, réglages et compte'">
-          Mon site<span v-if="responsable && etat?.messagesNonLus" class="ed-badge">{{ etat.messagesNonLus > 99 ? '99+' : etat.messagesNonLus }}</span>
+        <router-link :to="lienMonSite" class="ed-btn ed-btn--clair ed-btn--badge ed-mon-site" :title="responsable && etat?.messagesNonLus ? `Messages, équipe, réglages (${etat.messagesNonLus} message${etat.messagesNonLus > 1 ? 's' : ''} non lu${etat.messagesNonLus > 1 ? 's' : ''})` : etat?.moi.dev ? 'Messages, équipe, réglages' : 'Mes sites, messages, mon compte'">
+          {{ nomEspace }}<span v-if="responsable && etat?.messagesNonLus" class="ed-badge">{{ etat.messagesNonLus > 99 ? '99+' : etat.messagesNonLus }}</span>
         </router-link>
         <template v-if="responsable">
           <button class="ed-btn ed-btn--icone" type="button" title="Historique des publications" @click="ouvrirHistorique">🕘</button>
@@ -504,7 +509,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
     <div v-if="menuMobile" class="ed-fond ed-fond--bas" @click.self="menuMobile = false">
       <nav class="ed-menu" aria-label="Actions">
         <p v-if="!responsable && etat" class="ed-menu-info">{{ nbModifs ? `${modifsTexte(nbModifs)} en attente : un responsable du site les publiera.` : 'Tout est publié.' }}</p>
-        <router-link :to="lienMonSite"><span aria-hidden="true">🏠</span>Mon site<small>Messages, équipe, réglages</small><b v-if="responsable && etat?.messagesNonLus" class="ed-badge ed-badge--ligne">{{ etat.messagesNonLus }}</b></router-link>
+        <router-link :to="lienMonSite"><span aria-hidden="true">🏠</span>{{ nomEspace }}<small>{{ etat?.moi.dev ? 'Messages, équipe, réglages' : 'Mes sites, messages, mon compte' }}</small><b v-if="responsable && etat?.messagesNonLus" class="ed-badge ed-badge--ligne">{{ etat.messagesNonLus }}</b></router-link>
         <template v-if="responsable">
           <button type="button" @click="depuisMenu(ouvrirHistorique)"><span aria-hidden="true">🕘</span>Historique des publications</button>
           <button v-if="nbModifs" type="button" class="ed-rouge" @click="depuisMenu(abandonner)"><span aria-hidden="true">🗑️</span>Effacer mes modifications</button>

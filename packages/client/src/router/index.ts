@@ -13,7 +13,7 @@ export const router = createRouter({
         let dernier: string | null = null
         try { role = localStorage.getItem('token') ? localStorage.getItem('role') : null; dernier = localStorage.getItem('bf-dernier-site') } catch { /* stockage indisponible */ }
         if (role === 'admin') return '/admin'
-        if (role === 'client' && dernier) return `/edition/${dernier}`
+        if (role === 'client') return dernier ? `/edition/${dernier}` : '/espace'
         return '/login'
       },
     },
@@ -74,12 +74,22 @@ export const router = createRouter({
         { path: 'activity', redirect: '/admin/activite' },
       ],
     },
-    // Espace « Mon site » : messages, équipe, réglages, mon compte
+    // Espace client : ses sites, tous ses messages, son compte, et la gestion de chaque site
+    {
+      path: '/espace',
+      component: () => import('@/components/layout/EspaceLayout.vue'),
+      meta: { requiresAuth: true },
+      children: [
+        { path: '', name: 'espace', component: () => import('@/views/espace/Accueil.vue') },
+        { path: 'messages', name: 'espace-messages', component: () => import('@/views/espace/Messages.vue') },
+        { path: 'compte', name: 'espace-compte', component: () => import('@/views/espace/Compte.vue') },
+        { path: 'sites/:siteId', name: 'mon-site', component: () => import('@/views/MonSite.vue') },
+      ],
+    },
+    // Ancienne adresse (liens déjà envoyés, notifications) : même page dans l'espace
     {
       path: '/mon-site/:siteId',
-      name: 'mon-site',
-      component: () => import('@/views/MonSite.vue'),
-      meta: { requiresAuth: true },
+      redirect: (to) => (to.query.onglet === 'compte' ? '/espace/compte' : { name: 'mon-site', params: to.params, query: to.query }),
     },
     // Éditeur sur place (v2) : dev et client
     {
@@ -113,9 +123,9 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
 
-  // Éditeur : dev ou client du site
+  // Éditeur et espace client : dev ou client connecté
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    return next({ name: 'login', query: { site: to.params.siteId as string } })
+    return next({ name: 'login', query: to.params.siteId ? { site: to.params.siteId as string } : {} })
   }
 
   // Redirect authenticated admins away from admin login
@@ -124,10 +134,7 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   // Redirect authenticated clients away from client login
-  if (to.meta.clientGuest && auth.isClient) {
-    const siteId = (auth.currentUser as { siteId?: string } | null)?.siteId
-    if (siteId) return next({ name: 'editeur', params: { siteId } })
-  }
+  if (to.meta.clientGuest && auth.isClient) return next({ name: 'espace' })
 
   next()
 })

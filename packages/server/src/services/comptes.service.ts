@@ -41,7 +41,7 @@ function session(user: { id: string; email: string }, site: { id: string; nom: s
 
 /**
  * Connexion par e-mail et mot de passe, sans identifiant de site.
- * Si la personne fait partie de plusieurs sites, on renvoie la liste pour qu'elle choisisse.
+ * La session s'ouvre sur le site demandé, sinon sur le premier : l'espace client montre ensuite tous les sites.
  */
 export async function connexion(email: string, motDePasse: string, cle?: string, code?: string) {
   const user = await parEmail(email)
@@ -49,11 +49,8 @@ export async function connexion(email: string, motDePasse: string, cle?: string,
   const sites = await mesSites(user.id)
   if (!sites.length) throw Errors.forbidden('Ce compte ne fait plus partie d’aucune équipe')
   const voulu = cle ? await siteParCle(cle) : null
-  const site = sites.find((s) => s.id === voulu) ?? (sites.length === 1 ? sites[0] : null)
-  // Double authentification : le code est vérifié avant de montrer la liste des sites,
-  // puis consommé quand la session s'ouvre (le même code sert pour les deux étapes)
-  await doubleAuth.verifierConnexion('user', user, code, !site)
-  if (!site) return { sites: sites.map(({ id, nom }) => ({ id, nom })) }
+  const site = sites.find((s) => s.id === voulu) ?? sites[0]!
+  await doubleAuth.verifierConnexion('user', user, code)
   return session(user, site)
 }
 
