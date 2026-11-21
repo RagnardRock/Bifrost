@@ -19,6 +19,7 @@ import { Errors } from '../utils/errors'
 import * as flags from './flags.service'
 import { brancherFormulaires } from './formulaires.html'
 import * as modeDev from './mode-dev.service'
+import * as blocs from './blocs.service'
 
 export function dossiers(siteId: string) {
   if (!/^[a-zA-Z0-9-]+$/.test(siteId)) throw Errors.badRequest('Site invalide')
@@ -109,6 +110,31 @@ export async function operationDev(siteId: string, page: string, cible: modeDev.
   const r = modeDev.operation(await lire(siteId, page), cible, o)
   await ecrire(siteId, page, r.html)
   return { chemin: r.chemin }
+}
+
+/** Mode dev : ajoute une section toute faite (bloc) dans une page, avec des clés libres dans le site. */
+export async function insererBloc(siteId: string, page: string, cible: modeDev.Cible | null, position: modeDev.Position, blocId: string) {
+  if (!page.endsWith('.html')) throw Errors.badRequest('Page invalide')
+  const pris = new Set<string>()
+  for (const p of await listerPages(siteId)) for (const x of modeDev.prefixes(await lire(siteId, p))) pris.add(x)
+  const bloc = modeDev.renommerBloc(await blocs.lire(blocId), pris)
+  const r = modeDev.inserer(await lire(siteId, page), page, cible, bloc, position)
+  let html = r.html
+  if (bloc.includes('class="bfb')) {
+    // la feuille des blocs fournis est remise à jour à chaque ajout
+    const d = dossiers(siteId).brouillon
+    await fs.mkdir(path.join(d, 'assets'), { recursive: true })
+    await fs.copyFile(blocs.feuilleBlocs(), path.join(d, 'assets', 'bifrost-blocs.css'))
+    html = modeDev.lierFeuilleBlocs(html, page) // ne touche qu'au <head> : le chemin dans <body> reste bon
+  }
+  html = brancherFormulaires(html, (nom) => adresseFormulaire(siteId, nom)) ?? html
+  await ecrire(siteId, page, html)
+  return { chemin: r.chemin }
+}
+
+/** Mode dev : enregistre un élément d'une page comme bloc réutilisable sur tous les sites. */
+export async function enregistrerBloc(siteId: string, page: string, cible: modeDev.Cible, nom: string, description?: string) {
+  return blocs.enregistrer(nom, modeDev.extraire(await lire(siteId, page), page, cible), description)
 }
 
 /** Pages qui contiennent la version complète (non limitée) d'une collection. */

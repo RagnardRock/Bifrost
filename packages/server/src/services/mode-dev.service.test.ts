@@ -68,3 +68,42 @@ describe('mode dev', () => {
     expect(r.chemin).toEqual([1])
   })
 })
+
+describe('sections toutes faites', () => {
+  const bloc = `<section class="bfb"><h2 data-bf="galerie.titre">En images</h2>
+<ul data-bf-liste="galerie"><li data-bf-element><img data-bf="photo" src="assets/x.svg"></li></ul></section>`
+
+  it('renomme les clés déjà prises dans le site, pas celles des éléments', () => {
+    const pris = d.prefixes('<h2 data-bf="galerie.titre"></h2><ul data-bf-liste="galerie-2"></ul>')
+    const r = d.renommerBloc(bloc, pris)
+    expect(r).toContain('data-bf="galerie-3.titre"')
+    expect(r).toContain('data-bf-liste="galerie-3"')
+    expect(r).toContain('data-bf="photo"')
+    expect(d.renommerBloc(bloc, new Set())).toContain('data-bf="galerie.titre"')
+  })
+
+  it('insère avant, après ou dans un élément, avec des chemins relatifs à la page', () => {
+    let r = d.inserer(page, 'index.html', { chemin: [1], balises: ['section'] }, bloc, 'avant')
+    expect(r.chemin).toEqual([1])
+    expect(r.html.indexOf('En images')).toBeLessThan(r.html.indexOf('Tarifs'))
+    r = d.inserer(page, 'actualites/a.html', { chemin: [0], balises: ['header'] }, bloc, 'apres')
+    expect(r.chemin).toEqual([1])
+    expect(r.html).toContain('src="../assets/x.svg"')
+    r = d.inserer(page, 'index.html', null, bloc, 'dedans')
+    expect(r.html).toMatch(/En images[\s\S]*<\/section>\s*<\/body>/)
+  })
+
+  it('déplace un élément vers un autre endroit de la page', () => {
+    const r = d.operation(page, img, { op: 'deplacer-vers', vers: { chemin: [0], balises: ['header'] }, position: 'dedans' })
+    expect(r.chemin).toEqual([0, 2])
+    expect(r.html).toContain('<p>Intro</p><img src="a.jpg"></header>')
+    expect(() => d.operation(page, { chemin: [1], balises: ['section'] }, { op: 'deplacer-vers', vers: ul, position: 'dedans' })).toThrow(/lui-même/)
+  })
+
+  it('lie la feuille des blocs une seule fois, et extrait un élément pour en faire un bloc', () => {
+    const h = d.lierFeuilleBlocs(page, 'actualites/a.html')
+    expect(h).toContain('<link rel="stylesheet" href="../assets/bifrost-blocs.css">')
+    expect(d.lierFeuilleBlocs(h, 'actualites/a.html')).toBe(h)
+    expect(d.extraire(page.replace('a.jpg', '../medias/a.jpg'), 'actualites/a.html', img)).toBe('<img src="medias/a.jpg">')
+  })
+})

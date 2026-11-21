@@ -338,15 +338,16 @@
     etiquette.style.top = (window.scrollY + (r.top > 24 ? r.top - 22 : r.bottom + 4)) + 'px'
   }
   function choisir(el, defiler) {
-    if (choisi) choisi.classList.remove('bf-dev-choisi')
+    if (choisi) { choisi.classList.remove('bf-dev-choisi'); choisi.removeAttribute('draggable') }
     choisi = el
     el.classList.add('bf-dev-choisi')
+    el.setAttribute('draggable', 'true')
     if (defiler) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
     placerEtiquette(el)
     envoyer(infos(el))
   }
   function deselectionner() {
-    if (choisi) choisi.classList.remove('bf-dev-choisi')
+    if (choisi) { choisi.classList.remove('bf-dev-choisi'); choisi.removeAttribute('draggable') }
     choisi = null
     etiquette.hidden = true
     envoyer({ type: 'selection', chemin: null })
@@ -457,11 +458,107 @@
       if (cssDev.parentNode) cssDev.parentNode.removeChild(cssDev)
       Array.prototype.forEach.call(document.querySelectorAll('.bf-dev-flag, .bf-dev-survol, .bf-dev-choisi'), function (el) { el.classList.remove('bf-dev-flag', 'bf-dev-survol', 'bf-dev-choisi') })
       if (devEdition) finirEditionDev(false)
+      if (choisi) choisi.removeAttribute('draggable')
       choisi = null
       etiquette.hidden = true
     }
   }
   window.addEventListener('scroll', function () { if (dev && choisi) placerEtiquette(choisi) }, { passive: true })
+
+  // ---------- mode dev : glisser-déposer ----------
+  // Deux usages : glisser une section de la bibliothèque (depuis le panneau de l'éditeur parent)
+  // et déplacer l'élément sélectionné (il devient « draggable » tant qu'il est sélectionné).
+  var repere = document.createElement('div')
+  repere.setAttribute('data-bf-overlay', '')
+  repere.hidden = true
+  repere.style.cssText = 'position:absolute;z-index:99998;pointer-events:none;background:#8b5cf6;border-radius:3px;box-shadow:0 0 0 3px rgba(139,92,246,.25)'
+  document.body.appendChild(repere)
+  var blocGlisse = null   // identifiant du bloc glissé depuis le panneau
+  var source = null       // élément de la page en cours de déplacement
+  var depot = null        // { el, position }
+
+  function conteneurSections() { return document.querySelector('main') || document.body }
+  /** Élément « section » sous le pointeur : l'enfant du conteneur principal qui contient el. */
+  function sectionDe(el, conteneur) {
+    while (el && el.parentElement !== conteneur) { el = el.parentElement; if (!el || el === document.body) return null }
+    return el && !estOverlay(el) && el.tagName !== 'SCRIPT' ? el : null
+  }
+  function horizontal(el) {
+    var p = el.parentElement
+    if (!p) return false
+    var s = getComputedStyle(p)
+    return (s.display.indexOf('flex') >= 0 && s.flexDirection.indexOf('row') === 0) || (s.display.indexOf('grid') >= 0 && el.getBoundingClientRect().width < p.getBoundingClientRect().width * 0.8)
+  }
+  function calculerDepot(e) {
+    var sous = selectionnable(document.elementFromPoint(e.clientX, e.clientY))
+    var conteneur = conteneurSections()
+    var cible = null
+    if (blocGlisse || (source && source.parentElement === conteneur)) {
+      // au-dessus d'un en-tête fixe ou d'un pied de page hors du conteneur : pas de dépôt
+      if (!sous || (sous !== conteneur && !conteneur.contains(sous))) return null
+      cible = sectionDe(sous, conteneur)
+      if (!cible) {
+        // pointeur dans le conteneur mais entre les sections (page vide, marges) : à la fin
+        var enfants = Array.prototype.filter.call(conteneur.children, function (x) { return !estOverlay(x) && x.tagName !== 'SCRIPT' })
+        if (!enfants.length) return { el: conteneur, position: 'dedans' }
+        cible = enfants[enfants.length - 1]
+        return cible === source ? null : { el: cible, position: 'apres' }
+      }
+    } else if (source) {
+      // un élément plus petit se déplace parmi ses frères (cartes d'une grille, paragraphes…)
+      for (var x = sous; x && x !== document.body; x = x.parentElement) if (x.parentElement === source.parentElement) { cible = x; break }
+    }
+    if (!cible || cible === source || (source && source.contains(cible))) return null
+    var r = cible.getBoundingClientRect()
+    var avant = horizontal(cible) ? e.clientX < r.left + r.width / 2 : e.clientY < r.top + r.height / 2
+    return { el: cible, position: avant ? 'avant' : 'apres' }
+  }
+  function montrerRepere(d) {
+    if (!d) { repere.hidden = true; return }
+    var r = d.el.getBoundingClientRect()
+    var h = d.position !== 'dedans' && horizontal(d.el)
+    repere.hidden = false
+    if (d.position === 'dedans') {
+      repere.style.left = (window.scrollX + r.left) + 'px'; repere.style.width = r.width + 'px'
+      repere.style.top = (window.scrollY + r.bottom - 4) + 'px'; repere.style.height = '4px'
+    } else if (h) {
+      repere.style.left = (window.scrollX + (d.position === 'avant' ? r.left : r.right) - 2) + 'px'; repere.style.width = '4px'
+      repere.style.top = (window.scrollY + r.top) + 'px'; repere.style.height = r.height + 'px'
+    } else {
+      repere.style.left = (window.scrollX + r.left) + 'px'; repere.style.width = r.width + 'px'
+      repere.style.top = (window.scrollY + (d.position === 'avant' ? r.top : r.bottom) - 2) + 'px'; repere.style.height = '4px'
+    }
+  }
+  function finGlisser() { blocGlisse = null; source = null; depot = null; repere.hidden = true }
+
+  document.addEventListener('dragstart', function (e) {
+    if (!dev || !choisi || e.target !== choisi) return
+    source = choisi
+    try { e.dataTransfer.setData('text/plain', 'bifrost'); e.dataTransfer.effectAllowed = 'move' } catch (x) {}
+  })
+  document.addEventListener('dragover', function (e) {
+    if (!dev || (!blocGlisse && !source)) return
+    e.preventDefault()
+    try { e.dataTransfer.dropEffect = blocGlisse ? 'copy' : 'move' } catch (x) {}
+    depot = calculerDepot(e)
+    montrerRepere(depot)
+  })
+  document.addEventListener('dragleave', function (e) { if (!e.relatedTarget) repere.hidden = true })
+  document.addEventListener('drop', function (e) {
+    if (!dev || (!blocGlisse && !source)) return
+    e.preventDefault()
+    var d = depot || calculerDepot(e)
+    if (d) {
+      var c = cheminDe(d.el)
+      if (blocGlisse) envoyer({ type: 'inserer-bloc', bloc: blocGlisse, chemin: d.el === document.body ? null : c.chemin, balises: d.el === document.body ? null : c.balises, position: d.position })
+      else {
+        var s = cheminDe(source)
+        envoyer({ type: 'dev', chemin: s.chemin, balises: s.balises, operation: { op: 'deplacer-vers', vers: c, position: d.position } })
+      }
+    }
+    finGlisser()
+  })
+  document.addEventListener('dragend', finGlisser)
 
   // ---------- position de défilement (rechargements après une modification) ----------
   var cleDefil = 'bf-defil-' + page
@@ -473,6 +570,8 @@
     if (!e.data || e.data.source !== 'bifrost-parent') return
     if (e.data.type === 'avant-rechargement') { try { sessionStorage.setItem(cleDefil, String(window.scrollY)) } catch (x) {} }
     else if (e.data.type === 'mode') basculerDev(!!e.data.dev)
+    else if (e.data.type === 'glisser' && dev) { blocGlisse = String(e.data.bloc || '') || null }
+    else if (e.data.type === 'fin-glisser') finGlisser()
     else if (e.data.type === 'selectionner' && dev) { var el = depuisChemin(e.data.chemin || []); if (el) choisir(el, !!e.data.defiler); else deselectionner() }
   })
 

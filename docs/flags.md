@@ -124,3 +124,15 @@ Le compte dev voit un bouton **🛠️ Dev** dans la barre de l'éditeur. En mod
 Tout est écrit dans le brouillon, comme les modifications du client, puis publié avec « Publier ».
 Côté serveur : `POST /api/editeur/<site>/dev`, réservé au compte dev ; l'élément est désigné par son chemin depuis `<body>`
 avec la balise attendue à chaque étape (refus si la page a changé entre-temps).
+
+### Sections toutes faites (blocs)
+
+Onglet **Blocs** du panneau dev : en-tête, texte, texte et photo, cartes, galerie, équipe, partenaires, questions fréquentes, horaires, formulaire de contact.
+
+- Glisser un bloc dans la page (un trait violet montre où il ira), ou cliquer dessus : il s'ajoute après l'élément sélectionné, sinon à la fin de la page.
+- Les flags sont déjà posés. Si une clé existe déjà dans le site, elle est renommée (`galerie` → `galerie-2`) pour ne pas écraser l'autre.
+- Les blocs fournis utilisent `assets/bifrost-blocs.css` (copiée et liée à l'ajout). Polices et couleurs viennent du site ; les variables `--bf-accent`, `--bf-rayon`, `--bf-largeur`, `--bf-fond-doux`, `--bf-trait` les règlent.
+- Un formulaire de contact ajouté est branché sur Bifrost tout de suite.
+- **Glisser l'élément sélectionné** le déplace : une section parmi les sections, un élément plus petit parmi ses voisins (cartes d'une grille…).
+- **⭐ Enregistrer comme bloc** (onglet Élément) garde l'élément sélectionné dans « Mes blocs », réutilisable sur tous les sites (`<SITES_DIR>/_blocs/`).
+- Ajouter un bloc fourni : `packages/server/blocs/<id>.html`, avec en première ligne `<!-- {"nom": "…", "icone": "…", "description": "…"} -->`.

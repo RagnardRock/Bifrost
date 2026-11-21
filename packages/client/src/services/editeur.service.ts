@@ -17,6 +17,8 @@ export interface Message { id: string; formulaire: string; champs: { nom: string
 export interface Membre { id: string; email: string; role: RoleSite; createdAt: string }
 export interface Invitation { id: string; email: string; role: RoleSite; expireLe: string }
 
+export interface BlocDev { id: string; nom: string; icone: string; description: string; perso: boolean }
+
 const base = (siteId: string) => `/editeur/${siteId}`
 const donnees = <T>(p: Promise<any>) => p.then((r) => r.data as T)
 
@@ -50,4 +52,10 @@ export const editeurService = {
   /** Mode dev : opération sur n'importe quel élément de la page (compte dev uniquement). */
   dev: (siteId: string, corps: { page: string; chemin: number[]; balises: string[]; operation: Record<string, unknown> }) =>
     donnees<{ chemin: number[] | null }>(api.post(`${base(siteId)}/dev`, corps)),
+  blocs: (siteId: string) => donnees<BlocDev[]>(api.get(`${base(siteId)}/blocs`)),
+  insererBloc: (siteId: string, corps: { page: string; bloc: string; position: 'avant' | 'apres' | 'dedans'; chemin?: number[]; balises?: string[] }) =>
+    donnees<{ chemin: number[] }>(api.post(`${base(siteId)}/blocs/inserer`, corps)),
+  enregistrerBloc: (siteId: string, corps: { page: string; chemin: number[]; balises: string[]; nom: string }) =>
+    donnees<BlocDev>(api.post(`${base(siteId)}/blocs`, corps)),
+  supprimerBloc: (siteId: string, id: string) => api.delete(`${base(siteId)}/blocs/${encodeURIComponent(id)}`),
 }

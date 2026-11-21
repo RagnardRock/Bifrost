@@ -1,0 +1,42 @@
+/* Bifrost — sections ajoutées depuis le mode dev.
+ * Les polices et les couleurs de texte viennent du site (héritage).
+ * Les variables --bf-* se règlent dans le thème du site (bf-theme.css) ; sinon les valeurs par défaut ci-dessous.
+ * Ce fichier est remis à jour par Bifrost à chaque ajout de section : mettez vos retouches dans le CSS du site.
+ */
+.bfb { padding: var(--bf-espace-section, clamp(48px, 8vw, 96px)) 20px; }
+.bfb-conteneur { max-width: var(--bf-largeur, 1100px); margin: 0 auto; }
+.bfb-etroit { max-width: var(--bf-largeur-texte, 720px); }
+.bfb h1, .bfb h2 { margin: 0 0 .6em; line-height: 1.15; }
+.bfb h1 { font-size: clamp(2rem, 5vw, 3.4rem); }
+.bfb h2 { font-size: clamp(1.6rem, 3.5vw, 2.4rem); }
+.bfb p { margin: 0 0 1em; }
+.bfb img { max-width: 100%; display: block; }
+.bfb-chapo { font-size: 1.15em; opacity: .85; }
+.bfb-deux { display: grid; gap: clamp(24px, 5vw, 64px); align-items: center; grid-template-columns: 1fr; }
+@media (min-width: 800px) { .bfb-deux { grid-template-columns: 1fr 1fr; } }
+.bfb-photo { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--bf-rayon, 14px); }
+.bfb-bouton { display: inline-block; padding: .8em 1.5em; border: 0; border-radius: 999px; background: var(--bf-accent, #2f5d50); color: var(--bf-sur-accent, #fff); font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
+.bfb-bouton:hover { filter: brightness(1.08); }
+.bfb ul, .bfb dl { list-style: none; margin: 0; padding: 0; }
+.bfb-grille { display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
+.bfb-galerie .bfb-grille img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--bf-rayon, 14px); }
+.bfb-carte { background: var(--bf-fond-doux, rgba(0, 0, 0, .04)); border-radius: var(--bf-rayon, 14px); overflow: hidden; }
+.bfb-carte img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
+.bfb-carte h3, .bfb-carte p { margin: 0; padding: 0 18px; }
+.bfb-carte h3 { padding-top: 16px; margin-bottom: 6px; }
+.bfb-carte p { padding-bottom: 18px; opacity: .85; }
+.bfb-equipe li { display: grid; gap: 4px; justify-items: center; text-align: center; }
+.bfb-portrait { width: 140px; height: 140px; object-fit: cover; border-radius: 50%; margin-bottom: 8px; }
+.bfb-equipe span { opacity: .75; }
+.bfb-rangee { display: flex; flex-wrap: wrap; gap: 24px 40px; align-items: center; justify-content: center; }
+.bfb-rangee img { height: 64px; width: auto; max-width: 180px; object-fit: contain; }
+.bfb-faq details { border-bottom: 1px solid var(--bf-trait, rgba(0, 0, 0, .12)); padding: 14px 0; }
+.bfb-faq summary { cursor: pointer; font-weight: 700; }
+.bfb-faq details > div { padding-top: 10px; }
+.bfb-horaires dl > div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--bf-trait, rgba(0, 0, 0, .12)); }
+.bfb-horaires dt { font-weight: 700; }
+.bfb-horaires dd { margin: 0; }
+.bfb-formulaire { display: grid; gap: 14px; }
+.bfb-formulaire label { display: grid; gap: 6px; font-weight: 700; }
+.bfb-formulaire input, .bfb-formulaire textarea { font: inherit; font-weight: 400; padding: 12px; border: 1px solid var(--bf-trait, rgba(0, 0, 0, .2)); border-radius: 10px; background: #fff; color: #222; }
+.bfb-formulaire .bfb-bouton { justify-self: start; }

@@ -3,9 +3,9 @@
  * Éditeur sur place : le vrai site dans un cadre, modifiable au clic.
  * Le script injecté dans l'aperçu (overlay.js) envoie les modifications ici ; on appelle l'API.
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { editeurService, type EtatEditeur, type Publication } from '@/services/editeur.service'
+import { editeurService, type EtatEditeur, type Publication, type BlocDev } from '@/services/editeur.service'
 import { adresseSite } from '@/services/suivi.service'
 import { comptesService, type MonSite } from '@/services/comptes.service'
 import { useAuthStore } from '@/stores/auth.store'
@@ -96,6 +96,49 @@ function basculerModeDev() {
   if (!modeDev.value) selectionDev.value = null
   versCadre({ type: 'mode', dev: devActif.value })
 }
+// bibliothèque de sections (chargée au premier passage en mode dev)
+const blocsDev = ref<BlocDev[]>([])
+async function chargerBlocs() {
+  if (!devActif.value || blocsDev.value.length) return
+  try { blocsDev.value = await editeurService.blocs(siteId.value) } catch (err) { echec(err, 'Bibliothèque de sections indisponible.') }
+}
+watch(devActif, (v) => { if (v) void chargerBlocs() })
+async function insererBloc(bloc: string, position: 'avant' | 'apres' | 'dedans', cible: { chemin: number[]; balises: string[] } | null) {
+  occupe.value = true
+  try {
+    const r = await editeurService.insererBloc(siteId.value, { page: page.value, bloc, position, ...(cible ?? {}) })
+    aReselectionner = r.chemin
+    await rafraichirEtat()
+    recharger()
+    informer('Section ajoutée au brouillon')
+  } catch (err) {
+    echec(err)
+  } finally {
+    occupe.value = false
+  }
+}
+function insererDepuisPanneau(bloc: string) {
+  const sel = selectionDev.value
+  void insererBloc(bloc, sel ? 'apres' : 'dedans', sel ? { chemin: sel.chemin, balises: sel.balises } : null)
+}
+async function enregistrerBloc(nom: string) {
+  const sel = selectionDev.value
+  if (!sel) return
+  try {
+    const b = await editeurService.enregistrerBloc(siteId.value, { page: page.value, chemin: sel.chemin, balises: sel.balises, nom })
+    blocsDev.value = [...blocsDev.value, b]
+    informer(`Bloc « ${b.nom} » enregistré`)
+  } catch (err) { echec(err) }
+}
+function supprimerBloc(b: BlocDev) {
+  confirmation.value = {
+    texte: `Supprimer le bloc « ${b.nom} » ? Les pages où il a déjà été ajouté ne changent pas.`,
+    action: async () => {
+      await editeurService.supprimerBloc(siteId.value, b.id)
+      blocsDev.value = blocsDev.value.filter((x) => x.id !== b.id)
+    },
+  }
+}
 function selectionnerDev(chemin: number[]) { versCadre({ type: 'selectionner', chemin, defiler: true }) }
 async function operationDev(chemin: number[], balises: string[], operation: OperationDev, confirmerTexte?: string) {
   const faire = async () => {
@@ -141,6 +184,9 @@ async function surMessage(e: MessageEvent) {
       }
     } else if (m.type === 'selection') {
       selectionDev.value = m.chemin ? m as SelectionDev : null
+    } else if (m.type === 'inserer-bloc') {
+      if (!devActif.value) return
+      await insererBloc(m.bloc, m.position, m.chemin ? { chemin: m.chemin, balises: m.balises } : null)
     } else if (m.type === 'flags-page') {
       flagsPage.value = m.flags
       alertesPage.value = m.alertes
@@ -364,8 +410,10 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
       <main class="ed-scene" :class="{ 'ed-scene--mobile': vueMobile }">
         <iframe v-if="etat" :key="cle" ref="cadre" :src="src" title="Votre site" class="ed-cadre" />
       </main>
-      <PanneauDev v-if="devActif" :selection="selectionDev" :flags="flagsPage" :alertes="alertesPage" :occupe="occupe"
-        @operation="depuisPanneau" @selectionner="selectionnerDev" @fermer="basculerModeDev" />
+      <PanneauDev v-if="devActif" :selection="selectionDev" :flags="flagsPage" :alertes="alertesPage" :occupe="occupe" :blocs="blocsDev"
+        @operation="depuisPanneau" @selectionner="selectionnerDev" @fermer="basculerModeDev"
+        @glisser="(id) => versCadre({ type: 'glisser', bloc: id })" @fin-glisser="versCadre({ type: 'fin-glisser' })"
+        @inserer="insererDepuisPanneau" @enregistrer="enregistrerBloc" @supprimer-bloc="supprimerBloc" />
     </div>
 
     <input ref="choixImage" type="file" accept="image/*" hidden @change="surImage">

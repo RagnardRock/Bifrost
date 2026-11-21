@@ -5,6 +5,7 @@
  * Le panneau n'appelle pas l'API : il émet des opérations que l'éditeur envoie au serveur.
  */
 import { computed, ref, watch } from 'vue'
+import type { BlocDev } from '@/services/editeur.service'
 
 export interface SelectionDev {
   chemin: number[]
@@ -30,10 +31,35 @@ export type OperationDev =
   | { op: 'dupliquer' }
   | { op: 'deplacer'; sens: 'haut' | 'bas' }
 
-const props = defineProps<{ selection: SelectionDev | null; flags: FlagPage[]; alertes: AlerteDev[]; occupe: boolean }>()
-const emit = defineEmits<{ operation: [o: OperationDev, confirmer?: string]; selectionner: [chemin: number[]]; fermer: [] }>()
+const props = defineProps<{ selection: SelectionDev | null; flags: FlagPage[]; alertes: AlerteDev[]; occupe: boolean; blocs: BlocDev[] }>()
+const emit = defineEmits<{
+  operation: [o: OperationDev, confirmer?: string]
+  selectionner: [chemin: number[]]
+  fermer: []
+  glisser: [id: string]
+  'fin-glisser': []
+  inserer: [id: string]
+  enregistrer: [nom: string]
+  'supprimer-bloc': [bloc: BlocDev]
+}>()
 
-const onglet = ref<'element' | 'flags'>('element')
+const onglet = ref<'element' | 'blocs' | 'flags'>('element')
+
+// ---------- bibliothèque de sections ----------
+const blocsFournis = computed(() => props.blocs.filter((b) => !b.perso))
+const blocsPerso = computed(() => props.blocs.filter((b) => b.perso))
+function debutGlisser(e: DragEvent, b: BlocDev) {
+  e.dataTransfer?.setData('text/plain', `bifrost-bloc:${b.id}`)
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
+  emit('glisser', b.id)
+}
+const nomBloc = ref<string | null>(null)
+function enregistrerBloc() {
+  const n = nomBloc.value?.trim()
+  if (!n) return
+  emit('enregistrer', n)
+  nomBloc.value = null
+}
 
 // ---------- formulaire de l'élément ----------
 const f = ref({ cle: '', type: '', liste: '', limite: '', element: false, modele: '', texte: '', alt: '', href: '', title: '' })
@@ -114,8 +140,9 @@ const memeChemin = (a: number[] | null | undefined, b: number[]) => !!a && a.len
   <aside class="pd" aria-label="Mode dev">
     <div class="pd-onglets" role="tablist">
       <button type="button" role="tab" :aria-selected="onglet === 'element'" @click="onglet = 'element'">Élément</button>
-      <button type="button" role="tab" :aria-selected="onglet === 'flags'" @click="onglet = 'flags'">
-        Flags de la page <span class="pd-compte">{{ flags.length }}</span><span v-if="alertes.length" class="pd-compte pd-compte--alerte" :title="`${alertes.length} point(s) à vérifier`">⚠ {{ alertes.length }}</span>
+      <button type="button" role="tab" :aria-selected="onglet === 'blocs'" @click="onglet = 'blocs'">Blocs</button>
+      <button type="button" role="tab" :aria-selected="onglet === 'flags'" title="Flags de la page" @click="onglet = 'flags'">
+        Flags <span class="pd-compte">{{ flags.length }}</span><span v-if="alertes.length" class="pd-compte pd-compte--alerte" :title="`${alertes.length} point(s) à vérifier`">⚠ {{ alertes.length }}</span>
       </button>
       <button type="button" class="pd-fermer" aria-label="Quitter le mode dev" title="Quitter le mode dev" @click="emit('fermer')">✕</button>
     </div>
@@ -138,7 +165,14 @@ const memeChemin = (a: number[] | null | undefined, b: number[]) => !!a && a.len
           <button type="button" :disabled="!s.peutDescendre || occupe" title="Descendre" @click="emit('operation', { op: 'deplacer', sens: 'bas' })">↓</button>
           <button type="button" :disabled="occupe" title="Dupliquer" @click="emit('operation', { op: 'dupliquer' })">⧉ Dupliquer</button>
           <button type="button" class="pd-danger" :disabled="occupe" title="Supprimer" @click="emit('operation', { op: 'supprimer' }, `Supprimer cet élément <${s.balise}> et tout ce qu’il contient ?`)">✕ Supprimer</button>
+          <button v-if="nomBloc === null" type="button" :disabled="occupe" title="Réutiliser cet élément dans d’autres pages ou d’autres sites" @click="nomBloc = ''">⭐ Enregistrer comme bloc</button>
         </div>
+        <form v-if="nomBloc !== null" class="pd-ligne" @submit.prevent="enregistrerBloc">
+          <input v-model="nomBloc" class="pd-saisie" maxlength="60" placeholder="Nom du bloc" aria-label="Nom du bloc" autofocus>
+          <button type="submit" class="pd-petit" :disabled="!nomBloc.trim() || occupe">Enregistrer</button>
+          <button type="button" class="pd-petit" @click="nomBloc = null">Annuler</button>
+        </form>
+        <p class="pd-note">Astuce : glissez l’élément sélectionné dans la page pour le déplacer.</p>
 
         <p v-if="s.contexte.dansRiche" class="pd-note pd-note--alerte">Cet élément est dans un texte riche : ses flags seraient ignorés.</p>
 
@@ -214,6 +248,33 @@ const memeChemin = (a: number[] | null | undefined, b: number[]) => !!a && a.len
       </template>
     </div>
 
+    <!-- Bibliothèque de sections -->
+    <div v-else-if="onglet === 'blocs'" class="pd-corps">
+      <p class="pd-note pd-note--haut">Glissez une section dans la page, ou cliquez pour l’ajouter {{ s ? 'après l’élément sélectionné' : 'à la fin de la page' }}. Les flags sont déjà posés.</p>
+      <ul class="pd-blocs">
+        <li v-for="b in blocsFournis" :key="b.id">
+          <button type="button" class="pd-bloc-carte" draggable="true" :disabled="occupe" :title="b.description"
+            @dragstart="debutGlisser($event, b)" @dragend="emit('fin-glisser')" @click="emit('inserer', b.id)">
+            <span class="pd-bloc-icone" aria-hidden="true">{{ b.icone }}</span>
+            <strong>{{ b.nom }}</strong>
+            <small>{{ b.description }}</small>
+          </button>
+        </li>
+      </ul>
+      <h3 class="pd-titre">Mes blocs</h3>
+      <p v-if="!blocsPerso.length" class="pd-note">Sélectionnez une section d’un site, puis « ⭐ Enregistrer comme bloc » pour la réutiliser partout.</p>
+      <ul v-else class="pd-blocs">
+        <li v-for="b in blocsPerso" :key="b.id" class="pd-bloc-perso">
+          <button type="button" class="pd-bloc-carte" draggable="true" :disabled="occupe" :title="b.description || b.nom"
+            @dragstart="debutGlisser($event, b)" @dragend="emit('fin-glisser')" @click="emit('inserer', b.id)">
+            <span class="pd-bloc-icone" aria-hidden="true">{{ b.icone }}</span>
+            <strong>{{ b.nom }}</strong>
+          </button>
+          <button type="button" class="pd-bloc-suppr" :aria-label="`Supprimer le bloc ${b.nom}`" title="Supprimer ce bloc" @click="emit('supprimer-bloc', b)">✕</button>
+        </li>
+      </ul>
+    </div>
+
     <!-- Tous les flags de la page -->
     <div v-else class="pd-corps">
       <ul v-if="alertes.length" class="pd-alertes">
@@ -272,6 +333,18 @@ kbd { font: 600 11px ui-monospace, Consolas, monospace; padding: 1px 5px; border
 .pd-alertes button { color: var(--bf-accent); background: rgba(224, 122, 74, .08); }
 .pd-alertes button:hover, .pd-liste button:hover { background: var(--bf-verre-fort); }
 .pd-liste code { font-size: 11px; color: var(--bf-pale); }
+.pd-saisie { flex: 1; min-width: 0; background: var(--bf-champ); border: 1px solid var(--bf-bord-fort); border-radius: 9px; padding: 7px 10px; color: var(--bf-texte); font: inherit; }
+.pd-note--haut { margin: 0; }
+.pd-titre { margin: 6px 0 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--bf-doux); }
+.pd-blocs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pd-bloc-carte { width: 100%; height: 100%; display: grid; gap: 3px; align-content: start; justify-items: start; text-align: left; padding: 10px; border: 1px solid var(--bf-bord); border-radius: 12px; background: var(--bf-verre); color: var(--bf-texte); font: inherit; cursor: grab; }
+.pd-bloc-carte:hover:not(:disabled) { background: var(--bf-verre-fort); border-color: rgba(139, 92, 246, .5); }
+.pd-bloc-carte:active { cursor: grabbing; }
+.pd-bloc-carte small { font-size: 11px; color: var(--bf-doux); line-height: 1.35; }
+.pd-bloc-icone { font-size: 20px; }
+.pd-bloc-perso { position: relative; }
+.pd-bloc-suppr { position: absolute; top: 4px; right: 4px; border: 0; background: none; color: var(--bf-doux); cursor: pointer; border-radius: 999px; width: 24px; height: 24px; }
+.pd-bloc-suppr:hover { color: var(--bf-danger); background: var(--bf-verre-fort); }
 .pd-ignore { opacity: .5; text-decoration: line-through; }
 @media (max-width: 900px) {
   .pd { position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: 48vh; border-left: 0; border-top: 1px solid var(--bf-bord); border-radius: 18px 18px 0 0; z-index: 20; box-shadow: 0 -16px 40px rgba(0, 0, 0, .35); }
