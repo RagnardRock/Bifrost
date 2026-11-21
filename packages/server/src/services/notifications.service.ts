@@ -119,7 +119,7 @@ export async function nouveauMessage(siteId: string, formulaire: string, extrait
     await envoyerA(await responsables(siteId, 'messages'), {
       titre: `Nouveau message · ${s.nom}`,
       texte: extrait ? extrait.slice(0, 140) : `Formulaire « ${formulaire} »`,
-      url: `/mon-site/${s.cle}?onglet=messages`,
+      url: `/espace/sites/${s.cle}?onglet=messages`,
       tag: `message-${siteId}`,
     })
   } catch (e) {

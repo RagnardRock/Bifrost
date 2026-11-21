@@ -1,24 +1,23 @@
 <script setup lang="ts">
 /**
- * Espace « Mon site » : ce qui n'est pas la page elle-même.
- * Messages reçus, équipe, réglages du site (responsables) et mon compte (tout le monde).
+ * Gérer un site (espace client) : ce qui n'est pas la page elle-même.
+ * Messages reçus, équipe et réglages du site, pour les responsables (et le dev).
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { editeurService, type EtatEditeur, type Message, type Membre, type Invitation, type RoleSite, type Reglages } from '@/services/editeur.service'
-import { comptesService } from '@/services/comptes.service'
-import DoubleAuth from '@/components/compte/DoubleAuth.vue'
-import InstallerAppli from '@/components/appli/InstallerAppli.vue'
-import NotificationsAppli from '@/components/appli/NotificationsAppli.vue'
+import { editeurService, type EtatEditeur, type Membre, type Invitation, type RoleSite, type Reglages } from '@/services/editeur.service'
+import ListeMessages, { type MessageSite } from '@/components/espace/ListeMessages.vue'
 import ReseauxSociaux from '@/components/reseaux/ReseauxSociaux.vue'
 import { adresseSite } from '@/services/suivi.service'
 import { useAuthStore } from '@/stores/auth.store'
+import { useEspace } from '@/composables/espace'
 
-type Onglet = 'messages' | 'equipe' | 'reseaux' | 'reglages' | 'compte'
+type Onglet = 'messages' | 'equipe' | 'reseaux' | 'reglages'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const espace = useEspace()
 
 const etat = ref<EtatEditeur | null>(null)
 const siteId = computed(() => etat.value?.site.id ?? (route.params.siteId as string))
@@ -27,17 +26,15 @@ const responsable = computed(() => etat.value?.moi.role === 'responsable')
 const erreur = ref('')
 const info = ref('')
 
-const ONGLETS: { id: Onglet; nom: string; icone: string; responsable: boolean }[] = [
-  { id: 'messages', nom: 'Messages', icone: '📨', responsable: true },
-  { id: 'equipe', nom: 'Équipe', icone: '👥', responsable: true },
-  { id: 'reseaux', nom: 'Réseaux', icone: '📸', responsable: true },
-  { id: 'reglages', nom: 'Réglages', icone: '⚙️', responsable: true },
-  { id: 'compte', nom: 'Mon compte', icone: '👤', responsable: false },
+const onglets: { id: Onglet; nom: string; icone: string }[] = [
+  { id: 'messages', nom: 'Messages', icone: '📨' },
+  { id: 'equipe', nom: 'Équipe', icone: '👥' },
+  { id: 'reseaux', nom: 'Réseaux', icone: '📸' },
+  { id: 'reglages', nom: 'Réglages', icone: '⚙️' },
 ]
-const onglets = computed(() => ONGLETS.filter((o) => !o.responsable || responsable.value))
 const onglet = computed<Onglet>(() => {
   const voulu = route.query.onglet as Onglet
-  return onglets.value.some((o) => o.id === voulu) ? voulu : onglets.value[0]?.id ?? 'compte'
+  return onglets.some((o) => o.id === voulu) ? voulu : 'messages'
 })
 const aller = (o: Onglet) => router.replace({ query: { onglet: o } })
 
@@ -57,33 +54,9 @@ async function chargerEtat() {
 }
 
 // ---------- messages ----------
-const messages = ref<Message[] | null>(null)
-const ouvert = ref<string | null>(null)
-const titreMessage = (m: Message) => m.champs.find((c) => c.valeur && c.valeur !== m.email)?.valeur.slice(0, 80) || m.email || 'Message'
-const apercuMessage = (m: Message) => m.champs.filter((c) => c.valeur && c.valeur !== m.email && c.valeur !== titreMessage(m)).map((c) => c.valeur).join(' · ').slice(0, 140)
-const repondre = (m: Message) => `mailto:${m.email}?subject=${encodeURIComponent(`Re : votre message sur ${etat.value?.site.name ?? 'notre site'}`)}`
-const dateLisible = (d: string) => new Date(d).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
-
-async function lireMessage(m: Message) {
-  ouvert.value = ouvert.value === m.id ? null : m.id
-  if (m.lu) return
-  m.lu = true
-  try { await editeurService.marquerLu(siteId.value, m.id, true); await chargerEtat() } catch { m.lu = false }
-}
-async function marquerNonLu(m: Message) {
-  try { await editeurService.marquerLu(siteId.value, m.id, false); m.lu = false; ouvert.value = null; await chargerEtat() } catch (e) { echec(e, 'Action impossible.') }
-}
+const messages = ref<MessageSite[] | null>(null)
+const messageChange = () => { void chargerEtat(); void espace.recharger() }
 const confirmation = ref<{ texte: string; action: () => Promise<void> } | null>(null)
-function supprimerMessage(m: Message) {
-  confirmation.value = {
-    texte: 'Supprimer ce message ? Il ne pourra pas être récupéré.',
-    action: async () => {
-      await editeurService.supprimerMessage(siteId.value, m.id)
-      messages.value = (messages.value ?? []).filter((x) => x.id !== m.id)
-      await chargerEtat()
-    },
-  }
-}
 
 // ---------- équipe ----------
 const equipe = ref<{ membres: Membre[]; invitations: Invitation[] } | null>(null)
@@ -129,21 +102,6 @@ async function enregistrerReglages() {
 }
 const adressePublique = computed(() => (etat.value ? new URL(adresseSite(etat.value.site), window.location.origin).toString() : ''))
 
-// ---------- mon compte ----------
-const mdp = ref({ actuel: '', nouveau: '', confirmation: '' })
-async function changerMotDePasse() {
-  if (mdp.value.nouveau !== mdp.value.confirmation) { erreur.value = 'Les deux nouveaux mots de passe ne sont pas identiques.'; return }
-  try {
-    await comptesService.changerMotDePasse(mdp.value.actuel, mdp.value.nouveau)
-    mdp.value = { actuel: '', nouveau: '', confirmation: '' }
-    informer('Mot de passe changé')
-  } catch (e) { echec(e, 'Mot de passe non changé.') }
-}
-function deconnexion() {
-  auth.logout?.()
-  router.push('/login')
-}
-
 async function confirmer() {
   const c = confirmation.value
   confirmation.value = null
@@ -154,7 +112,7 @@ async function confirmer() {
 async function chargerOnglet(o: Onglet) {
   erreur.value = ''
   try {
-    if (o === 'messages') messages.value = await editeurService.messages(siteId.value)
+    if (o === 'messages') messages.value = (await editeurService.messages(siteId.value)).map((m) => ({ ...m, siteId: siteId.value, siteNom: etat.value?.site.name ?? '' }))
     else if (o === 'equipe') { lienInvitation.value = null; equipe.value = await editeurService.equipe(siteId.value) }
     else if (o === 'reglages') {
       reglages.value = await editeurService.reglages(siteId.value)
@@ -167,6 +125,8 @@ watch(onglet, (o) => { if (etat.value) void chargerOnglet(o) })
 onMounted(async () => {
   try {
     await chargerEtat()
+    // Un rédacteur n'a rien à gérer ici : retour à ses sites
+    if (!responsable.value) { router.replace('/espace'); return }
     await chargerOnglet(onglet.value)
   } catch (e) { echec(e, 'Impossible d’ouvrir cet espace.') }
 })
@@ -174,12 +134,13 @@ onMounted(async () => {
 
 <template>
   <div class="ms">
+    <router-link v-if="auth.isClient" to="/espace" class="ms-retour">← Mes sites</router-link>
     <header class="ms-barre">
-      <router-link :to="`/edition/${cleSite}`" class="ms-retour" aria-label="Retour à l’édition du site">←<span> Modifier le site</span></router-link>
       <div class="ms-titre">
-        <strong>{{ etat?.site.name || 'Mon site' }}</strong>
+        <h1>{{ etat?.site.name || 'Mon site' }}</h1>
         <a v-if="etat" :href="adresseSite(etat.site)" target="_blank" rel="noopener">Voir le site ↗</a>
       </div>
+      <router-link :to="`/edition/${cleSite}`" class="ms-btn ms-btn--fort ms-modifier">Modifier le site</router-link>
     </header>
 
     <nav class="ms-onglets" aria-label="Rubriques">
@@ -189,38 +150,20 @@ onMounted(async () => {
       </button>
     </nav>
 
-    <main class="ms-contenu">
+    <div class="ms-contenu">
       <p v-if="erreur" class="ms-alerte" role="alert" @click="erreur = ''">{{ erreur }}</p>
 
       <!-- Messages -->
       <section v-if="onglet === 'messages'">
-        <h1>Messages reçus</h1>
+        <h2 class="ms-h">Messages reçus</h2>
         <p class="ms-note">Les messages envoyés par le formulaire du site. Ils arrivent aussi par e-mail.</p>
         <p v-if="messages && !messages.length" class="ms-vide">Aucun message pour l’instant.</p>
-        <ul class="ms-liste">
-          <li v-for="m in messages ?? []" :key="m.id" :class="{ 'ms-non-lu': !m.lu }">
-            <button type="button" class="ms-message-tete" :aria-expanded="ouvert === m.id" @click="lireMessage(m)">
-              <span class="ms-point" aria-hidden="true" />
-              <span class="ms-resume"><strong>{{ titreMessage(m) }}</strong><span>{{ apercuMessage(m) }}</span></span>
-              <time :datetime="m.createdAt">{{ dateLisible(m.createdAt) }}</time>
-            </button>
-            <div v-if="ouvert === m.id" class="ms-message-corps">
-              <dl>
-                <template v-for="c in m.champs" :key="c.nom"><dt>{{ c.libelle }}</dt><dd>{{ c.valeur || '—' }}</dd></template>
-              </dl>
-              <div class="ms-ligne">
-                <a v-if="m.email" :href="repondre(m)" class="ms-btn ms-btn--fort">Répondre</a>
-                <button type="button" class="ms-btn" @click="marquerNonLu(m)">Marquer non lu</button>
-                <button type="button" class="ms-btn ms-rouge" @click="supprimerMessage(m)">Supprimer</button>
-              </div>
-            </div>
-          </li>
-        </ul>
+        <ListeMessages v-if="messages?.length" :messages="messages" @change="messageChange" @supprime="messages = messages!.filter((m) => m.id !== $event)" @erreur="erreur = $event" />
       </section>
 
       <!-- Équipe -->
       <section v-else-if="onglet === 'equipe'">
-        <h1>Équipe du site</h1>
+        <h2 class="ms-h">Équipe du site</h2>
         <p class="ms-note">Les <strong>responsables</strong> publient et gèrent l’équipe. Les <strong>rédacteurs</strong> modifient le site ; un responsable publie ensuite.</p>
         <ul v-if="equipe" class="ms-liste">
           <li v-for="m in equipe.membres" :key="m.id" class="ms-ligne-membre">
@@ -258,14 +201,15 @@ onMounted(async () => {
         </form>
       </section>
 
-      <!-- Réglages -->
+      <!-- Réseaux -->
       <section v-else-if="onglet === 'reseaux'">
-        <h1>Réseaux sociaux</h1>
+        <h2 class="ms-h">Réseaux sociaux</h2>
         <ReseauxSociaux :site-id="siteId" @info="informer" />
       </section>
 
+      <!-- Réglages -->
       <section v-else-if="onglet === 'reglages'">
-        <h1>Réglages du site</h1>
+        <h2 class="ms-h">Réglages du site</h2>
         <form v-if="reglages" class="ms-carte" @submit.prevent="enregistrerReglages">
           <label>Nom du site
             <input v-model="formReglages.nom" class="ms-champ" required maxlength="120">
@@ -283,38 +227,7 @@ onMounted(async () => {
           <p class="ms-aide">Pour mettre le site sur votre propre nom de domaine (par exemple monasso.fr), contactez votre développeur : il s’en occupe pour vous.</p>
         </div>
       </section>
-
-      <!-- Mon compte -->
-      <section v-else>
-        <h1>Mon compte</h1>
-        <div class="ms-carte">
-          <h2>Connecté avec</h2>
-          <p>{{ auth.currentUser?.email || 'Compte développeur' }}</p>
-          <button type="button" class="ms-btn ms-debut" @click="deconnexion">Se déconnecter</button>
-        </div>
-        <div class="ms-carte ms-appli">
-          <h2>Appli sur le téléphone</h2>
-          <InstallerAppli />
-          <p class="ms-aide">Bifrost s’installe depuis le navigateur, sans passer par un store. L’appli s’ouvre directement sur votre site.</p>
-        </div>
-        <div v-if="auth.role === 'client' && responsable" class="ms-carte">
-          <h2>Notifications</h2>
-          <NotificationsAppli />
-        </div>
-        <form v-if="auth.role === 'client'" class="ms-carte" @submit.prevent="changerMotDePasse">
-          <h2>Changer mon mot de passe</h2>
-          <label>Mot de passe actuel<input v-model="mdp.actuel" type="password" class="ms-champ" autocomplete="current-password" required></label>
-          <label>Nouveau mot de passe<input v-model="mdp.nouveau" type="password" class="ms-champ" autocomplete="new-password" minlength="10" required>
-            <span class="ms-aide">10 caractères au moins. Une phrase facile à retenir fait un bon mot de passe.</span>
-          </label>
-          <label>Nouveau mot de passe, encore une fois<input v-model="mdp.confirmation" type="password" class="ms-champ" autocomplete="new-password" minlength="10" required></label>
-          <button type="submit" class="ms-btn ms-btn--fort ms-debut">Changer le mot de passe</button>
-        </form>
-        <div v-if="auth.role === 'client'" class="ms-carte">
-          <DoubleAuth :api="comptesService.doubleAuth" :compte="auth.currentUser?.email" />
-        </div>
-      </section>
-    </main>
+    </div>
 
     <transition name="ms-fondu">
       <div v-if="info" class="ms-toast" role="status">{{ info }}</div>
@@ -333,43 +246,35 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.ms { min-height: 100vh; background: var(--bf-fond); color: var(--bf-texte); }
-.ms-barre { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: var(--bf-surface); backdrop-filter: blur(18px); border-bottom: 1px solid var(--bf-bord); }
-.ms-retour { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 9px 14px; border-radius: 999px; background: var(--bf-verre-fort); box-shadow: inset 0 0 0 1px var(--bf-bord); color: var(--bf-texte); font-size: 14px; font-weight: 600; text-decoration: none; }
-.ms-retour:hover { background: var(--bf-survol); }
-.ms-titre { min-width: 0; display: grid; }
-.ms-titre strong { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ms-titre a { font-size: 13px; color: var(--bf-doux); text-decoration: none; }
+.ms { display: grid; gap: 16px; max-width: 820px; color: var(--bf-texte); }
+.ms-retour { justify-self: start; padding: 6px 12px; margin-left: -12px; border-radius: 999px; color: var(--bf-doux); font-size: 14px; font-weight: 500; text-decoration: none; }
+.ms-retour:hover { background: var(--bf-verre-fort); color: var(--bf-fort); }
+.ms-barre { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.ms-titre { min-width: 0; display: grid; gap: 2px; }
+.ms-titre h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-titre a { font-size: 13px; color: var(--bf-doux); text-decoration: none; justify-self: start; }
 .ms-titre a:hover { color: var(--bf-fort); }
-.ms-onglets { display: flex; gap: 4px; overflow-x: auto; padding: 10px 16px; border-bottom: 1px solid var(--bf-bord); background: var(--bf-surface-legere); scrollbar-width: none; }
+.ms-modifier { min-height: 46px; padding: 0 22px; font-size: 15px; }
+.ms-onglets { display: flex; gap: 4px; overflow-x: auto; padding: 4px; border-radius: 999px; background: var(--bf-verre); border: 1px solid var(--bf-bord); justify-self: start; max-width: 100%; scrollbar-width: none; }
 .ms-onglets button { flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border: 0; border-radius: 999px; background: none; color: var(--bf-texte); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
 .ms-onglets button:hover { background: var(--bf-verre-fort); }
 .ms-onglets button[aria-current='page'] { background: var(--bf-degrade); color: #fff; font-weight: 600; }
 .ms-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--bf-accent); color: #fff; font-size: 11px; line-height: 20px; text-align: center; }
 .ms-onglets button[aria-current='page'] .ms-badge { background: rgba(255, 255, 255, .3); }
-.ms-contenu { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+.ms-contenu { padding-top: 4px; }
 .ms-contenu section { display: grid; gap: 16px; }
-h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.01em; }
+h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.01em; }
+.ms-h { font-size: 20px; }
 h2 { margin: 0; font-size: 16px; font-weight: 700; }
 .ms-note { margin: -8px 0 0; color: var(--bf-doux); font-size: 14px; }
 .ms-vide { padding: 32px; text-align: center; color: var(--bf-doux); border-radius: 16px; background: var(--bf-verre); }
 .ms-alerte { margin: 0 0 16px; padding: 12px 16px; border-radius: 12px; background: rgba(220, 38, 38, .12); color: var(--bf-danger); cursor: pointer; }
 .ms-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .ms-liste > li { border-radius: 14px; background: var(--bf-verre); }
-.ms-message-tete { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 14px; }
-.ms-message-tete:hover { background: var(--bf-verre-fort); }
-.ms-point { width: 8px; height: 8px; flex: none; border-radius: 50%; }
-.ms-non-lu .ms-point { background: var(--bf-accent); }
 .ms-resume { flex: 1; min-width: 0; display: grid; }
 .ms-resume strong, .ms-resume span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ms-resume strong { font-size: 15px; font-weight: 500; }
-.ms-non-lu .ms-resume strong { font-weight: 700; }
 .ms-resume span { font-size: 13px; color: var(--bf-doux); }
-.ms-message-tete time { flex: none; font-size: 12px; color: var(--bf-doux); }
-.ms-message-corps { padding: 0 14px 16px 34px; display: grid; gap: 14px; }
-.ms-message-corps dl { margin: 0; display: grid; gap: 4px 16px; grid-template-columns: minmax(90px, max-content) 1fr; font-size: 15px; }
-.ms-message-corps dt { color: var(--bf-doux); }
-.ms-message-corps dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ms-ligne { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .ms-fin { justify-content: flex-end; }
 .ms-ligne-membre { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; flex-wrap: wrap; }
@@ -397,12 +302,9 @@ h2 { margin: 0; font-size: 16px; font-weight: 700; }
 .ms-fondu-enter-active, .ms-fondu-leave-active { transition: opacity .2s; }
 .ms-fondu-enter-from, .ms-fondu-leave-to { opacity: 0; }
 @media (max-width: 560px) {
-  .ms-retour span { display: none; }
-  .ms-contenu { padding-top: 18px; }
   h1 { font-size: 22px; }
-  .ms-message-tete time { display: none; }
-  .ms-message-corps { padding-left: 14px; }
-  .ms-message-corps dl { grid-template-columns: 1fr; }
-  .ms-message-corps dd { margin-bottom: 8px; }
+  .ms-modifier { flex: 1; }
+  .ms-onglets { justify-self: stretch; }
+  .ms-onglets button { flex: 1; justify-content: center; gap: 6px; padding: 9px 10px; }
 }
 </style>

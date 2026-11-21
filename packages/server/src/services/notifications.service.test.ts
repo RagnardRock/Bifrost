@@ -38,7 +38,7 @@ describe('notifications', () => {
     await n.nouveauMessage('s1', 'contact', 'Bonjour, je voudrais un devis')
     expect(envois.map((e) => e.endpoint)).toEqual(['https://push.test/resp'])
     const charge = JSON.parse(envois[0]!.charge)
-    expect(charge).toMatchObject({ titre: 'Nouveau message · Vroom', url: '/mon-site/vroom?onglet=messages' })
+    expect(charge).toMatchObject({ titre: 'Nouveau message · Vroom', url: '/espace/sites/vroom?onglet=messages' })
     expect(membres.mock.calls[0]![0]).toMatchObject({ where: { siteId: 's1', role: 'responsable', user: { notifMessages: true } } })
   })
 

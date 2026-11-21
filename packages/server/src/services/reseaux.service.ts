@@ -75,7 +75,7 @@ export async function retourConnexion(code: string | undefined, etat: string | u
   try { e = jwt.verify(String(etat || ''), config.jwtSecret) as typeof e } catch { throw Errors.badRequest('Lien expiré : recommencez depuis Bifrost') }
   if (e.but !== 'instagram') throw Errors.badRequest('Lien invalide')
   const site = await prisma.site.findUnique({ where: { id: e.siteId }, select: { slug: true } })
-  const retour = (r: string) => `/mon-site/${site?.slug || e.siteId}?onglet=reseaux&instagram=${r}`
+  const retour = (r: string) => `/espace/sites/${site?.slug || e.siteId}?onglet=reseaux&instagram=${r}`
   if (refus || !code) return retour('refus')
   try {
     const court = await appel<{ access_token: string; user_id: string | number }>(`${API()}/oauth/access_token`, {
