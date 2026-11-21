@@ -9,7 +9,7 @@ export type TypeEvenement =
   | 'modification' | 'image' | 'liste' | 'actualite'
   | 'publication' | 'annulation' | 'abandon' | 'import'
   | 'invitation' | 'arrivee' | 'mot-de-passe' | 'role' | 'retrait' | 'message' | 'mode-dev'
-  | 'pause' | 'reprise' | 'restauration'
+  | 'pause' | 'reprise' | 'restauration' | 'reseau'
 
 /** Ajoute un événement au journal. Ne fait jamais échouer l'action qui l'appelle. */
 export function journaliser(siteId: string, auteur: string | null | undefined, type: TypeEvenement, detail = '') {

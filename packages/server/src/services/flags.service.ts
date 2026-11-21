@@ -295,6 +295,8 @@ export interface NouvelElement {
   texte?: string
   photos: string[]
   page: string
+  /** lien vers l'original (post Instagram…), ajouté sous le texte de la page, pas dans le résumé */
+  source?: { url: string; libelle: string }
 }
 
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
@@ -351,7 +353,10 @@ export function pageDepuisModele(modeleHtml: string, n: NouvelElement): string {
     if (n.date) { $date.text(dateFr(n.date)); $date.attr('datetime', n.date) } else $date.text('')
   }
   const $texte = $page.find('[data-bf="texte"]').first()
-  if ($texte.length) $texte.html(nettoyerRiche(n.texte || ''))
+  if ($texte.length) {
+    $texte.html(nettoyerRiche(n.texte || ''))
+    if (n.source && /^https:\/\//.test(n.source.url)) $texte.append($('<p></p>').append($('<a target="_blank" rel="noopener"></a>').attr('href', n.source.url).text(n.source.libelle)))
+  }
   $page.find('[data-bf-liste="photos"]').each((_, l) => {
     const $l = $(l) as Cheerio<Element>
     const els = elementsDe($, $l)
