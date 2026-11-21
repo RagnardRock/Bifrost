@@ -18,6 +18,7 @@ import { config } from '../config'
 import { Errors } from '../utils/errors'
 import * as flags from './flags.service'
 import { brancherFormulaires } from './formulaires.html'
+import * as modeDev from './mode-dev.service'
 
 export function dossiers(siteId: string) {
   if (!/^[a-zA-Z0-9-]+$/.test(siteId)) throw Errors.badRequest('Site invalide')
@@ -100,6 +101,14 @@ export async function modifierChamp(siteId: string, cle: string, valeur: string)
     if (touches) { await ecrire(siteId, p, html); pages.push(p) }
   }
   return { pages }
+}
+
+/** Mode dev : opération sur n'importe quel élément d'une page du brouillon. */
+export async function operationDev(siteId: string, page: string, cible: modeDev.Cible, o: modeDev.OperationDev) {
+  if (!page.endsWith('.html')) throw Errors.badRequest('Page invalide')
+  const r = modeDev.operation(await lire(siteId, page), cible, o)
+  await ecrire(siteId, page, r.html)
+  return { chemin: r.chemin }
 }
 
 /** Pages qui contiennent la version complète (non limitée) d'une collection. */

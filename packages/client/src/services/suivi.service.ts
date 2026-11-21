@@ -70,6 +70,7 @@ export const TYPES: Record<string, { icone: string; texte: string }> = {
   role: { icone: '🎚️', texte: 'a changé le rôle de' },
   retrait: { icone: '🚪', texte: 'a retiré de l’équipe' },
   message: { icone: '📨', texte: 'a envoyé un message par le formulaire' },
+  'mode-dev': { icone: '🛠️', texte: 'a modifié la structure (mode dev)' },
 }
 
 export function ilYa(d: string) {
