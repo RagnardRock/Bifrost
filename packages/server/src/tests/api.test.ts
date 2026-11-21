@@ -139,3 +139,18 @@ describe('Protected Routes - Authentication', () => {
     })
   })
 })
+
+describe('API des outils du dev (Rune)', () => {
+  it('refuse sans connexion', async () => {
+    const r = await request(app).get('/api/dev/sites')
+    expect(r.status).toBe(401)
+  })
+  it('refuse un jeton inconnu', async () => {
+    const r = await request(app).get('/api/dev/sites').set('Authorization', 'Bearer pas-un-jeton')
+    expect(r.status).toBe(401)
+  })
+  it('vérifie la connexion', async () => {
+    const r = await request(app).post('/api/dev/connexion').send({ email: 'pas-un-email' })
+    expect(r.status).toBe(400)
+  })
+})
