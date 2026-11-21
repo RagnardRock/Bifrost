@@ -47,4 +47,7 @@ export const editeurService = {
   messages: (siteId: string) => donnees<Message[]>(api.get(`${base(siteId)}/messages`)),
   marquerLu: (siteId: string, id: string, lu: boolean) => api.put(`${base(siteId)}/messages/${id}`, { lu }),
   supprimerMessage: (siteId: string, id: string) => api.delete(`${base(siteId)}/messages/${id}`),
+  /** Mode dev : opération sur n'importe quel élément de la page (compte dev uniquement). */
+  dev: (siteId: string, corps: { page: string; chemin: number[]; balises: string[]; operation: Record<string, unknown> }) =>
+    donnees<{ chemin: number[] | null }>(api.post(`${base(siteId)}/dev`, corps)),
 }

@@ -110,3 +110,17 @@ Les images envoyées sont converties en WebP (1600 px max) dans `brouillon/media
   nom et adresse en ligne, réimport du dossier après une refonte.
 - **Activité** : le journal de tous les sites (modifications, photos, actualités, publications, annulations, invitations,
   arrivées dans l'équipe, changements de rôle), filtrable par site.
+
+## Mode dev (poser les flags depuis l'éditeur)
+
+Le compte dev voit un bouton **🛠️ Dev** dans la barre de l'éditeur. En mode dev :
+
+- un clic sélectionne **n'importe quel** élément de la page (flaggé ou non) ; `Échap` remonte au parent, le fil d'Ariane du panneau aussi ;
+- le panneau **Élément** pose ou retire `data-bf` (avec une clé proposée : `section.titre` hors liste, `titre` dans un élément de liste), `data-bf-type`, `data-bf-liste` + `data-bf-limite`, `data-bf-element`, `data-bf-page` ;
+- double-clic (ou `Entrée`) sur un élément sans enfants : modifier son texte ; le panneau règle aussi `alt`, `href` et `title` ;
+- ↑ ↓, Dupliquer, Supprimer (`Suppr`) agissent sur l'élément sélectionné ;
+- l'onglet **Flags de la page** liste tous les flags et signale les problèmes (liste sans élément, élément hors liste, clé en double avec des contenus différents, flag dans un texte riche, image sans `alt`).
+
+Tout est écrit dans le brouillon, comme les modifications du client, puis publié avec « Publier ».
+Côté serveur : `POST /api/editeur/<site>/dev`, réservé au compte dev ; l'élément est désigné par son chemin depuis `<body>`
+avec la balise attendue à chaque étape (refus si la page a changé entre-temps).
