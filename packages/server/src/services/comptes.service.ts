@@ -15,6 +15,7 @@ import { envoyer } from './mail.service'
 import { journaliser } from './suivi.service'
 import { siteParCle } from './slug.service'
 import * as doubleAuth from './double-auth.service'
+import * as accesClient from './acces-client.service'
 
 export type Role = 'responsable' | 'redacteur'
 export const ROLES: Role[] = ['responsable', 'redacteur']
@@ -57,10 +58,11 @@ export async function connexion(email: string, motDePasse: string, cle?: string,
   return session(user, site)
 }
 
-async function creerJeton(type: 'invitation' | 'reinitialisation', siteId: string, email: string, role: Role = 'redacteur') {
+/** Un lien à usage unique : invitation dans un site ou dans tous les sites d'un client, ou nouveau mot de passe. */
+async function creerJeton(type: 'invitation' | 'reinitialisation', cible: { siteId?: string; clientId?: string }, email: string, role: Role = 'redacteur') {
   const jeton = crypto.randomBytes(32).toString('base64url')
   await prisma.jeton.create({
-    data: { type, siteId, email: normaliser(email), role, hash: empreinte(jeton), expireLe: new Date(Date.now() + DUREE[type]) },
+    data: { type, siteId: cible.siteId ?? null, clientId: cible.clientId ?? null, email: normaliser(email), role, hash: empreinte(jeton), expireLe: new Date(Date.now() + DUREE[type]) },
   })
   return `${config.appUrl}/acces/${jeton}`
 }
@@ -88,7 +90,7 @@ export async function inviter(siteId: string, email: string, role: Role, inviteP
   }
   // une seule invitation en cours par adresse
   await prisma.jeton.deleteMany({ where: { siteId, email: e, type: 'invitation', utiliseLe: null } })
-  const lien = await creerJeton('invitation', siteId, e, role)
+  const lien = await creerJeton('invitation', { siteId }, e, role)
   const envoye = await envoyer(e, `Invitation à modifier le site ${site.name}`,
     `Bonjour,\n\n${invitePar} vous invite à modifier le site « ${site.name} » avec Bifrost.\n\n` +
     `Choisissez votre mot de passe en ouvrant ce lien (valable 7 jours) :\n${lien}\n\n` +
@@ -96,12 +98,47 @@ export async function inviter(siteId: string, email: string, role: Role, inviteP
   return { lien, envoye, ajoute: false }
 }
 
+/**
+ * Invite une personne sur tous les sites d'un client (depuis la fiche client, espace dev).
+ * Si elle a déjà un compte, l'accès est donné tout de suite.
+ */
+export async function inviterClient(clientId: string, email: string, role: Role, invitePar: string) {
+  const client = await prisma.client.findUnique({ where: { id: clientId }, include: { sites: { select: { id: true, name: true, slug: true }, orderBy: { name: 'asc' } } } })
+  if (!client) throw Errors.notFound('Client')
+  if (!client.sites.length) throw Errors.badRequest('Rattachez d’abord un site à ce client')
+  const e = normaliser(email)
+  const noms = client.sites.map((s) => `« ${s.name} »`).join(', ')
+  const existant = await parEmail(e)
+  if (existant && await prisma.accesClient.findUnique({ where: { clientId_userId: { clientId, userId: existant.id } } })) {
+    throw Errors.conflict('Cette personne a déjà accès aux sites de ce client')
+  }
+  if (existant) {
+    await accesClient.donnerAcces(clientId, existant.id, role)
+    const lien = `${config.appUrl}/edition/${client.sites[0]!.slug || client.sites[0]!.id}`
+    const envoye = await envoyer(e, client.sites.length > 1 ? 'Vous pouvez modifier vos sites' : `Vous pouvez modifier le site ${client.sites[0]!.name}`,
+      `Bonjour,\n\n${invitePar} vous a donné accès sur Bifrost à : ${noms}.\n\nConnectez-vous avec votre compte habituel :\n${lien}\n`)
+    return { lien, envoye, ajoute: true }
+  }
+  await prisma.jeton.deleteMany({ where: { clientId, email: e, type: 'invitation', utiliseLe: null } })
+  const lien = await creerJeton('invitation', { clientId }, e, role)
+  const envoye = await envoyer(e, client.sites.length > 1 ? 'Invitation à modifier vos sites' : `Invitation à modifier le site ${client.sites[0]!.name}`,
+    `Bonjour,\n\n${invitePar} vous invite à modifier avec Bifrost : ${noms}.\n\n` +
+    `Choisissez votre mot de passe en ouvrant ce lien (valable 7 jours) :\n${lien}\n\n` +
+    `Si vous ne vous attendiez pas à ce message, ignorez-le.`)
+  return { lien, envoye, ajoute: false }
+}
+
+export async function annulerInvitationClient(clientId: string, id: string) {
+  await prisma.jeton.deleteMany({ where: { id, clientId, type: 'invitation' } })
+  return { ok: true }
+}
+
 /** Mot de passe oublié : un seul lien, valable pour tous les sites. Toujours la même réponse, pour ne rien révéler. */
 export async function oubli(email: string) {
   const user = await parEmail(email)
   const site = user ? (await mesSites(user.id))[0] : undefined
   if (user && site) {
-    const lien = await creerJeton('reinitialisation', site.id, user.email)
+    const lien = await creerJeton('reinitialisation', { siteId: site.id }, user.email)
     await envoyer(user.email, 'Nouveau mot de passe Bifrost',
       `Bonjour,\n\nPour choisir un nouveau mot de passe sur Bifrost, ouvrez ce lien, valable 1 heure :\n${lien}\n\n` +
       `Si vous n'avez rien demandé, ignorez ce message : votre mot de passe reste le même.`)
@@ -110,14 +147,20 @@ export async function oubli(email: string) {
 }
 
 async function jetonValide(jeton: string) {
-  const j = await prisma.jeton.findUnique({ where: { hash: empreinte(jeton) }, include: { site: { select: { id: true, name: true, slug: true } } } })
+  const j = await prisma.jeton.findUnique({
+    where: { hash: empreinte(jeton) },
+    include: { site: { select: { id: true, name: true, slug: true } }, client: { select: { nom: true, sites: { select: { name: true } } } } },
+  })
   if (!j || j.utiliseLe || j.expireLe < new Date()) throw Errors.badRequest('Ce lien n’est plus valable. Demandez-en un nouveau.')
   return j
 }
 
 export async function lireJeton(jeton: string) {
   const j = await jetonValide(jeton)
-  return { type: j.type, email: j.email, site: { nom: j.site.name } }
+  // Invitation par client : « Vroom Performance et Vroom Boutique »
+  const noms = j.site ? [j.site.name] : (j.client?.sites ?? []).map((s) => s.name)
+  const nom = noms.length > 1 ? `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}` : noms[0] ?? ''
+  return { type: j.type, email: j.email, site: { nom } }
 }
 
 /** Utilise le lien : crée le compte (invitation) ou change le mot de passe, puis connecte la personne. */
@@ -128,18 +171,21 @@ export async function utiliserJeton(jeton: string, motDePasse: string) {
   let user
   if (j.type === 'invitation') {
     user = await prisma.user.upsert({ where: { email }, update: { passwordHash }, create: { email, passwordHash } })
-    await prisma.membre.upsert({
-      where: { userId_siteId: { userId: user.id, siteId: j.siteId } },
-      update: {},
-      create: { userId: user.id, siteId: j.siteId, role: j.role },
-    })
+    if (j.clientId) await accesClient.donnerAcces(j.clientId, user.id, j.role)
+    else if (j.siteId) {
+      await prisma.membre.upsert({
+        where: { userId_siteId: { userId: user.id, siteId: j.siteId } },
+        update: {},
+        create: { userId: user.id, siteId: j.siteId, role: j.role },
+      })
+    }
   } else {
     const existant = await parEmail(email)
     if (!existant) throw Errors.badRequest('Ce lien n’est plus valable. Demandez-en un nouveau.')
     user = await prisma.user.update({ where: { id: existant.id }, data: { passwordHash } })
   }
   await prisma.jeton.update({ where: { id: j.id }, data: { utiliseLe: new Date() } })
-  journaliser(j.siteId, user.id, j.type === 'invitation' ? 'arrivee' : 'mot-de-passe', user.email)
+  if (j.siteId) journaliser(j.siteId, user.id, j.type === 'invitation' ? 'arrivee' : 'mot-de-passe', user.email)
   // Double authentification active : le lien ne suffit pas, la personne se connecte avec son code
   if (user.totpActif) return { connexion: true as const, email: user.email }
   const sites = await mesSites(user.id)
@@ -177,7 +223,7 @@ export async function equipe(siteId: string) {
       select: { id: true, email: true, role: true, expireLe: true }, orderBy: { createdAt: 'desc' },
     }),
   ])
-  return { membres: membres.map((m) => ({ id: m.userId, email: m.user.email, role: m.role, createdAt: m.createdAt, doubleAuth: m.user.totpActif })), invitations }
+  return { membres: membres.map((m) => ({ id: m.userId, email: m.user.email, role: m.role, createdAt: m.createdAt, doubleAuth: m.user.totpActif, parClient: !!m.parClient })), invitations }
 }
 
 async function resteUnResponsable(siteId: string, sauf: string) {
@@ -204,7 +250,7 @@ export async function retirer(siteId: string, id: string, moi: string | null) {
   if (!m) throw Errors.notFound('Membre')
   if (m.role === 'responsable' && !(await resteUnResponsable(siteId, id))) throw Errors.badRequest('Il faut garder au moins un responsable')
   await prisma.membre.delete({ where: { id: m.id } })
-  if (!(await prisma.membre.count({ where: { userId: id } }))) await prisma.user.delete({ where: { id } })
+  if (!(await prisma.membre.count({ where: { userId: id } })) && !(await prisma.accesClient.count({ where: { userId: id } }))) await prisma.user.delete({ where: { id } })
   return { ok: true }
 }
 

@@ -86,4 +86,15 @@ export const clientsService = {
   creer: (f: FormClient) => donnees<Client>(api.post('/admin/clients', corps(f))),
   modifier: (id: string, f: FormClient) => donnees<Client>(api.put(`/admin/clients/${id}`, corps(f))),
   supprimer: (id: string) => api.delete(`/admin/clients/${id}`),
+  acces: (id: string) => donnees<AccesClient>(api.get(`/admin/clients/${id}/acces`)),
+  inviter: (id: string, email: string, role: RoleAcces) => donnees<{ lien: string; envoye: boolean; ajoute: boolean }>(api.post(`/admin/clients/${id}/acces`, { email, role })),
+  changerRole: (id: string, personne: string, role: RoleAcces) => donnees<AccesClient>(api.put(`/admin/clients/${id}/acces/${personne}`, { role })),
+  retirer: (id: string, personne: string) => donnees<AccesClient>(api.delete(`/admin/clients/${id}/acces/${personne}`)),
+  annulerInvitation: (id: string, jeton: string) => donnees<AccesClient>(api.delete(`/admin/clients/${id}/invitations/${jeton}`)),
+}
+
+export type RoleAcces = 'responsable' | 'redacteur'
+export interface AccesClient {
+  acces: { id: string; email: string; role: RoleAcces; doubleAuth: boolean; createdAt: string }[]
+  invitations: { id: string; email: string; role: RoleAcces; expireLe: string }[]
 }

@@ -224,7 +224,7 @@ onMounted(async () => {
         <p class="ms-note">Les <strong>responsables</strong> publient et gèrent l’équipe. Les <strong>rédacteurs</strong> modifient le site ; un responsable publie ensuite.</p>
         <ul v-if="equipe" class="ms-liste">
           <li v-for="m in equipe.membres" :key="m.id" class="ms-ligne-membre">
-            <div class="ms-resume"><strong>{{ m.email }}</strong><span v-if="m.id === etat?.moi.id">C’est vous</span></div>
+            <div class="ms-resume"><strong>{{ m.email }}</strong><span v-if="m.id === etat?.moi.id">C’est vous</span><span v-else-if="m.parClient">Accès à tous les sites du client</span></div>
             <div class="ms-ligne">
               <select :value="m.role" class="ms-champ" :disabled="m.id === etat?.moi.id" aria-label="Rôle" @change="changerRole(m, ($event.target as HTMLSelectElement).value as RoleSite)">
                 <option v-for="(lib, r) in ROLES" :key="r" :value="r">{{ lib }}</option>

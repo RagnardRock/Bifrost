@@ -3,6 +3,7 @@
  * (pause, export, suppression avec corbeille de 30 jours, restauration).
  */
 import { prisma } from '../config/database'
+import * as accesClient from './acces-client.service'
 import { logger } from '../utils/logger'
 import { Errors } from '../utils/errors'
 import * as fichiers from './site-fichiers.service'
@@ -47,13 +48,17 @@ export async function modifier(id: string, d: DonneesClient) {
 /** Supprime la fiche. Ses sites restent, sans client. */
 export async function supprimer(id: string) {
   await fiche(id)
+  await accesClient.clientSupprime(id)
   await prisma.client.delete({ where: { id } })
 }
 
 /** Rattache un site à un client (ou le détache avec null). */
 export async function rattacher(siteId: string, clientId: string | null) {
   if (clientId) await fiche(clientId)
+  const avant = await prisma.site.findUnique({ where: { id: siteId }, select: { clientId: true } })
   await prisma.site.update({ where: { id: siteId }, data: { clientId } })
+  // Les personnes qui ont accès aux sites du client suivent le site
+  await accesClient.siteRattache(siteId, avant?.clientId ?? null, clientId)
 }
 
 export async function mettreEnPause(siteId: string, pause: boolean) {
@@ -84,7 +89,7 @@ type Sauvegarde = {
   site: {
     id: string; name: string; url: string; slug: string | null; emailMessages: string | null; apiKey: string
     clientId: string | null; createdAt: string
-    membres: { id: string; userId: string; siteId: string; role: string; createdAt: string }[]
+    membres: { id: string; userId: string; siteId: string; role: string; parClient?: string | null; createdAt: string }[]
     publications: { id: string; auteur: string | null; ajoutes: unknown; modifies: unknown; supprimes: unknown; changements: unknown; annulee: boolean; createdAt: string }[]
     evenements: { id: string; auteur: string | null; type: string; detail: string; createdAt: string }[]
     messages: { id: string; formulaire: string; champs: unknown; email: string | null; lu: boolean; createdAt: string }[]
@@ -116,7 +121,7 @@ export async function restaurerSite(siteId: string) {
       id: s.id, name: s.name, url: s.url, slug: slugPris ? null : s.slug, emailMessages: s.emailMessages, apiKey: s.apiKey,
       clientId: clientExiste ? s.clientId : null, createdAt: new Date(s.createdAt),
     } }),
-    prisma.membre.createMany({ data: s.membres.filter((m) => users.has(m.userId)).map((m) => ({ id: m.id, userId: m.userId, siteId: s.id, role: m.role, createdAt: new Date(m.createdAt) })) }),
+    prisma.membre.createMany({ data: s.membres.filter((m) => users.has(m.userId)).map((m) => ({ id: m.id, userId: m.userId, siteId: s.id, role: m.role, parClient: clientExiste && m.parClient === s.clientId ? m.parClient : null, createdAt: new Date(m.createdAt) })) }),
     prisma.publication.createMany({ data: s.publications.map((p) => ({ ...p, siteId: s.id, createdAt: new Date(p.createdAt) })) as any }),
     prisma.evenement.createMany({ data: s.evenements.map((e) => ({ id: e.id, siteId: s.id, auteur: e.auteur, type: e.type, detail: e.detail, createdAt: new Date(e.createdAt) })) }),
     prisma.message.createMany({ data: s.messages.map((m) => ({ id: m.id, siteId: s.id, formulaire: m.formulaire, champs: m.champs as any, email: m.email, lu: m.lu, createdAt: new Date(m.createdAt) })) }),
@@ -127,6 +132,8 @@ export async function restaurerSite(siteId: string) {
     await prisma.site.delete({ where: { id: s.id } }) // on revient à l'état d'avant
     throw e
   }
+  // Accès donnés au client depuis la suppression : le site les reçoit aussi
+  if (clientExiste) await accesClient.siteRattache(s.id, null, s.clientId)
   // Un site supprimé en pause revient sans pause (le marqueur a été rangé avec ses fichiers)
   await fichiers.mettreEnPause(s.id, s.name, false)
   oublierSlug(s.slug)
