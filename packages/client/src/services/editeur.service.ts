@@ -14,7 +14,13 @@ export interface EtatEditeur {
 }
 export interface Reglages { id: string; name: string; url: string; slug: string | null; emailMessages: string | null }
 export interface Message { id: string; formulaire: string; champs: { nom: string; libelle: string; valeur: string }[]; email: string | null; lu: boolean; createdAt: string }
-export interface Membre { id: string; email: string; role: RoleSite; createdAt: string; /** double authentification active */ doubleAuth?: boolean }
+export interface Membre {
+  id: string; email: string; role: RoleSite; createdAt: string
+  /** double authentification active */
+  doubleAuth?: boolean
+  /** là par l'accès du client (fiche client, tous ses sites) */
+  parClient?: boolean
+}
 export interface Invitation { id: string; email: string; role: RoleSite; expireLe: string }
 
 export interface VariableTheme { fichier: string; nom: string; valeur: string }

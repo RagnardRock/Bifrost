@@ -49,6 +49,7 @@ model User {
 
   membres        Membre[]
   abonnementsPush AbonnementPush[]
+  accesClients   AccesClient[]
   contentHistory ContentHistory[] @relation("ChangedBy")
 
   @@map("users")
@@ -76,6 +77,8 @@ model Membre {
   siteId    String   @map("site_id")
   /// responsable (publie, gère l'équipe) ou redacteur (modifie le brouillon)
   role      String   @default("responsable")
+  /// rempli quand la personne est là par l'accès d'un client (fiche client) : retirée avec lui
+  parClient String?  @map("par_client")
   createdAt DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -112,7 +115,26 @@ model Client {
 
   sites Site[]
 
+  acces  AccesClient[]
+  jetons Jeton[]
+
   @@map("clients")
+}
+
+/// Une personne qui a accès à tous les sites d'un client (invitée depuis la fiche client).
+/// Les sites rattachés plus tard au client lui sont donnés aussi ; un site détaché lui est retiré.
+model AccesClient {
+  id        String   @id @default(uuid())
+  clientId  String   @map("client_id")
+  userId    String   @map("user_id")
+  role      String   @default("responsable")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, userId])
+  @@map("acces_clients")
 }
 
 // ============================================
@@ -257,14 +279,17 @@ model Jeton {
   id        String    @id @default(uuid())
   type      String
   email     String
-  siteId    String    @map("site_id")
+  /// invitation dans un site, ou dans tous les sites d'un client
+  siteId    String?   @map("site_id")
+  clientId  String?   @map("client_id")
   role      String    @default("redacteur")
   hash      String    @unique
   expireLe  DateTime  @map("expire_le")
   utiliseLe DateTime? @map("utilise_le")
   createdAt DateTime  @default(now()) @map("created_at")
 
-  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([siteId, type])
   @@map("jetons")

@@ -199,7 +199,7 @@ onMounted(async () => { await charger(); await chargerClients() })
             <p v-if="equipe && !equipe.membres.length" class="text-sm text-gray-500">Personne pour l’instant. Invitez le client depuis l’éditeur, bouton « Mon site ».</p>
             <ul v-if="equipe" class="lignes">
               <li v-for="m in equipe.membres" :key="m.id" class="membre">
-                <div><strong>{{ m.email }}</strong><span>{{ ROLES[m.role] }} · depuis {{ ilYa(m.createdAt) }}<template v-if="m.doubleAuth"> · 🔒 double authentification</template></span></div>
+                <div><strong>{{ m.email }}</strong><span>{{ ROLES[m.role] }} · depuis {{ ilYa(m.createdAt) }}<template v-if="m.parClient"> · accès client</template><template v-if="m.doubleAuth"> · 🔒 double authentification</template></span></div>
                 <button v-if="m.doubleAuth" type="button" class="text-xs text-red-500 hover:underline" title="Si la personne a perdu son téléphone et ses codes de secours" @click="retirerDoubleAuth(m)">Retirer la 2FA</button>
               </li>
               <li v-for="i in equipe.invitations" :key="i.id" class="opacity-60"><div><strong>{{ i.email }}</strong><span>Invité · {{ ROLES[i.role] }}</span></div></li>

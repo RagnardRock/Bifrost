@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import FormulaireClient from '@/components/clients/FormulaireClient.vue'
 import StatutClient from '@/components/clients/StatutClient.vue'
+import AccesClient from '@/components/clients/AccesClient.vue'
 import { clientsService, versFormulaire, prixLisible, joursAvantEcheance, type Client, type FormClient } from '@/services/clients.service'
 import { suiviService, adresseSite, type SiteSuivi } from '@/services/suivi.service'
 
@@ -107,6 +108,7 @@ onMounted(charger)
           </div>
         </form>
 
+        <div class="pile">
         <section class="glass-card bloc">
           <h2>Sites</h2>
           <p v-if="!client.sites.length" class="text-sm text-gray-500">Aucun site rattaché.</p>
@@ -128,6 +130,8 @@ onMounted(charger)
             <button type="submit" class="glass-button" :disabled="!aRattacher">Rattacher</button>
           </form>
         </section>
+        <AccesClient :client-id="client.id" :nb-sites="client.sites.length" />
+        </div>
       </div>
     </template>
   </div>
@@ -142,6 +146,7 @@ onMounted(charger)
 .colonnes { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 24px; align-items: start; }
 @media (max-width: 1024px) { .colonnes { grid-template-columns: minmax(0, 1fr); } }
 .bloc { padding: 20px; display: grid; gap: 16px; }
+.pile { display: grid; gap: 24px; min-width: 0; }
 .bloc h2 { font-size: 16px; font-weight: 700; margin: 0; }
 .lignes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .lignes li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--bf-verre); }
