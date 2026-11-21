@@ -7,11 +7,12 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { editeurService, type EtatEditeur, type Membre, type Invitation, type RoleSite, type Reglages } from '@/services/editeur.service'
 import ListeMessages, { type MessageSite } from '@/components/espace/ListeMessages.vue'
+import ReseauxSociaux from '@/components/reseaux/ReseauxSociaux.vue'
 import { adresseSite } from '@/services/suivi.service'
 import { useAuthStore } from '@/stores/auth.store'
 import { useEspace } from '@/composables/espace'
 
-type Onglet = 'messages' | 'equipe' | 'reglages'
+type Onglet = 'messages' | 'equipe' | 'reseaux' | 'reglages'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,6 +29,7 @@ const info = ref('')
 const onglets: { id: Onglet; nom: string; icone: string }[] = [
   { id: 'messages', nom: 'Messages', icone: '📨' },
   { id: 'equipe', nom: 'Équipe', icone: '👥' },
+  { id: 'reseaux', nom: 'Réseaux', icone: '📸' },
   { id: 'reglages', nom: 'Réglages', icone: '⚙️' },
 ]
 const onglet = computed<Onglet>(() => {
@@ -165,7 +167,7 @@ onMounted(async () => {
         <p class="ms-note">Les <strong>responsables</strong> publient et gèrent l’équipe. Les <strong>rédacteurs</strong> modifient le site ; un responsable publie ensuite.</p>
         <ul v-if="equipe" class="ms-liste">
           <li v-for="m in equipe.membres" :key="m.id" class="ms-ligne-membre">
-            <div class="ms-resume"><strong>{{ m.email }}</strong><span v-if="m.id === etat?.moi.id">C’est vous</span></div>
+            <div class="ms-resume"><strong>{{ m.email }}</strong><span v-if="m.id === etat?.moi.id">C’est vous</span><span v-else-if="m.parClient">Accès à tous les sites du client</span></div>
             <div class="ms-ligne">
               <select :value="m.role" class="ms-champ" :disabled="m.id === etat?.moi.id" aria-label="Rôle" @change="changerRole(m, ($event.target as HTMLSelectElement).value as RoleSite)">
                 <option v-for="(lib, r) in ROLES" :key="r" :value="r">{{ lib }}</option>
@@ -197,6 +199,12 @@ onMounted(async () => {
             </div>
           </div>
         </form>
+      </section>
+
+      <!-- Réseaux -->
+      <section v-else-if="onglet === 'reseaux'">
+        <h2 class="ms-h">Réseaux sociaux</h2>
+        <ReseauxSociaux :site-id="siteId" @info="informer" />
       </section>
 
       <!-- Réglages -->

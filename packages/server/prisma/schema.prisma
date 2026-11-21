@@ -49,6 +49,7 @@ model User {
 
   membres        Membre[]
   abonnementsPush AbonnementPush[]
+  accesClients   AccesClient[]
   contentHistory ContentHistory[] @relation("ChangedBy")
 
   @@map("users")
@@ -76,6 +77,8 @@ model Membre {
   siteId    String   @map("site_id")
   /// responsable (publie, gère l'équipe) ou redacteur (modifie le brouillon)
   role      String   @default("responsable")
+  /// rempli quand la personne est là par l'accès d'un client (fiche client) : retirée avec lui
+  parClient String?  @map("par_client")
   createdAt DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -112,7 +115,26 @@ model Client {
 
   sites Site[]
 
+  acces  AccesClient[]
+  jetons Jeton[]
+
   @@map("clients")
+}
+
+/// Une personne qui a accès à tous les sites d'un client (invitée depuis la fiche client).
+/// Les sites rattachés plus tard au client lui sont donnés aussi ; un site détaché lui est retiré.
+model AccesClient {
+  id        String   @id @default(uuid())
+  clientId  String   @map("client_id")
+  userId    String   @map("user_id")
+  role      String   @default("responsable")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, userId])
+  @@map("acces_clients")
 }
 
 // ============================================
@@ -147,6 +169,7 @@ model Site {
   jetons          Jeton[]
   evenements      Evenement[]
   messages        Message[]
+  comptesReseaux  CompteReseau[]
 
   @@index([clientId])
   @@map("sites")
@@ -257,14 +280,17 @@ model Jeton {
   id        String    @id @default(uuid())
   type      String
   email     String
-  siteId    String    @map("site_id")
+  /// invitation dans un site, ou dans tous les sites d'un client
+  siteId    String?   @map("site_id")
+  clientId  String?   @map("client_id")
   role      String    @default("redacteur")
   hash      String    @unique
   expireLe  DateTime  @map("expire_le")
   utiliseLe DateTime? @map("utilise_le")
   createdAt DateTime  @default(now()) @map("created_at")
 
-  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([siteId, type])
   @@map("jetons")
@@ -317,4 +343,50 @@ model JetonDev {
 
   @@index([adminId])
   @@map("jetons_dev")
+}
+
+// ============================================
+// RÉSEAUX SOCIAUX : posts importés comme actualités
+// ============================================
+
+/// Un compte de réseau social relié à un site (Instagram pour l'instant)
+model CompteReseau {
+  id            String    @id @default(uuid())
+  siteId        String    @map("site_id")
+  reseau        String    @default("instagram")
+  /// identifiant et nom du compte chez le réseau
+  compteId      String    @map("compte_id")
+  nom           String
+  /// jeton d'accès chiffré, et sa date d'expiration (renouvelé tout seul)
+  jeton         String
+  expireLe      DateTime  @map("expire_le")
+  /// collection du site où les posts arrivent (ex. actualites)
+  collection    String
+  /// brouillon (un responsable relit et publie) ou publier (en ligne tout de suite)
+  mode          String    @default("brouillon")
+  /// seuls les posts publiés après cette date sont importés automatiquement
+  depuis        DateTime  @default(now())
+  derniereVerif DateTime? @map("derniere_verif")
+  erreur        String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  site    Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  imports PostImporte[]
+
+  @@unique([siteId, reseau])
+  @@map("comptes_reseaux")
+}
+
+/// Un post déjà importé (jamais deux fois, même s'il a été supprimé du site depuis)
+model PostImporte {
+  id        String   @id @default(uuid())
+  compteId  String   @map("compte_id")
+  postId    String   @map("post_id")
+  page      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  compte CompteReseau @relation(fields: [compteId], references: [id], onDelete: Cascade)
+
+  @@unique([compteId, postId])
+  @@map("posts_importes")
 }

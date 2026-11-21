@@ -6,6 +6,8 @@ import { z } from 'zod'
 import { authMiddleware, adminMiddleware } from '../middleware/auth.middleware'
 import { success } from '../utils/response'
 import * as clients from '../services/clients.service'
+import * as comptes from '../services/comptes.service'
+import * as acces from '../services/acces-client.service'
 
 const router = Router()
 router.use(authMiddleware, adminMiddleware)
@@ -43,5 +45,20 @@ router.post('/', action(async (req) => clients.creer(schema.parse(req.body))))
 router.get('/:id', action(async (req) => clients.fiche(id(req))))
 router.put('/:id', action(async (req) => clients.modifier(id(req), schema.parse(req.body))))
 router.delete('/:id', action(async (req) => { await clients.supprimer(id(req)); return { id: id(req) } }))
+
+// Accès : des personnes invitées sur tous les sites du client (et ceux rattachés plus tard)
+const role = z.enum(['responsable', 'redacteur'])
+const personne = (req: Request) => z.string().uuid().parse((req.params as Record<string, string>).personne)
+router.get('/:id/acces', action(async (req) => { await clients.fiche(id(req)); return acces.lister(id(req)) }))
+router.post('/:id/acces', action(async (req) => {
+  const b = z.object({ email: z.string().trim().email('Adresse e-mail invalide'), role }).parse(req.body)
+  return comptes.inviterClient(id(req), b.email, b.role, 'Votre développeur')
+}))
+router.put('/:id/acces/:personne', action(async (req) => {
+  await acces.changerRole(id(req), personne(req), z.object({ role }).parse(req.body).role)
+  return acces.lister(id(req))
+}))
+router.delete('/:id/acces/:personne', action(async (req) => { await acces.retirer(id(req), personne(req)); return acces.lister(id(req)) }))
+router.delete('/:id/invitations/:personne', action(async (req) => { await comptes.annulerInvitationClient(id(req), personne(req)); return acces.lister(id(req)) }))
 
 export default router

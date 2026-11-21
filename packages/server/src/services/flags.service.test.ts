@@ -101,3 +101,13 @@ describe('liens d’appel et d’e-mail', () => {
     expect(f.lienTelephone('+41 22 123 45 67', 'tel:+33')).toBe('tel:+41221234567')
   })
 })
+
+describe('page depuis le modèle : lien vers l’original', () => {
+  const modele = '<main data-bf-page="actus"><h1 data-bf="titre">T</h1><div data-bf="texte" data-bf-type="riche"><p>x</p></div></main>'
+  it('ajoute « Voir sur Instagram » sous le texte, en https seulement', () => {
+    const html = f.pageDepuisModele(modele, { titre: 'Sortie', texte: '<p>Bonjour</p>', photos: [], page: 'actus/sortie.html', source: { url: 'https://www.instagram.com/p/abc/', libelle: 'Voir sur Instagram' } })
+    expect(html).toContain('<p>Bonjour</p><p><a target="_blank" rel="noopener" href="https://www.instagram.com/p/abc/">Voir sur Instagram</a></p>')
+    const sansLien = f.pageDepuisModele(modele, { titre: 'Sortie', texte: '<p>Bonjour</p>', photos: [], page: 'actus/sortie.html', source: { url: 'javascript:alert(1)', libelle: 'x' } })
+    expect(sansLien).not.toContain('javascript:')
+  })
+})

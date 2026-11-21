@@ -148,5 +148,20 @@ export async function modificationsAPublier(siteId: string, auteurId: string | n
   }
 }
 
+/** Des posts des réseaux sociaux sont arrivés dans le brouillon. */
+export async function postsAPublier(siteId: string, nombre: number) {
+  try {
+    const s = await cleSite(siteId)
+    await envoyerA(await responsables(siteId, 'aPublier'), {
+      titre: `${nombre > 1 ? `${nombre} posts Instagram` : 'Un post Instagram'} à publier · ${s.nom}`,
+      texte: 'Ils sont dans les actualités du site. Relisez puis publiez quand vous voulez.',
+      url: `/edition/${s.cle}`,
+      tag: `reseaux-${siteId}`,
+    })
+  } catch (e) {
+    logger.warn({ err: e }, 'notifications : posts non signalés')
+  }
+}
+
 /** Pour les essais : oublier les délais. */
 export const _oublierDelais = () => dernierAvis.clear()
