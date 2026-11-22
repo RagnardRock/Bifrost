@@ -515,7 +515,7 @@ export async function importerZip(siteId: string, zip: Uint8Array) {
 
 /**
  * Page affichée à la place du site quand il est en pause. Le fichier sert aussi de marqueur :
- * Bifrost (/sites/…) et nginx (domaine du client) regardent s'il existe.
+ * Bifrost (/sites/… et domaine du client) regarde s'il existe.
  */
 export const fichierPause = (siteId: string) => path.join(dossiers(siteId).racine, 'pause.html')
 

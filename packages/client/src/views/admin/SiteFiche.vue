@@ -4,7 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Journal from '@/components/suivi/Journal.vue'
 import EnvoiSite, { type Envoi } from '@/components/suivi/EnvoiSite.vue'
-import { suiviService, adresseSite, ilYa, type FicheSite, type Evenement } from '@/services/suivi.service'
+import { suiviService, adresseSite, ilYa, type FicheSite, type Evenement, type EtatDomaine } from '@/services/suivi.service'
 import { editeurService, type Membre, type Invitation } from '@/services/editeur.service'
 import { clientsService, type Client } from '@/services/clients.service'
 
@@ -44,7 +44,13 @@ async function charger() {
   }
 }
 
+const etatDomaine = ref<EtatDomaine | null>(null)
+async function verifierDomaine() {
+  try { etatDomaine.value = await suiviService.domaine(fiche.value!.site.id) } catch { erreur.value = 'Vérification impossible.' }
+}
+
 async function enregistrer() {
+  etatDomaine.value = null
   try {
     await suiviService.modifier(id.value, reglages.value.nom, reglages.value.url, reglages.value.slug, reglages.value.emailMessages)
     message.value = 'Enregistré'
@@ -224,7 +230,20 @@ onMounted(async () => { await charger(); await chargerClients() })
             <label>Nom court dans l’adresse Bifrost
               <span class="adresse-courte"><span>/sites/</span><input v-model="reglages.slug" class="input-field" pattern="[a-z0-9](?:[a-z0-9\-]{0,58}[a-z0-9])?" placeholder="mon-site" title="Lettres minuscules, chiffres et tirets"><span>/</span></span>
             </label>
-            <label>Adresse de son propre domaine (facultatif)<input v-model="reglages.url" class="input-field" placeholder="https://…"></label>
+            <label>Son propre domaine (facultatif)<input v-model="reglages.url" class="input-field" placeholder="https://monasso.fr">
+              <span class="aide">Le site répond tout seul sur ce domaine, en HTTPS, dès qu’il pointe sur le serveur.</span>
+            </label>
+            <div v-if="fiche.site.url" class="domaine">
+              <button type="button" class="text-sm text-blue-500 hover:underline justify-self-start" @click="verifierDomaine">{{ etatDomaine ? 'Vérifier à nouveau' : 'Vérifier le domaine' }}</button>
+              <template v-if="etatDomaine">
+                <p v-if="!etatDomaine.domaine" class="aide">Adresse invalide.</p>
+                <p v-else-if="etatDomaine.ok" class="ok">✓ {{ etatDomaine.domaine }} pointe sur Bifrost{{ etatDomaine.wwwOk ? ', www aussi' : '' }}. Le certificat se crée à la première visite.</p>
+                <div v-else class="aide">
+                  <p>{{ etatDomaine.domaine }} ne pointe pas encore ici{{ etatDomaine.principal.length ? ` (il pointe sur ${etatDomaine.principal.join(', ')})` : '' }}.</p>
+                  <p>Chez le registrar du client (OVH, Hostinger…), zone DNS : un enregistrement <strong>A</strong> pour <code>{{ etatDomaine.domaine }}</code> et un pour <code>www</code>, vers <code>{{ etatDomaine.attendu.join(', ') || 'l’adresse IP du serveur' }}</code>. Comptez de quelques minutes à quelques heures.</p>
+                </div>
+              </template>
+            </div>
             <label>Messages du formulaire envoyés à
               <input v-model="reglages.emailMessages" class="input-field" placeholder="vide = les responsables du site" maxlength="500">
               <span class="aide">Une ou plusieurs adresses, séparées par des virgules.</span>
@@ -268,7 +287,7 @@ onMounted(async () => { await charger(); await chargerClients() })
               </div>
               <button type="button" class="glass-button text-red-500" @click="suppression = ''">Supprimer</button>
             </div>
-            <p class="ident">Identifiant (pour nginx) : <code>{{ fiche.site.id }}</code></p>
+            <p class="ident">Identifiant : <code>{{ fiche.site.id }}</code></p>
           </section>
         </div>
       </div>
@@ -313,6 +332,10 @@ onMounted(async () => { await charger(); await chargerClients() })
 .modif { color: var(--bf-accent); }
 .suppr { color: var(--bf-danger); }
 .aide { font-size: 12.5px; font-weight: 400; color: var(--bf-doux); }
+.domaine { display: grid; gap: 6px; }
+.domaine p { margin: 0; }
+.domaine code { font-size: 12px; }
+.ok { font-size: 13px; color: #16a34a; margin: 0; }
 .avance { font-size: 13px; color: var(--bf-doux); }
 .avance summary { cursor: pointer; margin-bottom: 8px; }
 .badge-pause { display: inline-block; vertical-align: middle; margin-left: 8px; padding: 3px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: rgba(224, 122, 74, .16); color: var(--bf-accent); letter-spacing: 0; }

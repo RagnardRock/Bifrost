@@ -26,6 +26,8 @@ export interface FicheSite {
 }
 
 /** Adresse publique d'un site hébergé par Bifrost. */
+export interface EtatDomaine { domaine: string | null; attendu: string[]; principal: string[]; www: string[]; ok: boolean; wwwOk?: boolean }
+
 export const adresseSite = (s: { id: string; slug?: string | null }) => `/sites/${s.slug || s.id}/`
 
 const donnees = <T>(p: Promise<any>) => p.then((r) => r.data as T)
@@ -58,6 +60,8 @@ export const suiviService = {
     f.append('archive', archive, 'site.zip')
     return api.post(`/admin/suivi/sites/${id}/envoi`, f, envoiOptions(progres))
   },
+  /** Le domaine propre du site pointe-t-il sur ce serveur ? */
+  domaine: (id: string) => donnees<EtatDomaine>(api.get(`/admin/suivi/sites/${id}/domaine`)),
   modifier: (id: string, nom: string, url: string, slug?: string, emailMessages?: string) => api.put(`/admin/suivi/sites/${id}`, { nom, url, slug: slug || undefined, emailMessages }),
   reimporter: (id: string, dossier: string) => api.post(`/admin/suivi/sites/${id}/importer`, { dossier }, { timeout: 120000 }),
   fiche: (id: string) => donnees<FicheSite>(api.get(`/admin/suivi/sites/${id}`)),

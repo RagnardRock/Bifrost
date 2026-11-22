@@ -12,13 +12,14 @@ import { logger } from './utils/logger'
 import { success } from './utils/response'
 import routes from './routes'
 import cookieParser from 'cookie-parser'
-import { apercuRouter } from './routes/apercu.routes'
+import { apercuRouter, parDomaine } from './routes/apercu.routes'
+import { autoriser } from './services/domaines.service'
 import formulairesRouter from './routes/formulaires.routes'
 import devRouter from './routes/dev.routes'
 
 export const app = express()
 
-// En ligne, Bifrost est derrière nginx : l'adresse du visiteur vient de X-Forwarded-For (limites de débit)
+// En ligne, Bifrost est derrière le serveur web (Caddy) : l'adresse du visiteur vient de X-Forwarded-For (limites de débit)
 if (!config.isDev) app.set('trust proxy', 1)
 
 // Security middleware
@@ -26,6 +27,14 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   contentSecurityPolicy: false, // l'aperçu sert les pages des sites clients telles quelles
 }))
+// Caddy, avant de créer le certificat HTTPS d'un domaine inconnu : « est-il à toi ? » (200 oui, 404 non)
+app.get('/api/caddy/autoriser', (req, res, next) => {
+  autoriser(String(req.query.domain || '')).then((ok) => res.status(ok ? 200 : 404).end()).catch(next)
+})
+
+// Domaine propre d'un client : on sert son site, avant tout le reste
+app.use(parDomaine)
+
 // Formulaires des sites clients : ouverts à tous les domaines (avant la règle CORS de l'interface)
 app.use('/api/formulaires', express.urlencoded({ extended: true, limit: '64kb' }), express.json({ limit: '64kb' }), formulairesRouter)
 

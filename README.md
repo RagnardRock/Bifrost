@@ -35,7 +35,7 @@ Importer un site : espace dev › Nouveau site, avec le chemin du dossier du sit
 
 ## En ligne
 
-Docker Compose (Postgres + Bifrost) derrière nginx, mis à jour à chaque fusion dans `master`.
+Docker Compose (Postgres + Bifrost) derrière Caddy (HTTPS automatique, domaines des clients), mis à jour à chaque fusion dans `master`.
 Le guide pas à pas est dans [deploy/LISEZMOI.md](deploy/LISEZMOI.md).
 
 ## Organisation
@@ -45,7 +45,7 @@ packages/
   client/   interface Vue 3 (connexion, éditeur, espace dev)
   server/   API Express + Prisma, aperçu des brouillons, script de l'éditeur (public/editeur)
   shared/   types communs
-deploy/     nginx, modèle de .env et guide de mise en ligne
+deploy/     Caddyfile, modèle de .env et guide de mise en ligne
 ```
 
 ## Tests

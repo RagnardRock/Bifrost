@@ -27,14 +27,22 @@ curl -fsSLo .env https://raw.githubusercontent.com/RagnardRock/Bifrost/master/de
 nano .env      # remplir DB_PASSWORD, JWT_SECRET (openssl rand -hex 32), et SMTP_URL (voir 7)
 ```
 
-## 4. nginx et HTTPS
+## 4. Caddy et HTTPS
+
+Caddy reçoit le public, crée et renouvelle seul les certificats HTTPS (Bifrost et domaines des clients).
 
 ```bash
-sudo curl -fsSLo /etc/nginx/sites-available/bifrost https://raw.githubusercontent.com/RagnardRock/Bifrost/master/deploy/nginx-bifrost.conf
-sudo ln -s /etc/nginx/sites-available/bifrost /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-sudo certbot --nginx -d bifrost.ragnardrock.fr
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install -y caddy
+sudo curl -fsSLo /etc/caddy/Caddyfile https://raw.githubusercontent.com/RagnardRock/Bifrost/master/deploy/Caddyfile
+sudo nano /etc/caddy/Caddyfile     # remplacer bifrost.exemple.fr par l'adresse de Bifrost
+sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
 ```
+
+Si le serveur a déjà nginx pour d'autres sites, chacun devient un bloc du Caddyfile, puis on arrête nginx
+(`sudo systemctl disable --now nginx`) : les deux ne peuvent pas écouter les ports 80 et 443 en même temps.
 
 ## 5. Les secrets GitHub
 
@@ -69,23 +77,20 @@ le lien d'invitation s'affiche à la personne qui invite, à transmettre à la m
 
 1. **Espace dev › Nouveau site** : glisser le dossier du site (ou un ZIP) dans la zone prévue,
    ou cliquer sur « Choisir un dossier ». Le navigateur l'envoie directement, rien à faire en ligne de commande.
-   (Les envois passent par nginx : la ligne `client_max_body_size 200m;` de sa configuration fixe la taille maximale.)
+   (200 Mo au plus par envoi.)
 2. *(Facultatif)* Un dossier déjà présent sur le serveur, dans `/srv/bifrost/donnees/import/`, peut aussi être
    importé : « Dossier déjà présent sur le serveur », puis son nom.
-3. *(Facultatif)* **Servir le site sous son propre domaine** (sinon il reste visible sur `/sites/<id>/`) : DNS du domaine (`A` et `www`) vers l'IP du VPS, puis
-   ```bash
-   sudo curl -fsSLo /etc/nginx/sites-available/ehpad https://raw.githubusercontent.com/RagnardRock/Bifrost/master/deploy/nginx-site-client.conf
-   sudo nano /etc/nginx/sites-available/ehpad   # remplacer DOMAINE et ID_DU_SITE (affiché en bas de sa fiche, « Zone sensible »)
-   sudo ln -s /etc/nginx/sites-available/ehpad /etc/nginx/sites-enabled/
-   sudo nginx -t && sudo systemctl reload nginx
-   sudo certbot --nginx -d ehpad-saintpaulien.fr -d www.ehpad-saintpaulien.fr
-   ```
-   Chaque « Publier » du client met le site à jour aussitôt : nginx lit directement la version en ligne.
+3. *(Facultatif)* **Servir le site sous son propre domaine** (sinon il reste visible sur `/sites/<nom>/`) :
+   - chez le registrar du client, zone DNS : un enregistrement `A` pour le domaine et un pour `www`, vers l'IP du VPS ;
+   - dans la fiche du site › Réglages › « Son propre domaine » : `https://ledomaine.fr`, puis « Vérifier le domaine ».
+
+   C'est tout : à la première visite, Caddy demande à Bifrost si ce domaine est à lui, crée le certificat HTTPS,
+   et Bifrost sert la version en ligne du site. Chaque « Publier » du client met le site à jour aussitôt.
 
 
 ## 9. Instagram (posts → actualités)
 
-Le client relie son compte Instagram dans **Mon site › Réseaux**. Toutes les 30 minutes, Bifrost récupère
+Le client relie son compte Instagram dans **Gérer › Réseaux**. Toutes les 30 minutes, Bifrost récupère
 ses nouveaux posts et en fait des actualités du site (titre, date, texte, photos copiées sur le site), à relire
 ou publiées tout de suite selon son choix. Bifrost ne publie jamais rien sur Instagram.
 
