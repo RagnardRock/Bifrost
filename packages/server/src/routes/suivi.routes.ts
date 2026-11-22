@@ -14,6 +14,7 @@ import * as fichiers from '../services/site-fichiers.service'
 import * as clients from '../services/clients.service'
 import { reinitialiserClient } from '../services/double-auth.service'
 import { slugLibre, SLUG_VALIDE, oublierSlug, siteParCle } from '../services/slug.service'
+import { normaliser, oublierDomaines, verifier } from '../services/domaines.service'
 
 const router = Router()
 router.use(authMiddleware, adminMiddleware)
@@ -93,8 +94,23 @@ router.put('/sites/:id', action(async (req) => {
   if (b.slug && b.slug !== avant?.slug && await prisma.site.findFirst({ where: { slug: b.slug }, select: { id: true } })) {
     throw Errors.badRequest('Ce nom court est déjà pris par un autre site')
   }
+  // Domaine propre : un seul site par domaine (Caddy ne saurait pas lequel servir)
+  const domaine = normaliser(b.url)
+  if (b.url && !domaine) throw Errors.badRequest('Adresse du domaine invalide (exemple : https://monasso.fr)')
+  if (domaine) {
+    const autres = await prisma.site.findMany({ where: { id: { not: id(req) }, url: { contains: domaine.split('.')[0] } }, select: { url: true } })
+    if (autres.some((a) => normaliser(a.url) === domaine)) throw Errors.badRequest('Ce domaine est déjà celui d’un autre site')
+  }
   oublierSlug(avant?.slug)
+  oublierDomaines()
   return prisma.site.update({ where: { id: id(req) }, data: { name: b.nom, url: b.url, ...(b.slug ? { slug: b.slug } : {}), ...(adresses ? { emailMessages: adresses.join(', ') || null } : {}) }, select: { id: true, name: true, url: true, slug: true, emailMessages: true } })
+}))
+
+// Le domaine propre du site pointe-t-il sur ce serveur ?
+router.get('/sites/:id/domaine', action(async (req) => {
+  const s = await prisma.site.findUnique({ where: { id: id(req) }, select: { url: true } })
+  if (!s) throw Errors.notFound('Site')
+  return verifier(s.url)
 }))
 
 // Réimporter le dossier du site (écrase brouillon et version en ligne)

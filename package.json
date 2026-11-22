@@ -1,6 +1,6 @@
 {
   "name": "bifrost",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "private": true,
   "description": "CMS d’édition sur place pour les sites de vos clients",
   "workspaces": [

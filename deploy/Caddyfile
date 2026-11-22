@@ -1,0 +1,26 @@
+# Caddy devant Bifrost : HTTPS automatique pour Bifrost et pour les domaines des clients.
+# À copier dans /etc/caddy/Caddyfile (voir LISEZMOI.md, partie 4), en remplaçant bifrost.exemple.fr
+# par l'adresse de Bifrost. Les autres sites du serveur s'ajoutent comme des blocs à part.
+
+{
+	# Domaine inconnu : Caddy demande à Bifrost s'il est bien celui d'un site avant de créer son certificat
+	on_demand_tls {
+		ask http://127.0.0.1:3100/api/caddy/autoriser
+	}
+}
+
+# Bifrost lui-même : interface, éditeur, API, et les sites sur /sites/<nom>/
+bifrost.exemple.fr {
+	encode gzip
+	reverse_proxy 127.0.0.1:3100
+}
+
+# Les domaines des clients (monasso.fr, www.monasso.fr…) : certificat à la première visite,
+# puis Bifrost sert le bon site d'après le domaine (champ « Son propre domaine » de la fiche du site)
+https:// {
+	tls {
+		on_demand
+	}
+	encode gzip
+	reverse_proxy 127.0.0.1:3100
+}

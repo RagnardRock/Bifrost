@@ -22,7 +22,7 @@ services:
     build: .
     container_name: bifrost-server
     restart: unless-stopped
-    # Seulement sur la machine : c'est nginx qui reçoit le public (HTTPS) et renvoie ici
+    # Seulement sur la machine : c'est Caddy qui reçoit le public (HTTPS) et renvoie ici
     ports:
       - '127.0.0.1:${PORT_LOCAL:-3100}:3000'
     environment:
@@ -38,7 +38,7 @@ services:
       INSTAGRAM_APP_ID: ${INSTAGRAM_APP_ID:-}
       INSTAGRAM_APP_SECRET: ${INSTAGRAM_APP_SECRET:-}
     volumes:
-      # Les fichiers des sites (brouillon, version en ligne, historique) : nginx sert « publie » directement
+      # Les fichiers des sites (brouillon, version en ligne, historique)
       - ${SITES_DIR:-./donnees/sites}:/data/sites
       # Les dossiers déposés pour un import ou un réimport
       - ${IMPORT_DIR:-./donnees/import}:/data/import
