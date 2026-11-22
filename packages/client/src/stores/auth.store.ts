@@ -13,19 +13,28 @@ interface ClientUser {
   updatedAt: Date
 }
 
+function lireRole(): 'admin' | 'client' | null {
+  try {
+    const r = localStorage.getItem('role')
+    return r === 'admin' || r === 'client' ? r : null
+  } catch { return null }
+}
+function ecrireRole(r: 'admin' | 'client' | null) {
+  try { if (r) localStorage.setItem('role', r); else localStorage.removeItem('role') } catch { /* stockage indisponible */ }
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const router = useRouter()
 
-  // State
-  const token = ref<string | null>(localStorage.getItem('token'))
-  const role = ref<'admin' | 'client' | null>(localStorage.getItem('role') as 'admin' | 'client' | null)
+  // State : la session elle-même est dans un cookie que la page ne lit pas ; on garde seulement le rôle
+  const role = ref<'admin' | 'client' | null>(lireRole())
   const admin = ref<Admin | null>(null)
   const client = ref<ClientUser | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
   // Getters
-  const isAuthenticated = computed(() => !!token.value)
+  const isAuthenticated = computed(() => !!role.value)
   const isAdmin = computed(() => role.value === 'admin')
   const isClient = computed(() => role.value === 'client')
   const currentUser = computed(() => admin.value || client.value)
@@ -38,17 +47,12 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authService.adminLogin({ email, password, code: code || undefined })
 
-      // Save token and role
-      token.value = response.token
       role.value = 'admin'
-      localStorage.setItem('token', response.token)
-      localStorage.setItem('role', 'admin')
+      ecrireRole('admin')
+      admin.value = { ...(response.user as Admin), doubleAuthAActiver: !!response.doubleAuthAActiver }
 
-      // Save admin info
-      admin.value = response.user as Admin
-
-      // Redirect to admin dashboard
-      router.push('/admin')
+      // Double authentification obligatoire pas encore activée : direction « Mon compte »
+      router.push(response.doubleAuthAActiver ? '/admin/compte' : '/admin')
     } catch (e: any) {
       error.value = e.response?.data?.error?.message || 'Erreur de connexion'
       throw e
@@ -60,21 +64,19 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** Session ouverte par la connexion v2 (e-mail seul) ou par un lien d'invitation / de mot de passe oublié. */
   function ouvrirSession(s: { token: string; user: { id: string; email: string; siteId: string; site: { name: string; slug?: string | null } } }, aller = true) {
-    token.value = s.token
     role.value = 'client'
-    localStorage.setItem('token', s.token)
-    localStorage.setItem('role', 'client')
+    ecrireRole('client')
     client.value = { id: s.user.id, email: s.user.email, siteId: s.user.siteId, siteName: s.user.site.name, createdAt: new Date(), updatedAt: new Date() }
     if (aller) router.push(`/edition/${s.user.site.slug || s.user.siteId}`)
   }
 
   async function checkAuth() {
-    if (!token.value) return false
+    if (!role.value) return false
 
     try {
       const user = await authService.getMe()
       role.value = user.role
-      localStorage.setItem('role', user.role)
+      ecrireRole(user.role)
 
       if (user.role === 'admin') {
         admin.value = user as unknown as Admin
@@ -90,12 +92,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   function logout() {
     const etaitDev = role.value === 'admin' || router.currentRoute.value.path.startsWith('/admin')
-    token.value = null
+    if (role.value) void authService.deconnexion()
     role.value = null
     admin.value = null
     client.value = null
-    localStorage.removeItem('token')
-    localStorage.removeItem('role')
+    ecrireRole(null)
 
     // Le dev revient sur sa page de connexion, le client sur la sienne
     router.push(etaitDev ? '/admin/login' : '/login')
@@ -108,7 +109,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     // State
-    token,
     role,
     admin,
     client,

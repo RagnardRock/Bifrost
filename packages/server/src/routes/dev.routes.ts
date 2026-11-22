@@ -8,7 +8,8 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import { prisma } from '../config/database'
-import { Errors } from '../utils/errors'
+import { AppError, Errors } from '../utils/errors'
+import { config } from '../config'
 import { success } from '../utils/response'
 import { comparePassword } from '../utils/hash'
 import { verifyToken } from '../utils/jwt'
@@ -42,6 +43,9 @@ router.post('/connexion', limiteConnexion, action(async (req) => {
   if (!admin || !(await comparePassword(b.motDePasse, admin.passwordHash))) throw Errors.unauthorized('E-mail ou mot de passe incorrect')
   // Double authentification du compte dev : CODE_REQUIS si le code manque (Rune redemande avec le code)
   await verifierConnexion('admin', admin, b.code)
+  if (config.doubleAuthDevObligatoire && !admin.totpActif) {
+    throw new AppError('DOUBLE_AUTH_A_ACTIVER', 'Activez d’abord la double authentification de votre compte dans Bifrost (Mon compte), puis reconnectez-vous.', 403)
+  }
   const { jeton, id } = await dev.creerJeton(admin.id, b.appareil)
   return { jeton, id, email: admin.email }
 }))
@@ -57,8 +61,12 @@ function devAuth(req: Request, _res: Response, next: NextFunction) {
   if (!h?.startsWith('Bearer ')) return next(Errors.unauthorized('Connexion à Bifrost nécessaire'))
   const jeton = h.slice(7)
   if (jeton.startsWith(dev.PREFIXE_JETON)) {
-    dev.verifierJeton(jeton).then((j) => {
+    dev.verifierJeton(jeton).then(async (j) => {
       if (!j) return next(Errors.unauthorized('Connexion expirée ou retirée : reconnectez-vous'))
+      if (config.doubleAuthDevObligatoire) {
+        const a = await prisma.admin.findUnique({ where: { id: j.adminId }, select: { totpActif: true } })
+        if (!a?.totpActif) return next(new AppError('DOUBLE_AUTH_A_ACTIVER', 'Activez d’abord la double authentification de votre compte dans Bifrost (Mon compte)', 403))
+      }
       req.user = { adminId: j.adminId, role: 'admin' } as never
       req.jetonDevId = j.id
       next()
@@ -68,6 +76,7 @@ function devAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const p = verifyToken(jeton)
     if (p.role !== 'admin') return next(Errors.forbidden('Réservé au compte dev'))
+    if (p.portee) return next(new AppError('DOUBLE_AUTH_A_ACTIVER', 'Activez d’abord la double authentification de votre compte', 403))
     req.user = p
     next()
   } catch {

@@ -18,6 +18,11 @@ export const config = {
   jwtAdminExpiry: '7d',
   jwtClientExpiry: '24h',
 
+  // Double authentification du compte dev : obligatoire en ligne (DOUBLE_AUTH_DEV=facultative pour la retirer)
+  doubleAuthDevObligatoire: process.env.DOUBLE_AUTH_DEV
+    ? process.env.DOUBLE_AUTH_DEV !== 'facultative'
+    : process.env.NODE_ENV === 'production',
+
 
 
   // CORS - Allow any origin with '*' or list specific origins

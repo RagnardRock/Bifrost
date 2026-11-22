@@ -17,6 +17,7 @@ interface MeResponse {
   updatedAt: Date
   siteId?: string
   siteName?: string
+  doubleAuthAActiver?: boolean
 }
 
 export const authService = {
@@ -28,6 +29,11 @@ export const authService = {
     return response.data
   },
 
+
+  /** Le serveur retire le cookie de session */
+  async deconnexion(): Promise<void> {
+    await api.post('/auth/deconnexion').catch(() => undefined)
+  },
 
   async getMe(): Promise<MeResponse> {
     const response = await api.get<unknown, ApiResponse<MeResponse>>('/auth/me')

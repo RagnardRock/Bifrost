@@ -9,6 +9,8 @@ export interface TokenPayload {
   adminId?: string
   siteId?: string
   role: 'admin' | 'client'
+  /** Session limitée : le compte dev doit d'abord activer sa double authentification */
+  portee?: 'double-auth'
   iat?: number
   exp?: number
 }
@@ -19,6 +21,8 @@ export interface TokenPayload {
 export interface LoginResponse {
   token: string
   expiresAt: Date
+  /** Compte dev sans double authentification : la session ne sert qu'à l'activer */
+  doubleAuthAActiver?: boolean
   user: Admin | UserWithSite
 }
 

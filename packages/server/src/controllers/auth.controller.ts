@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { authService } from '../services/auth.service'
 import { success } from '../utils/response'
+import { poserSession } from '../utils/session'
 import type { LoginInput, SetupInput } from '../validators/auth.validator'
 
 export const authController = {
@@ -14,6 +15,7 @@ export const authController = {
 
       const result = await authService.adminLogin(email, password, code)
 
+      poserSession(res, result.token, 'admin')
       res.json(success(result))
     } catch (error) {
       next(error)
