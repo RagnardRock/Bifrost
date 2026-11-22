@@ -40,7 +40,7 @@ jobs:
           # Le code seulement : .env et donnees/ (sites des clients) restent intacts sur le VPS
           rsync -az --delete --exclude .git --exclude .env --exclude donnees/ --exclude node_modules/ \
             -e "$SSH" ./ "$VPS_UTILISATEUR@$VPS_HOTE:/srv/bifrost/"
-          $SSH "$VPS_UTILISATEUR@$VPS_HOTE" 'cd /srv/bifrost && docker compose up -d --build && docker image prune -f'
+          $SSH "$VPS_UTILISATEUR@$VPS_HOTE" 'cd /srv/bifrost && docker compose up -d --build && docker image prune -f && docker builder prune -f --filter until=72h'
 
       - name: Pas encore de secrets
         if: ${{ env.VPS_HOTE == '' }}
