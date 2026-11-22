@@ -32,7 +32,7 @@ onMounted(charger)
   <section class="em">
     <header class="em-tete">
       <h1>Messages</h1>
-      <p class="em-note">Les messages envoyés par les formulaires de vos sites. Ils arrivent aussi par e-mail.</p>
+      <p class="em-note">Les messages envoyés par les formulaires de vos sites. Ils arrivent aussi par e-mail, et sont effacés au bout de 12 mois.</p>
     </header>
 
     <div v-if="responsables.length > 1" class="em-filtres" role="group" aria-label="Site">

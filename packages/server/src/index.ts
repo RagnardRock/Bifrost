@@ -5,6 +5,7 @@ import { prisma } from './config/database'
 import { completerSlugs } from './services/slug.service'
 import { purgerCorbeille } from './services/clients.service'
 import { verifierTous } from './services/reseaux.service'
+import { effacerAnciennesDonnees } from './services/conservation.service'
 
 async function main() {
   try {
@@ -13,8 +14,12 @@ async function main() {
     logger.info('Database connected')
     await completerSlugs().catch((e) => logger.warn(e, 'Noms courts des sites non complétés'))
     // Sites supprimés depuis plus de 30 jours : effacés au démarrage puis chaque jour
-    const purger = () => purgerCorbeille().catch((e) => logger.warn(e, 'Corbeille non vidée'))
-    void purger()
+    // Données personnelles qui ont dépassé leur durée de conservation (RGPD) : même rythme
+    const purger = () => {
+      void purgerCorbeille().catch((e) => logger.warn(e, 'Corbeille non vidée'))
+      void effacerAnciennesDonnees().catch((e) => logger.warn(e, 'Anciennes données non effacées'))
+    }
+    purger()
     setInterval(purger, 24 * 3600 * 1000).unref()
     // Réseaux sociaux : nouveaux posts Instagram toutes les 30 minutes (Instagram ne prévient pas)
     const reseauxPosts = () => verifierTous().catch((e) => logger.warn(e, 'Réseaux : vérification impossible'))
