@@ -4,6 +4,7 @@ import { siteRepository } from '../repositories/site.repository'
 import { comparePassword, hashPassword } from '../utils/hash'
 import { signToken } from '../utils/jwt'
 import { Errors } from '../utils/errors'
+import { config } from '../config'
 import type { LoginResponse, TokenPayload } from '@bifrost/shared'
 import { verifierConnexionParId } from '../services/double-auth.service'
 
@@ -27,9 +28,12 @@ export const authService = {
     await verifierConnexionParId('admin', admin.id, code)
 
     // Generate JWT
+    // Double authentification obligatoire pour le compte dev : sans elle, la session ne sert qu'à l'activer
+    const aActiver = config.doubleAuthDevObligatoire && !admin.totpActif
     const payload: Omit<TokenPayload, 'iat' | 'exp'> = {
       adminId: admin.id,
       role: 'admin',
+      ...(aActiver ? { portee: 'double-auth' as const } : {}),
     }
 
     const token = signToken(payload)
@@ -41,6 +45,7 @@ export const authService = {
     return {
       token,
       expiresAt,
+      ...(aActiver ? { doubleAuthAActiver: true } : {}),
       user: {
         id: admin.id,
         email: admin.email,
@@ -60,6 +65,7 @@ export const authService = {
     return {
       id: admin.id,
       email: admin.email,
+      doubleAuthAActiver: config.doubleAuthDevObligatoire && !admin.totpActif,
       createdAt: admin.createdAt,
       updatedAt: admin.updatedAt,
     }

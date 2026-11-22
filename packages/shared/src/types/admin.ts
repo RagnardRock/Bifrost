@@ -4,6 +4,8 @@
 export interface Admin {
   id: string
   email: string
+  /** Double authentification obligatoire pas encore activée : seul « Mon compte » est ouvert */
+  doubleAuthAActiver?: boolean
   createdAt: Date
   updatedAt: Date
 }

@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { verifyToken } from '../utils/jwt'
-import { Errors } from '../utils/errors'
+import { AppError, Errors } from '../utils/errors'
+import { COOKIE_SESSION, ENTETE_INTERFACE, jetonDeLaRequete, poserSession, retirerSession } from '../utils/session'
 import type { TokenPayload } from '@bifrost/shared'
 
 // Extend Express Request type
@@ -12,26 +13,37 @@ declare global {
   }
 }
 
+/** Routes ouvertes à une session limitée (compte dev sans double authentification) */
+const OUVERT_SANS_DOUBLE_AUTH = /^\/api\/auth\/(me|double-auth|deconnexion)(\/|\?|$)/
+
 /**
- * Middleware to verify JWT token
- * Adds user payload to req.user
+ * Vérifie le jeton (cookie de session, ou en-tête Authorization) et range son contenu dans req.user.
+ * Par cookie, une modification doit venir de l'interface (en-tête X-Bifrost) : protection contre le CSRF.
  */
-export function authMiddleware(req: Request, _res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization
+export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+  const trouve = jetonDeLaRequete(req)
+  if (!trouve) return next(Errors.unauthorized('Token manquant'))
 
-  if (!authHeader?.startsWith('Bearer ')) {
-    return next(Errors.unauthorized('Token manquant'))
-  }
-
-  const token = authHeader.slice(7)
-
+  let payload: TokenPayload
   try {
-    const payload = verifyToken(token)
-    req.user = payload
-    next()
-  } catch (error) {
-    next(Errors.unauthorized('Token invalide ou expiré'))
+    payload = verifyToken(trouve.jeton)
+  } catch {
+    if (trouve.parCookie) retirerSession(res)
+    return next(Errors.unauthorized('Token invalide ou expiré'))
   }
+
+  if (trouve.parCookie && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !req.headers[ENTETE_INTERFACE]) {
+    return next(Errors.forbidden('Requête refusée'))
+  }
+  if (payload.portee === 'double-auth' && !OUVERT_SANS_DOUBLE_AUTH.test(req.originalUrl)) {
+    return next(new AppError('DOUBLE_AUTH_A_ACTIVER', 'Activez d’abord la double authentification de votre compte', 403))
+  }
+  // Ancienne session (jeton gardé par le navigateur) : passe dans le cookie
+  if (!trouve.parCookie && !req.cookies?.[COOKIE_SESSION] && req.headers[ENTETE_INTERFACE]) {
+    poserSession(res, trouve.jeton, payload.role)
+  }
+  req.user = payload
+  next()
 }
 
 /**

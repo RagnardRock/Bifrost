@@ -6,6 +6,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import { success } from '../utils/response'
+import { sessionDansLaReponse } from '../utils/session'
 import * as comptes from '../services/comptes.service'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { Errors } from '../utils/errors'
@@ -14,8 +15,9 @@ import * as notifications from '../services/notifications.service'
 
 const router = Router()
 
+// Une réponse qui ouvre une session (connexion, lien d'accès, changement de site) pose aussi le cookie
 const action = (fn: (req: Request) => Promise<unknown>) =>
-  (req: Request, res: Response, next: NextFunction) => fn(req).then((d) => res.json(success(d))).catch(next)
+  (req: Request, res: Response, next: NextFunction) => fn(req).then((d) => { sessionDansLaReponse(res, d); res.json(success(d)) }).catch(next)
 
 // Client connecté : ses sites, et passer de l'un à l'autre sans retaper son mot de passe
 const client = (req: Request) => {

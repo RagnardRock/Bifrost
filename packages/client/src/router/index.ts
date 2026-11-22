@@ -11,7 +11,7 @@ export const router = createRouter({
       redirect: () => {
         let role: string | null = null
         let dernier: string | null = null
-        try { role = localStorage.getItem('token') ? localStorage.getItem('role') : null; dernier = localStorage.getItem('bf-dernier-site') } catch { /* stockage indisponible */ }
+        try { role = localStorage.getItem('role'); dernier = localStorage.getItem('bf-dernier-site') } catch { /* stockage indisponible */ }
         if (role === 'admin') return '/admin'
         if (role === 'client') return dernier ? `/edition/${dernier}` : '/espace'
         return '/login'
@@ -112,7 +112,7 @@ router.beforeEach(async (to, _from, next) => {
   const auth = useAuthStore()
 
   // Check auth on first load
-  if (auth.token && !auth.currentUser) {
+  if (auth.role && !auth.currentUser) {
     await auth.checkAuth()
   }
 
@@ -121,6 +121,8 @@ router.beforeEach(async (to, _from, next) => {
     if (!auth.isAdmin) {
       return next({ name: 'admin-login' })
     }
+    // Double authentification obligatoire pas encore activée : seul « Mon compte » est ouvert
+    if (auth.admin?.doubleAuthAActiver && to.name !== 'admin-compte') return next({ name: 'admin-compte' })
   }
 
   // Éditeur et espace client : dev ou client connecté
