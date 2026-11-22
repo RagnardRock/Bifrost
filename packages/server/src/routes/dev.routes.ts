@@ -194,8 +194,8 @@ site.get('/fichier', (req, res, next) => {
 
 // Une publication : les fichiers remplacés sont dans l'historique, les nouveaux dans la version en ligne
 const corpsEnvoi = z.object({
-  manifeste: z.record(z.string()),
-  fichiers: z.record(z.string()).default({}),
+  manifeste: z.record(z.string(), z.string()),
+  fichiers: z.record(z.string(), z.string()).default({}),
   supprimer: z.boolean().default(false),
   ecraserBrouillon: z.boolean().default(false),
   depuis: z.coerce.date().optional(),

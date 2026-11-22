@@ -1,7 +1,7 @@
 # Bifrost — image de production.
 # Le serveur tourne avec tsx (TypeScript lu directement) : seule l'interface et le paquet partagé sont construits.
 
-FROM node:20-bookworm-slim AS construction
+FROM node:22-bookworm-slim AS construction
 WORKDIR /app
 COPY package*.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
@@ -12,7 +12,7 @@ COPY packages/shared packages/shared
 COPY packages/client packages/client
 RUN npm run build -w @bifrost/shared && npm run build -w @bifrost/client
 
-FROM node:20-bookworm-slim
+FROM node:22-bookworm-slim
 WORKDIR /app
 ENV NODE_ENV=production
 # openssl : demandé par Prisma
