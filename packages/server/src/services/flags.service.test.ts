@@ -111,3 +111,16 @@ describe('page depuis le modèle : lien vers l’original', () => {
     expect(sansLien).not.toContain('javascript:')
   })
 })
+
+describe('texte avec mise en forme', () => {
+  const h = '<h1 data-bf="t">Une maison, <em>au bord du lac</em></h1>'
+  it('lit et garde l’italique', () => {
+    expect(f.analyser(h).champs[0]?.valeur).toBe('Une maison, <em>au bord du lac</em>')
+    const { html } = f.modifierChamp(h, 'index.html', 't', 'Une belle maison, <em>au bord du lac</em><script>x()</script><a href="x">l</a>')
+    expect(html).toContain('<h1 data-bf="t">Une belle maison, <em>au bord du lac</em>l</h1>')
+  })
+  it('un texte simple reste du texte', () => {
+    const { html } = f.modifierChamp('<p data-bf="t">Bonjour</p>', 'index.html', 't', '<em>x</em>')
+    expect(html).toContain('&lt;em&gt;x&lt;/em&gt;')
+  })
+})

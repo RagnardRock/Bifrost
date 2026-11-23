@@ -11,6 +11,8 @@ import { comptesService, type MonSite } from '@/services/comptes.service'
 import { useAuthStore } from '@/stores/auth.store'
 import { useUIStore } from '@/stores/ui.store'
 import InstallerAppli from '@/components/appli/InstallerAppli.vue'
+import AideEditeur from '@/components/aide/AideEditeur.vue'
+import VisiteGuidee, { type EtapeVisite } from '@/components/aide/VisiteGuidee.vue'
 import PanneauDev, { type SelectionDev, type FlagPage, type AlerteDev, type OperationDev } from '@/components/editeur/PanneauDev.vue'
 
 const route = useRoute()
@@ -358,6 +360,29 @@ const lienMonSite = computed(() => {
 })
 const nomEspace = computed(() => (etat.value?.moi.dev ? 'Gérer' : 'Mon espace'))
 
+// ---------- aide et visite guidée ----------
+const aideOuverte = ref(false)
+const visite = ref<EtapeVisite[] | null>(null)
+const CLE_VISITE = 'bf-visite-vue'
+const etapesVisite = computed<EtapeVisite[]>(() => [
+  { cibles: ['[data-aide="apercu"]'], titre: 'Voici votre site', texte: 'Cliquez sur un texte pour le modifier, sur une photo pour la changer. C’est tout !' },
+  { cibles: ['[data-aide="actualite"]', '[data-aide="menu"]'], titre: 'Une nouvelle à partager ?', texte: '« + Actualité » ajoute une actualité, avec ses photos.' },
+  responsable.value
+    ? { cibles: ['[data-aide="publier"]', '[data-aide="menu"]'], titre: 'Rien ne change avant « Publier »', texte: 'Vos modifications restent en brouillon. « Publier » les met en ligne, et l’horloge 🕘 permet de revenir en arrière.' }
+    : { cibles: ['[data-aide="attente"]', '[data-aide="menu"]'], titre: 'Vos changements attendent ici', texte: 'Un responsable du site les relit et les publie. Le bouton « ? » rouvre l’aide à tout moment.' },
+])
+function finVisite() {
+  visite.value = null
+  try { localStorage.setItem(CLE_VISITE, '1') } catch { /* stockage indisponible */ }
+}
+/** Première visite d'un client (pas du dev) : la visite guidée se lance une fois. */
+function proposerVisite() {
+  if (!etat.value || etat.value.moi.dev) return
+  let vue = false
+  try { vue = localStorage.getItem(CLE_VISITE) === '1' } catch { /* stockage indisponible */ }
+  if (!vue) setTimeout(() => { if (!visite.value && !aideOuverte.value) visite.value = etapesVisite.value }, 800)
+}
+
 // ---------- publication et historique ----------
 const historique = ref<Publication[] | null>(null)
 async function publier() {
@@ -424,6 +449,7 @@ onMounted(async () => {
     await editeurService.ouvrirSession(siteId.value)
     await rafraichirEtat()
     void chargerMesSites()
+    proposerVisite()
   } catch (err) {
     echec(err, 'Impossible d’ouvrir l’éditeur.')
   }
@@ -450,23 +476,24 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
       </div>
       <div class="ed-actions">
         <button v-if="etat?.moi.dev" class="ed-btn ed-btn--icone ed-btn--dev" type="button" :aria-pressed="devActif" :title="devActif ? 'Revenir au mode client' : 'Mode dev : sélectionner n’importe quel élément, poser des flags'" @click="basculerModeDev">🛠️<span class="ed-btn-texte">{{ devActif ? 'Mode dev' : 'Dev' }}</span></button>
-        <button class="ed-btn ed-btn--clair" type="button" @click="ouvrirNouvelle">+ Actualité</button>
+        <button class="ed-btn ed-btn--clair" type="button" data-aide="actualite" @click="ouvrirNouvelle">+ Actualité</button>
         <div class="ed-apercus" role="group" aria-label="Largeur de l’aperçu">
           <button v-for="a in APERCUS" :key="a.id" type="button" class="ed-apercu" :aria-pressed="apercu === a.id" :title="a.titre" :aria-label="a.titre" @click="apercu = a.id">{{ a.icone }}</button>
         </div>
-        <router-link :to="lienMonSite" class="ed-btn ed-btn--clair ed-btn--badge ed-mon-site" :title="responsable && etat?.messagesNonLus ? `Messages, équipe, réglages (${etat.messagesNonLus} message${etat.messagesNonLus > 1 ? 's' : ''} non lu${etat.messagesNonLus > 1 ? 's' : ''})` : etat?.moi.dev ? 'Messages, équipe, réglages' : 'Mes sites, messages, mon compte'">
+        <router-link :to="lienMonSite" class="ed-btn ed-btn--clair ed-btn--badge ed-mon-site" data-aide="espace" :title="responsable && etat?.messagesNonLus ? `Messages, équipe, réglages (${etat.messagesNonLus} message${etat.messagesNonLus > 1 ? 's' : ''} non lu${etat.messagesNonLus > 1 ? 's' : ''})` : etat?.moi.dev ? 'Messages, équipe, réglages' : 'Mes sites, messages, mon compte'">
           {{ nomEspace }}<span v-if="responsable && etat?.messagesNonLus" class="ed-badge">{{ etat.messagesNonLus > 99 ? '99+' : etat.messagesNonLus }}</span>
         </router-link>
         <template v-if="responsable">
-          <button class="ed-btn ed-btn--icone" type="button" title="Historique des publications" @click="ouvrirHistorique">🕘</button>
-          <button class="ed-btn ed-btn--publier" type="button" :disabled="!nbModifs || occupe" :title="detailModifs" @click="publier">
+          <button class="ed-btn ed-btn--icone" type="button" title="Historique des publications" data-aide="historique" @click="ouvrirHistorique">🕘</button>
+          <button class="ed-btn ed-btn--publier" type="button" data-aide="publier" :disabled="!nbModifs || occupe" :title="detailModifs" @click="publier">
             {{ nbModifs ? `Publier (${nbModifs})` : 'À jour' }}
           </button>
         </template>
-        <span v-else-if="etat" class="ed-attente" :title="nbModifs ? `${detailModifs}\n\nUn responsable du site publiera vos modifications.` : ''">
+        <span v-else-if="etat" class="ed-attente" data-aide="attente" :title="nbModifs ? `${detailModifs}\n\nUn responsable du site publiera vos modifications.` : ''">
           {{ nbModifs ? `${modifsTexte(nbModifs)} en attente de publication` : 'Tout est publié' }}
         </span>
-        <button class="ed-btn ed-btn--icone ed-btn--plus" type="button" aria-label="Plus d’actions" :aria-expanded="menuMobile" @click="menuMobile = true">
+        <button class="ed-btn ed-btn--icone ed-btn--aide" type="button" title="Aide" aria-label="Aide" data-aide="aide" @click="aideOuverte = true">?</button>
+        <button class="ed-btn ed-btn--icone ed-btn--plus" type="button" aria-label="Plus d’actions" data-aide="menu" :aria-expanded="menuMobile" @click="menuMobile = true">
           ⋯<span v-if="responsable && etat?.messagesNonLus" class="ed-badge">{{ etat.messagesNonLus > 99 ? '99+' : etat.messagesNonLus }}</span>
         </button>
       </div>
@@ -486,7 +513,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 
     <div class="ed-zone">
       <main class="ed-scene" :class="{ 'ed-scene--mobile': apercu === 'telephone', 'ed-scene--tablette': apercu === 'tablette' }">
-        <iframe v-if="etat" :key="cle" ref="cadre" :src="src" title="Votre site" class="ed-cadre" />
+        <iframe v-if="etat" :key="cle" ref="cadre" :src="src" title="Votre site" class="ed-cadre" data-aide="apercu" />
       </main>
       <PanneauDev v-if="devActif" :selection="selectionDev" :flags="flagsPage" :alertes="alertesPage" :occupe="occupe" :blocs="blocsDev"
         @operation="depuisPanneau" @selectionner="selectionnerDev" @fermer="basculerModeDev"
@@ -517,11 +544,17 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
         <a :href="adresseSite(etat?.site ?? { id: siteId })" target="_blank" rel="noopener" @click="menuMobile = false"><span aria-hidden="true">↗</span>Voir le site</a>
         <router-link v-if="etat?.moi.dev" :to="`/admin/sites/${etat?.site.slug || siteId}`"><span aria-hidden="true">🛠️</span>Fiche du site</router-link>
         <InstallerAppli compact class="ed-menu-appli" @fait="menuMobile = false" />
+        <button type="button" @click="menuMobile = false; aideOuverte = true"><span aria-hidden="true">❓</span>Aide</button>
         <button type="button" @click="ui.basculerTheme()"><span aria-hidden="true">{{ ui.theme === 'dark' ? '🌙' : ui.theme === 'light' ? '☀️' : '💻' }}</span>Thème : {{ ui.theme === 'system' ? 'comme le téléphone' : ui.theme === 'dark' ? 'sombre' : 'clair' }}</button>
         <button type="button" @click="depuisMenu(deconnexion)"><span aria-hidden="true">🚪</span>Se déconnecter</button>
         <button type="button" class="ed-menu-fermer" @click="menuMobile = false">Fermer</button>
       </nav>
     </div>
+
+    <!-- Aide et visite guidée -->
+    <AideEditeur v-if="aideOuverte" :responsable="responsable" @fermer="aideOuverte = false"
+      @montrer="(e) => { aideOuverte = false; visite = [e] }" @visite="aideOuverte = false; visite = etapesVisite" />
+    <VisiteGuidee v-if="visite" :etapes="visite" @fin="finVisite" />
 
     <!-- Nouvelle actualité -->
     <div v-if="nouvelle" class="ed-fond" @click.self="nouvelle = null">
@@ -622,6 +655,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 .ed-fenetre--petite { max-width: 400px; }
 .ed-fenetre--large { max-width: 680px; }
 .ed-btn--badge { position: relative; }
+.ed-btn--aide { font-weight: 800; min-width: 40px; }
 .ed-btn--plus { display: none; position: relative; font-weight: 800; letter-spacing: 1px; }
 .ed-fond--bas { place-items: end center; padding: 0; }
 .ed-menu { width: 100%; max-width: 520px; display: grid; gap: 2px; padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); background: var(--bf-surface); backdrop-filter: blur(20px); border: 1px solid var(--bf-bord); border-bottom: 0; border-radius: 20px 20px 0 0; box-shadow: 0 -20px 60px rgba(0, 0, 0, .4); }
