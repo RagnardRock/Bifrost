@@ -59,6 +59,14 @@
     if (enfants.length === 1 && enfants[0].tagName === 'A' && el.textContent.trim() === enfants[0].textContent.trim()) return enfants[0]
     return el
   }
+  // un texte avec une mise en forme (italique, gras…) : on garde ses balises
+  var EN_LIGNE = ['EM', 'STRONG', 'B', 'I', 'U', 'S', 'BR', 'SPAN', 'SMALL', 'MARK', 'SUP', 'SUB']
+  function misEnForme(el) {
+    var d = el.querySelectorAll('*')
+    if (!d.length) return false
+    for (var i = 0; i < d.length; i++) if (EN_LIGNE.indexOf(d[i].tagName) < 0 || d[i].hasAttribute('data-bf')) return false
+    return true
+  }
   function champ(el) {
     var l = listeDe(el)
     // un champ dans un élément de liste appartient à cet élément ; sinon c'est un champ de page
@@ -99,14 +107,16 @@
     if (enCours === el) return
     if (enCours) terminer(enCours)
     var t = typeDe(el)
-    var cible = t === 'riche' ? el : cibleTexte(el)
+    var forme = t === 'texte' && misEnForme(el)
+    var cible = t === 'riche' || forme ? el : cibleTexte(el)
     el.classList.remove('bf-survol')
     el.classList.add('bf-edition')
     bulle.hidden = true
-    cible.setAttribute('contenteditable', t === 'riche' ? 'true' : 'plaintext-only')
+    cible.setAttribute('contenteditable', t === 'riche' || forme ? 'true' : 'plaintext-only')
     if (cible.contentEditable !== 'plaintext-only' && t !== 'riche') cible.setAttribute('contenteditable', 'true')
     el._bfCible = cible
-    el._bfAvant = t === 'riche' ? el.innerHTML : cible.textContent
+    el._bfForme = forme
+    el._bfAvant = t === 'riche' || forme ? el.innerHTML : cible.textContent
     cible.focus()
     enCours = el
   }
@@ -116,9 +126,10 @@
     cible.removeAttribute('contenteditable')
     el.classList.remove('bf-edition')
     enCours = null
-    var valeur = t === 'riche' ? el.innerHTML : cible.textContent.replace(/\s+/g, ' ').trim()
+    var html = t === 'riche' || el._bfForme
+    var valeur = t === 'riche' ? el.innerHTML : el._bfForme ? el.innerHTML.replace(/\s+/g, ' ').trim() : cible.textContent.replace(/\s+/g, ' ').trim()
     if (cible.className === 'bf-propre') cible.replaceWith(document.createTextNode(cible.textContent))
-    if (valeur === (t === 'riche' ? el._bfAvant : (el._bfAvant || '').replace(/\s+/g, ' ').trim())) return
+    if (valeur === (html ? (t === 'riche' ? el._bfAvant : el._bfAvant.replace(/\s+/g, ' ').trim()) : (el._bfAvant || '').replace(/\s+/g, ' ').trim())) return
     var c = champ(el)
     c.type = 'champ'
     c.valeur = valeur
@@ -156,7 +167,7 @@
   document.addEventListener('keydown', function (e) {
     if (dev) { devTouche(e); return }
     if (!enCours) return
-    if (e.key === 'Escape') { var c = enCours._bfCible || enCours; if (typeDe(enCours) === 'riche') enCours.innerHTML = enCours._bfAvant; else c.textContent = enCours._bfAvant; terminer(enCours) }
+    if (e.key === 'Escape') { var c = enCours._bfCible || enCours; if (typeDe(enCours) === 'riche' || enCours._bfForme) enCours.innerHTML = enCours._bfAvant; else c.textContent = enCours._bfAvant; terminer(enCours) }
     else if (e.key === 'Enter' && typeDe(enCours) !== 'riche') { e.preventDefault(); terminer(enCours) }
   })
   document.addEventListener('focusout', function (e) {

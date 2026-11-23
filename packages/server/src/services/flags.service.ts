@@ -46,6 +46,21 @@ export function nettoyerRiche(html: string): string {
   return sanitizeHtml(html, OPTIONS_RICHE)
 }
 
+/** Mise en forme gardée dans un champ texte (« taille humaine, <em>au bord du lac</em> ») : rien d'autre. */
+const BALISES_EN_LIGNE = ['em', 'strong', 'b', 'i', 'u', 's', 'br', 'span', 'small', 'mark', 'sup', 'sub']
+const OPTIONS_EN_LIGNE: sanitizeHtml.IOptions = { allowedTags: BALISES_EN_LIGNE, allowedAttributes: { span: ['class'], small: ['class'], em: ['class'], strong: ['class'] } }
+
+export function nettoyerEnLigne(html: string): string {
+  return sanitizeHtml(html, OPTIONS_EN_LIGNE).replace(/\s+/g, ' ').trim()
+}
+
+/** Un champ texte dont le contenu porte une mise en forme (italique, gras…) : on garde ses balises. */
+export function misEnForme($el: Cheerio<Element>): boolean {
+  const desc = $el.find('*')
+  if (!desc.length) return false
+  return desc.toArray().every((n) => BALISES_EN_LIGNE.includes(n.tagName.toLowerCase()) && n.attribs['data-bf'] === undefined)
+}
+
 export function charger(html: string): CheerioAPI {
   return cheerio.load(html)
 }
@@ -88,6 +103,7 @@ function lireChamp($: CheerioAPI, $el: Cheerio<Element>, dossierPage: string): C
   if (type === 'image') return { cle, type, valeur: versRacine($el.attr('src') || '', dossierPage) }
   if (type === 'riche') return { cle, type, valeur: ($el.html() || '').trim() }
   if (contientChamps($el)) return { cle, type, valeur: textePropre($el) }
+  if (misEnForme($el)) return { cle, type, valeur: nettoyerEnLigne($el.html() || '') }
   return { cle, type, valeur: cibleTexte($, $el).text().replace(/\s+/g, ' ').trim() }
 }
 
@@ -162,6 +178,7 @@ function ecrireChamp($: CheerioAPI, $el: Cheerio<Element>, valeur: string, dossi
   if (type === 'image') { $el.attr('src', depuisRacine(valeur, dossierPage)); return }
   if (type === 'riche') { $el.html(nettoyerRiche(valeur)); return }
   if (contientChamps($el)) { ecrireTextePropre($, $el, valeur); return }
+  if (misEnForme($el)) { $el.html(nettoyerEnLigne(valeur)); return }
   const cible = cibleTexte($, $el)
   cible.text(valeur)
   if (cible.is('time') && /^\d{4}-\d{2}-\d{2}$/.test(valeur)) cible.attr('datetime', valeur)
