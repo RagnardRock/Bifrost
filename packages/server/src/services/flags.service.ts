@@ -181,7 +181,7 @@ function ecrireChamp($: CheerioAPI, $el: Cheerio<Element>, valeur: string, dossi
   if (misEnForme($el)) { $el.html(nettoyerEnLigne(valeur)); return }
   const cible = cibleTexte($, $el)
   cible.text(valeur)
-  if (cible.is('time') && /^\d{4}-\d{2}-\d{2}$/.test(valeur)) cible.attr('datetime', valeur)
+  if (cible.is('time')) { const iso = dateIso(undefined, valeur); if (iso) cible.attr('datetime', iso) } // le tri des fils suit la date écrite
   if (cible.is('a[href]')) suivreLien(cible, valeur)
 }
 
@@ -205,14 +205,29 @@ export function lienTelephone(valeur: string, ancien = ''): string | null {
   return `tel:${brut}`
 }
 
+/**
+ * Portée d'un champ hors liste :
+ * - site : le même champ sur toutes les pages (coordonnées, pied de page…), sauf dans les articles ;
+ * - article : le champ d'une page d'article (data-bf-page), propre à cette page.
+ */
+export type Portee = 'site' | 'article'
+const dansArticle = ($: CheerioAPI, el: Element) => $(el).closest('[data-bf-page]').length > 0
+
+/** Le champ « cle » de cette page est-il celui d'un article (dans data-bf-page) ? */
+export function champDArticle(html: string, cle: string): boolean {
+  const $ = charger(html)
+  return champsDirects($, $.root().children() as Cheerio<Element>, false)
+    .filter((_, el) => $(el).attr('data-bf') === cle && dansArticle($, el)).length > 0
+}
+
 /** Modifie un champ hors liste. Renvoie le HTML et le nombre d'éléments touchés. */
-export function modifierChamp(html: string, cheminPage: string, cle: string, valeur: string): { html: string; touches: number } {
+export function modifierChamp(html: string, cheminPage: string, cle: string, valeur: string, portee: Portee = 'site'): { html: string; touches: number } {
   const $ = charger(html)
   const dossier = path.posix.dirname(cheminPage)
   let touches = 0
   const anciens = new Map<string, string>()
   champsDirects($, $.root().children() as Cheerio<Element>, false)
-    .filter((_, el) => $(el).attr('data-bf') === cle)
+    .filter((_, el) => $(el).attr('data-bf') === cle && dansArticle($, el) === (portee === 'article'))
     .each((_, el) => {
       const cible = cibleTexte($, $(el) as Cheerio<Element>)
       const avant = cible.is('a[href]') ? cible.attr('href') || '' : ''
@@ -254,6 +269,12 @@ export function operationListe(html: string, cheminPage: string, nom: string, o:
       champsDirects($, $e, true).filter((_, c) => $(c).attr('data-bf') === o.cle)
         .each((_, c) => ecrireChamp($, $(c) as Cheerio<Element>, o.valeur, dossier))
     } else if (o.op === 'supprimer') {
+      // dernier élément : on garde son modèle sur la liste, pour pouvoir en ajouter un plus tard
+      if (els.length === 1 && !$(l).attr('data-bf-gabarit')) {
+        const $g = $($.html($e)) as Cheerio<Element>
+        reecrireUrls($, $g, dossier, '.') // gabarit écrit depuis la racine du site
+        $(l).attr('data-bf-gabarit', $.html($g).replace(/ data-bf-element=""/g, ' data-bf-element'))
+      }
       $e.remove()
     } else if (o.op === 'dupliquer') {
       $e.after($.html($e))
@@ -274,7 +295,9 @@ export function operationListe(html: string, cheminPage: string, nom: string, o:
 export function elementsListe(html: string, cheminPage: string, nom: string): string[] {
   const $ = charger(html)
   const dossier = path.posix.dirname(cheminPage)
-  const $l = listesNommees($, nom).filter((_, l) => !$(l).attr('data-bf-limite')).first() as Cheerio<Element>
+  const toutes = listesNommees($, nom)
+  let $l = toutes.filter((_, l) => !$(l).attr('data-bf-limite')).first() as Cheerio<Element>
+  if (!$l.length) $l = toutes.first() as Cheerio<Element>
   if (!$l.length) return []
   return elementsDe($, $l).toArray().map((e) => {
     const $c = $($.html(e)) as Cheerio<Element>
@@ -311,6 +334,10 @@ export interface NouvelElement {
   date?: string
   texte?: string
   photos: string[]
+  auteur?: string
+  categorie?: string
+  /** lien externe (https), sur la page de l'article */
+  lien?: string
   page: string
   /** lien vers l'original (post Instagram…), ajouté sous le texte de la page, pas dans le résumé */
   source?: { url: string; libelle: string }
@@ -331,10 +358,14 @@ export function ajouterEnTete(html: string, cheminPage: string, nom: string, n: 
   listesNommees($, nom).each((_, l) => {
     const $l = $(l) as Cheerio<Element>
     const premier = elementsDe($, $l).first()
-    if (!premier.length) return
-    const $n = $($.html(premier)) as Cheerio<Element>
+    // liste posée par Bifrost : on part toujours de son gabarit (une carte sans photo n'ôte pas la photo des suivantes)
+    const gabarit = $l.attr('data-bf-gabarit')
+    if (!premier.length && !gabarit) return
+    const $n = $(gabarit ?? $.html(premier)) as Cheerio<Element>
+    if (gabarit) reecrireUrls($, $n, '.', dossier) // le gabarit est écrit depuis la racine du site
     remplirElement($, $n, n, dossier)
-    premier.before($n)
+    if (gabarit && !n.photos[0]) $n.find('img[data-bf="photo"]').remove()
+    if (premier.length) premier.before($n); else $l.prepend($n)
     touches++
     const lim = parseInt($l.attr('data-bf-limite') || '', 10)
     if (Number.isFinite(lim)) elementsDe($, $l).slice(lim).remove()
@@ -349,10 +380,30 @@ function remplirElement($: CheerioAPI, $e: Cheerio<Element>, n: NouvelElement, d
     if (cle === 'titre') ecrireChamp($, $c, n.titre, dossier)
     else if (cle === 'date') { ecrireChamp($, $c, n.date ? dateFr(n.date) : '', dossier); if (n.date) $c.attr('datetime', n.date) }
     else if (cle === 'photo' && n.photos[0]) ecrireChamp($, $c, n.photos[0], dossier)
-    else if (cle === 'resume' || cle === 'texte') ecrireChamp($, $c, (n.texte || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160), dossier)
+    else if (cle === 'resume' || cle === 'texte') ecrireChamp($, $c, resumer(n.texte || ''), dossier)
+    else if (cle === 'auteur' || cle === 'categorie') ecrireChamp($, $c, n[cle] || '', dossier)
   })
   const lien = $e.find('a[href]').first()
   if (lien.length) lien.attr('href', depuisRacine(n.page, dossier))
+}
+
+const MOIS_NUM: Record<string, number> = { janvier: 1, fevrier: 2, février: 2, mars: 3, avril: 4, mai: 5, juin: 6, juillet: 7, aout: 8, août: 8, septembre: 9, octobre: 10, novembre: 11, decembre: 12, décembre: 12 }
+/** Date ISO : datetime, sinon « 3 mars 2026 » ou « 03/03/2026 ». */
+export function dateIso(datetime: string | undefined, texte: string): string | null {
+  if (datetime && /^\d{4}-\d{2}-\d{2}/.test(datetime)) return datetime.slice(0, 10)
+  const t = texte.toLowerCase().trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t
+  let m = /(\d{1,2})(?:er)?\s+([a-zéû]+)\s+(\d{4})/.exec(t)
+  if (m && MOIS_NUM[m[2] as string]) return `${m[3]}-${String(MOIS_NUM[m[2] as string]).padStart(2, '0')}-${(m[1] as string).padStart(2, '0')}`
+  m = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(t)
+  if (m) return `${m[3]}-${(m[2] as string).padStart(2, '0')}-${(m[1] as string).padStart(2, '0')}`
+  return null
+}
+
+/** Résumé d'un texte riche : 160 caractères de texte brut. */
+export function resumer(html: string): string {
+  const t = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim()
+  return t.length > 160 ? t.slice(0, 159).replace(/\s+\S*$/, '') + '…' : t
 }
 
 /** Crée le HTML d'une nouvelle page à partir d'une page modèle (data-bf-page). */
@@ -362,7 +413,17 @@ export function pageDepuisModele(modeleHtml: string, n: NouvelElement): string {
   const $t = $('title')
   if ($t.length) $t.text($t.text().replace(/^[^|]*/, `${n.titre} `))
   $('meta[name="description"]').attr('content', `${n.titre}`)
+  $('meta[name="robots"][data-bf-modele]').remove() // la page modèle d'une rubrique n'est pas indexée, ses articles oui
   const $page = $('[data-bf-page]').first()
+  for (const cle of ['auteur', 'categorie'] as const) {
+    const $c = $page.find(`[data-bf="${cle}"]`).first() as Cheerio<Element>
+    if ($c.length) ecrireChamp($, $c, n[cle] || '', dossier)
+  }
+  const $lien = $page.find('a[data-bf="lien"]').first()
+  if ($lien.length) {
+    if (n.lien && /^https?:\/\//i.test(n.lien)) $lien.attr('href', n.lien)
+    else $lien.closest('.bfb-article-lien').length ? $lien.closest('.bfb-article-lien').remove() : $lien.remove()
+  }
   const $titre = $page.find('[data-bf="titre"]').first() as Cheerio<Element>
   if ($titre.length) ecrireChamp($, $titre, n.titre, dossier)
   const $date = $page.find('[data-bf="date"]').first() as Cheerio<Element>

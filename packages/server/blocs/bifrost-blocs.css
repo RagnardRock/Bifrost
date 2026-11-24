@@ -40,3 +40,24 @@
 .bfb-formulaire label { display: grid; gap: 6px; font-weight: 700; }
 .bfb-formulaire input, .bfb-formulaire textarea { font: inherit; font-weight: 400; padding: 12px; border: 1px solid var(--bf-trait, rgba(0, 0, 0, .2)); border-radius: 10px; background: #fff; color: #222; }
 .bfb-formulaire .bfb-bouton { justify-self: start; }
+/* rubriques (blog…) et fils */
+.bfb-articles { display: grid; gap: 24px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.bfb-articles:has(> li) + .bfb-vide { display: none; }
+.bfb-vide { opacity: .6; font-style: italic; }
+.bfb-article { display: flex; flex-direction: column; background: var(--bf-fond-doux, rgba(0, 0, 0, .04)); border-radius: var(--bf-rayon, 14px); overflow: hidden; }
+.bfb-article > img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
+.bfb-article-corps { display: grid; gap: 8px; padding: 18px; }
+.bfb .bfb-article-corps > * { margin: 0; }
+.bfb-article h3 { font-size: 1.2rem; line-height: 1.25; }
+.bfb-article h3 a { color: inherit; text-decoration: none; }
+.bfb-article h3 a:hover { text-decoration: underline; }
+.bfb-article-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: .88em; opacity: .75; }
+.bfb-article-meta:empty, .bfb-article-auteur:has(> span:empty), .bfb-badge:empty, .bfb-article time:empty, .bfb-article-page time:empty { display: none; }
+.bfb-article-auteur { font-size: .9em; opacity: .8; }
+.bfb-badge { display: inline-block; padding: .15em .7em; border-radius: 999px; background: var(--bf-accent, #2f5d50); color: var(--bf-sur-accent, #fff); font-size: .85em; font-weight: 700; opacity: 1; }
+.bfb-article-page .bfb-article-meta { margin-bottom: .8em; }
+.bfb-article-photos { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); margin: 1.5em 0; }
+.bfb-article-photos figure { margin: 0; }
+.bfb-article-photos img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--bf-rayon, 14px); }
+.bfb-article-photos figure:only-child img { aspect-ratio: auto; }
+.bfb-retour a, .bfb-article-lien a { font-weight: 700; color: var(--bf-accent, #2f5d50); }

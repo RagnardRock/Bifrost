@@ -7,11 +7,16 @@ export type RoleSite = 'responsable' | 'redacteur'
 export interface EtatEditeur {
   site: { id: string; name: string; url: string; slug: string | null }
   pages: string[]
+  rubriques: Rubrique[]
   differences: Differences
   changements: Changement[]
   moi: { role: RoleSite; dev: boolean; id: string | null }
   messagesNonLus: number
 }
+export type ChampArticle = 'photo' | 'date' | 'resume' | 'texte' | 'auteur' | 'categorie' | 'lien'
+export interface Rubrique { nom: string; libelle: string; champs: ChampArticle[] }
+export interface NouvelArticle { titre: string; date?: string; texte?: string; photos: string[]; auteur?: string; categorie?: string; lien?: string }
+type Pose = { page: string; position: 'avant' | 'apres' | 'dedans'; chemin?: number[]; balises?: string[] }
 export interface Reglages { id: string; name: string; url: string; slug: string | null; emailMessages: string | null }
 export interface Message { id: string; formulaire: string; champs: { nom: string; libelle: string; valeur: string }[]; email: string | null; lu: boolean; createdAt: string }
 export interface Membre {
@@ -36,14 +41,14 @@ export interface EtatReseaux { instagram: { configure: boolean; compte: CompteRe
 export const editeurService = {
   etat: (siteId: string) => donnees<EtatEditeur>(api.get(base(siteId))),
   ouvrirSession: (siteId: string) => api.post(`${base(siteId)}/session`),
-  modifierChamp: (siteId: string, cle: string, valeur: string) => api.put(`${base(siteId)}/champ`, { cle, valeur }),
+  modifierChamp: (siteId: string, cle: string, valeur: string, page?: string) => api.put(`${base(siteId)}/champ`, { cle, valeur, page }),
   operationListe: (siteId: string, corps: Record<string, unknown>) => api.post(`${base(siteId)}/liste`, corps),
   envoyerImage: (siteId: string, fichier: File) => {
     const f = new FormData()
     f.append('image', fichier)
     return donnees<{ chemin: string }>(api.post(`${base(siteId)}/image`, f, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 }))
   },
-  nouvelElement: (siteId: string, nom: string, corps: { titre: string; date?: string; texte?: string; photos: string[] }) =>
+  nouvelElement: (siteId: string, nom: string, corps: NouvelArticle) =>
     donnees<{ page: string }>(api.post(`${base(siteId)}/collection/${encodeURIComponent(nom)}`, corps)),
   publier: (siteId: string) => donnees<{ publication: Publication | null }>(api.post(`${base(siteId)}/publier`)),
   abandonner: (siteId: string) => api.post(`${base(siteId)}/abandonner`),
@@ -73,6 +78,10 @@ export const editeurService = {
     donnees<{ chemin: number[] }>(api.post(`${base(siteId)}/blocs/inserer`, corps)),
   enregistrerBloc: (siteId: string, corps: { page: string; chemin: number[]; balises: string[]; nom: string }) =>
     donnees<BlocDev>(api.post(`${base(siteId)}/blocs`, corps)),
+  creerRubrique: (siteId: string, corps: Pose & { libelle: string; champs: ChampArticle[]; limite: number | null; pageComplete: boolean }) =>
+    donnees<{ chemin: number[]; nom: string; pageListe: string | null }>(api.post(`${base(siteId)}/rubriques`, corps)),
+  insererFil: (siteId: string, corps: Pose & { rubriques: string[]; titre: string; limite: number | null }) =>
+    donnees<{ chemin: number[] }>(api.post(`${base(siteId)}/fils`, corps)),
   theme: (siteId: string) => donnees<ThemeDev>(api.get(`${base(siteId)}/theme`)),
   enregistrerTheme: (siteId: string, modifs: { fichier: string; nom: string; valeur: string }[]) =>
     donnees<ThemeDev>(api.put(`${base(siteId)}/theme`, { modifs })),
