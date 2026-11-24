@@ -5,7 +5,7 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { editeurService, type EtatEditeur, type Publication, type BlocDev, type ThemeDev } from '@/services/editeur.service'
+import { editeurService, type EtatEditeur, type Publication, type BlocDev, type ThemeDev, type ChampArticle } from '@/services/editeur.service'
 import { adresseSite } from '@/services/suivi.service'
 import { comptesService, type MonSite } from '@/services/comptes.service'
 import { useAuthStore } from '@/stores/auth.store'
@@ -13,6 +13,7 @@ import { useUIStore } from '@/stores/ui.store'
 import InstallerAppli from '@/components/appli/InstallerAppli.vue'
 import AideEditeur from '@/components/aide/AideEditeur.vue'
 import VisiteGuidee, { type EtapeVisite } from '@/components/aide/VisiteGuidee.vue'
+import DialogueRubrique from '@/components/editeur/DialogueRubrique.vue'
 import PanneauDev, { type SelectionDev, type FlagPage, type AlerteDev, type OperationDev } from '@/components/editeur/PanneauDev.vue'
 
 const route = useRoute()
@@ -128,6 +129,34 @@ async function insererBloc(bloc: string, position: 'avant' | 'apres' | 'dedans',
   } finally {
     occupe.value = false
   }
+}
+// rubriques (blog…) et fils : posés après l'élément sélectionné, sinon à la fin de la page
+const dialogueRubrique = ref<'rubrique' | 'fil' | null>(null)
+const libelleRubrique = ref('')
+async function poser(faire: (pose: { page: string; position: 'avant' | 'apres' | 'dedans'; chemin?: number[]; balises?: string[] }) => Promise<{ chemin: number[] }>, message: string) {
+  const sel = selectionDev.value
+  occupe.value = true
+  try {
+    const r = await faire({ page: page.value, position: sel ? 'apres' : 'dedans', ...(sel ? { chemin: sel.chemin, balises: sel.balises } : {}) })
+    aReselectionner = r.chemin
+    dialogueRubrique.value = null
+    await rafraichirEtat()
+    recharger()
+    informer(message)
+  } catch (err) {
+    echec(err)
+  } finally {
+    occupe.value = false
+  }
+}
+function poserRubrique(o: { libelle: string; champs: ChampArticle[]; limite: number | null; pageComplete: boolean }) {
+  void poser(async (pose) => {
+    const r = await editeurService.creerRubrique(siteId.value, { ...pose, ...o })
+    return r
+  }, `Rubrique « ${o.libelle} » ajoutée au brouillon`)
+}
+function poserFil(o: { rubriques: string[]; titre: string; limite: number | null }) {
+  void poser((pose) => editeurService.insererFil(siteId.value, { ...pose, ...o }), 'Fil ajouté au brouillon')
 }
 function insererDepuisPanneau(bloc: string) {
   const sel = selectionDev.value
@@ -268,7 +297,7 @@ async function surMessage(e: MessageEvent) {
       await operationDev(m.chemin, m.balises, m.operation, m.demanderConfirmation ? 'Supprimer cet élément et tout ce qu’il contient ?' : undefined)
     } else if (m.type === 'champ') {
       if (m.liste) await editeurService.operationListe(siteId.value, { page: m.page, nom: m.liste, op: 'modifier', index: m.index, cle: m.cle, valeur: m.valeur })
-      else await editeurService.modifierChamp(siteId.value, m.cle, m.valeur)
+      else await editeurService.modifierChamp(siteId.value, m.cle, m.valeur, m.page)
       informer('Enregistré dans le brouillon')
       await rafraichirEtat()
     } else if (m.type === 'image') {
@@ -280,7 +309,7 @@ async function surMessage(e: MessageEvent) {
         await rafraichirEtat()
         recharger()
       }
-      if (m.demanderConfirmation) confirmation.value = { texte: m.nom === modele.value || m.nom === 'actualites' ? 'Supprimer cette actualité et sa page ?' : 'Supprimer cet élément ?', action: faire }
+      if (m.demanderConfirmation) confirmation.value = { texte: rubriques.value.some((r) => r.nom === m.nom) ? (m.nom === 'actualites' ? 'Supprimer cette actualité et sa page ?' : 'Supprimer cet article et sa page ?') : 'Supprimer cet élément ?', action: faire }
       else await faire()
     } else if (m.type === 'info') {
       informer(m.texte)
@@ -300,7 +329,7 @@ async function surImage(ev: Event) {
   try {
     const { chemin } = await editeurService.envoyerImage(siteId.value, f)
     if (c.liste !== null && c.index !== null) await editeurService.operationListe(siteId.value, { page: page.value, nom: c.liste, op: 'modifier', index: c.index, cle: c.cle, valeur: chemin })
-    else await editeurService.modifierChamp(siteId.value, c.cle, chemin)
+    else await editeurService.modifierChamp(siteId.value, c.cle, chemin, page.value)
     await rafraichirEtat()
     recharger()
     informer('Photo remplacée')
@@ -312,10 +341,16 @@ async function surImage(ev: Event) {
 }
 
 // ---------- nouvelle actualité ----------
-const nouvelle = ref<{ titre: string; date: string; texte: string; photos: { chemin: string; apercu: string }[] } | null>(null)
-const nomCollection = computed(() => modele.value || 'actualites')
+const nouvelle = ref<{ rubrique: string; titre: string; date: string; texte: string; auteur: string; categorie: string; lien: string; photos: { chemin: string; apercu: string }[] } | null>(null)
+const rubriques = computed(() => etat.value?.rubriques ?? [])
+const rubriqueNouvelle = computed(() => rubriques.value.find((r) => r.nom === nouvelle.value?.rubrique) ?? null)
+const aChamp = (c: ChampArticle) => !rubriqueNouvelle.value || rubriqueNouvelle.value.champs.includes(c)
+/** « + Actualité » quand le site n'a que ses actualités, « + Article » sinon */
+const libelleAjout = computed(() => rubriques.value.length === 1 && rubriques.value[0]?.nom === 'actualites' ? 'Actualité' : 'Article')
 function ouvrirNouvelle() {
-  nouvelle.value = { titre: '', date: new Date().toISOString().slice(0, 10), texte: '', photos: [] }
+  const r = rubriques.value.find((x) => x.nom === modele.value) ?? rubriques.value[0]
+  if (!r) return
+  nouvelle.value = { rubrique: r.nom, titre: '', date: new Date().toISOString().slice(0, 10), texte: '', auteur: '', categorie: '', lien: '', photos: [] }
 }
 async function ajouterPhotos(ev: Event) {
   const input = ev.target as HTMLInputElement
@@ -339,12 +374,16 @@ async function creerNouvelle() {
   occupe.value = true
   try {
     const texte = n.texte.trim() ? n.texte.trim().split(/\n{2,}/).map((p) => `<p>${p.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string)).replace(/\n/g, '<br>')}</p>`).join('') : ''
-    const { page: p } = await editeurService.nouvelElement(siteId.value, nomCollection.value, { titre: n.titre.trim(), date: n.date || undefined, texte, photos: n.photos.map((x) => x.chemin) })
+    const { page: p } = await editeurService.nouvelElement(siteId.value, n.rubrique, {
+      titre: n.titre.trim(), date: aChamp('date') ? n.date || undefined : undefined, texte, photos: n.photos.map((x) => x.chemin),
+      auteur: aChamp('auteur') ? n.auteur.trim() || undefined : undefined, categorie: aChamp('categorie') ? n.categorie.trim() || undefined : undefined,
+      lien: aChamp('lien') ? n.lien.trim() || undefined : undefined,
+    })
     nouvelle.value = null
     await rafraichirEtat()
     page.value = p
     cle.value++
-    informer('Actualité créée. Pensez à publier.')
+    informer(`${libelleAjout.value} créé${libelleAjout.value === 'Actualité' ? 'e' : ''}. Pensez à publier.`)
   } catch (err) {
     echec(err)
   } finally {
@@ -443,6 +482,15 @@ function deconnexion() {
   router.push('/login')
 }
 
+// lien « + Créer une rubrique » (Réseaux) : mode dev, fenêtre de la rubrique ouverte
+function ouvrirRubriqueDemandee() {
+  const q = route.query.rubrique
+  if (!etat.value?.moi.dev || typeof q !== 'string') return
+  if (!modeDev.value) basculerModeDev()
+  libelleRubrique.value = q === '1' ? '' : q
+  dialogueRubrique.value = 'rubrique'
+  void router.replace({ query: { ...route.query, rubrique: undefined } })
+}
 onMounted(async () => {
   window.addEventListener('message', surMessage)
   try {
@@ -450,6 +498,7 @@ onMounted(async () => {
     await rafraichirEtat()
     void chargerMesSites()
     proposerVisite()
+    ouvrirRubriqueDemandee()
   } catch (err) {
     echec(err, 'Impossible d’ouvrir l’éditeur.')
   }
@@ -476,7 +525,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
       </div>
       <div class="ed-actions">
         <button v-if="etat?.moi.dev" class="ed-btn ed-btn--icone ed-btn--dev" type="button" :aria-pressed="devActif" :title="devActif ? 'Revenir au mode client' : 'Mode dev : sélectionner n’importe quel élément, poser des flags'" @click="basculerModeDev">🛠️<span class="ed-btn-texte">{{ devActif ? 'Mode dev' : 'Dev' }}</span></button>
-        <button class="ed-btn ed-btn--clair" type="button" data-aide="actualite" @click="ouvrirNouvelle">+ Actualité</button>
+        <button v-if="rubriques.length" class="ed-btn ed-btn--clair" type="button" data-aide="actualite" @click="ouvrirNouvelle">+ {{ libelleAjout }}</button>
         <div class="ed-apercus" role="group" aria-label="Largeur de l’aperçu">
           <button v-for="a in APERCUS" :key="a.id" type="button" class="ed-apercu" :aria-pressed="apercu === a.id" :title="a.titre" :aria-label="a.titre" @click="apercu = a.id">{{ a.icone }}</button>
         </div>
@@ -518,7 +567,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
       <PanneauDev v-if="devActif" :selection="selectionDev" :flags="flagsPage" :alertes="alertesPage" :occupe="occupe" :blocs="blocsDev"
         @operation="depuisPanneau" @selectionner="selectionnerDev" @fermer="basculerModeDev"
         @glisser="(id) => versCadre({ type: 'glisser', bloc: id })" @fin-glisser="versCadre({ type: 'fin-glisser' })"
-        @inserer="insererDepuisPanneau" @enregistrer="enregistrerBloc" @supprimer-bloc="supprimerBloc"
+        @inserer="insererDepuisPanneau" @rubrique="(m) => { libelleRubrique = ''; dialogueRubrique = m }" @enregistrer="enregistrerBloc" @supprimer-bloc="supprimerBloc"
         :theme="themeDev" :pages="etat?.pages ?? []" :page="page" @page-ouvrir="ouvrirPage" @page-creer="creerPage" @page-renommer="renommerPage" @page-supprimer="supprimerPage"
         @theme-charger="chargerTheme" @theme-apercu="(nom, valeur) => versCadre({ type: 'theme', nom, valeur })" @theme-enregistrer="enregistrerTheme" />
     </div>
@@ -556,14 +605,23 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
       @montrer="(e) => { aideOuverte = false; visite = [e] }" @visite="aideOuverte = false; visite = etapesVisite" />
     <VisiteGuidee v-if="visite" :etapes="visite" @fin="finVisite" />
 
+    <DialogueRubrique v-if="dialogueRubrique" :mode="dialogueRubrique" :rubriques="rubriques" :occupe="occupe" :libelle-depart="libelleRubrique"
+      @rubrique="poserRubrique" @fil="poserFil" @fermer="dialogueRubrique = null" />
+
     <!-- Nouvelle actualité -->
     <div v-if="nouvelle" class="ed-fond" @click.self="nouvelle = null">
       <form class="ed-fenetre" @submit.prevent="creerNouvelle">
-        <h2>Nouvelle actualité</h2>
+        <h2>{{ libelleAjout === 'Actualité' ? 'Nouvelle actualité' : 'Nouvel article' }}</h2>
+        <label v-if="rubriques.length > 1">Rubrique
+          <select v-model="nouvelle.rubrique"><option v-for="r in rubriques" :key="r.nom" :value="r.nom">{{ r.libelle }}</option></select>
+        </label>
         <label>Titre<input v-model="nouvelle.titre" required maxlength="200" placeholder="Ex. : Repas de Noël avec les familles" autofocus></label>
-        <label>Date<input v-model="nouvelle.date" type="date"></label>
-        <label>Texte (facultatif)<textarea v-model="nouvelle.texte" rows="5" placeholder="Quelques lignes pour raconter le moment…" /></label>
-        <div>
+        <label v-if="aChamp('date')">Date<input v-model="nouvelle.date" type="date"></label>
+        <label v-if="aChamp('auteur')">Auteur (facultatif)<input v-model="nouvelle.auteur" maxlength="120"></label>
+        <label v-if="aChamp('categorie')">Catégorie (facultatif)<input v-model="nouvelle.categorie" maxlength="80" placeholder="Ex. : Course, Vie du club"></label>
+        <label v-if="aChamp('texte')">Texte (facultatif)<textarea v-model="nouvelle.texte" rows="5" placeholder="Quelques lignes pour raconter le moment…" /></label>
+        <label v-if="aChamp('lien')">Lien (facultatif)<input v-model="nouvelle.lien" type="url" maxlength="500" placeholder="https://…"></label>
+        <div v-if="aChamp('photo')">
           <span class="ed-etiquette">Photos</span>
           <div class="ed-photos">
             <img v-for="p in nouvelle.photos" :key="p.chemin" :src="p.apercu" alt="">
@@ -572,7 +630,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
         </div>
         <div class="ed-boutons">
           <button type="button" class="ed-btn ed-btn--clair" @click="nouvelle = null">Annuler</button>
-          <button type="submit" class="ed-btn ed-btn--publier" :disabled="!nouvelle.titre.trim() || occupe">Créer l’actualité</button>
+          <button type="submit" class="ed-btn ed-btn--publier" :disabled="!nouvelle.titre.trim() || occupe">{{ libelleAjout === 'Actualité' ? 'Créer l’actualité' : 'Créer l’article' }}</button>
         </div>
       </form>
     </div>
@@ -671,7 +729,7 @@ onBeforeUnmount(() => window.removeEventListener('message', surMessage))
 .ed-rouge { color: var(--bf-danger); }
 .ed-fenetre h2 { margin: 0; font-size: 20px; font-weight: 700; }
 .ed-fenetre label, .ed-etiquette { display: grid; gap: 6px; font-size: 14px; font-weight: 600; color: var(--bf-texte); }
-.ed-fenetre input, .ed-fenetre textarea { background: var(--bf-champ); border: 1px solid var(--bf-bord-fort); border-radius: 10px; padding: 12px; color: var(--bf-texte); font: inherit; font-weight: 400; }
+.ed-fenetre input, .ed-fenetre textarea, .ed-fenetre select { background: var(--bf-champ); border: 1px solid var(--bf-bord-fort); border-radius: 10px; padding: 12px; color: var(--bf-texte); font: inherit; font-weight: 400; }
 .ed-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .ed-photos img { width: 84px; height: 84px; object-fit: cover; border-radius: 10px; }
 .ed-ajout-photo { width: 84px; height: 84px; border-radius: 10px; border: 2px dashed var(--bf-bord-fort); display: grid !important; place-items: center; cursor: pointer; font-size: 13px; }

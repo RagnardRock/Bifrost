@@ -39,6 +39,7 @@ const emit = defineEmits<{
   glisser: [id: string]
   'fin-glisser': []
   inserer: [id: string]
+  rubrique: [mode: 'rubrique' | 'fil']
   enregistrer: [nom: string]
   'supprimer-bloc': [bloc: BlocDev]
   'theme-charger': []
@@ -340,6 +341,20 @@ const memeChemin = (a: number[] | null | undefined, b: number[]) => !!a && a.len
     <div v-else-if="onglet === 'blocs'" class="pd-corps">
       <p class="pd-note pd-note--haut">Glissez une section dans la page, ou cliquez pour l’ajouter {{ s ? 'après l’élément sélectionné' : 'à la fin de la page' }}. Les flags sont déjà posés.</p>
       <ul class="pd-blocs">
+        <li>
+          <button type="button" class="pd-bloc-carte pd-bloc-carte--rubrique" :disabled="occupe" title="Une liste d’articles avec une page par article : blog, actualités, Instagram…" @click="emit('rubrique', 'rubrique')">
+            <span class="pd-bloc-icone" aria-hidden="true">📰</span>
+            <strong>Rubrique (blog…)</strong>
+            <small>Articles avec leur page ; le client en ajoute avec « + »</small>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="pd-bloc-carte pd-bloc-carte--rubrique" :disabled="occupe" title="Mélange les articles de plusieurs rubriques, du plus récent au plus ancien" @click="emit('rubrique', 'fil')">
+            <span class="pd-bloc-icone" aria-hidden="true">🧵</span>
+            <strong>Fil</strong>
+            <small>Plusieurs rubriques mélangées, triées par date</small>
+          </button>
+        </li>
         <li v-for="b in blocsFournis" :key="b.id">
           <button type="button" class="pd-bloc-carte" draggable="true" :disabled="occupe" :title="b.description"
             @dragstart="debutGlisser($event, b)" @dragend="emit('fin-glisser')" @click="emit('inserer', b.id)">
@@ -496,6 +511,7 @@ kbd { font: 600 11px ui-monospace, Consolas, monospace; padding: 1px 5px; border
 .pd-bloc-carte { width: 100%; height: 100%; display: grid; gap: 3px; align-content: start; justify-items: start; text-align: left; padding: 10px; border: 1px solid var(--bf-bord); border-radius: 12px; background: var(--bf-verre); color: var(--bf-texte); font: inherit; cursor: grab; }
 .pd-bloc-carte:hover:not(:disabled) { background: var(--bf-verre-fort); border-color: rgba(139, 92, 246, .5); }
 .pd-bloc-carte:active { cursor: grabbing; }
+.pd-bloc-carte--rubrique { cursor: pointer; border-color: rgba(139, 92, 246, .35); }
 .pd-bloc-carte small { font-size: 11px; color: var(--bf-doux); line-height: 1.35; }
 .pd-bloc-icone { font-size: 20px; }
 .pd-bloc-perso { position: relative; }

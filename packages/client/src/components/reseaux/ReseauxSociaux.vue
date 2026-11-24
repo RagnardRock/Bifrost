@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { editeurService, type EtatReseaux } from '@/services/editeur.service'
 import { ilYa } from '@/services/suivi.service'
+import { useAuthStore } from '@/stores/auth.store'
 
 const props = defineProps<{ siteId: string }>()
 const emit = defineEmits<{ info: [texte: string] }>()
@@ -14,6 +15,9 @@ const etat = ref<EtatReseaux | null>(null)
 const occupe = ref(false)
 const erreur = ref('')
 const compte = computed(() => etat.value?.instagram.compte ?? null)
+// le dev peut créer la rubrique tout de suite : l'éditeur s'ouvre en mode dev, fenêtre « Rubrique » prête
+const auth = useAuthStore()
+const lienRubrique = computed(() => ({ name: 'editeur', params: { siteId: props.siteId }, query: { rubrique: 'Instagram' } }))
 
 const RETOURS: Record<string, string> = {
   ok: 'Instagram est relié.',
@@ -90,7 +94,10 @@ const nomRubrique = (c: string) => NOMS[c] || c.replace(/[-_]+/g, ' ').replace(/
       </template>
 
       <template v-else-if="!compte">
-        <p v-if="!etat.collections.length" class="rs-aide">Le site n’a pas encore de rubrique d’actualités pour recevoir les posts. Demandez-la à votre développeur.</p>
+        <template v-if="!etat.collections.length">
+          <p v-if="!auth.isAdmin" class="rs-aide">Le site n’a pas encore de rubrique d’actualités pour recevoir les posts. Demandez-la à votre développeur.</p>
+          <p v-else class="rs-aide">Le site n’a pas encore de rubrique pour recevoir les posts. <router-link :to="lienRubrique" class="rs-lien">+ Créer une rubrique</router-link></p>
+        </template>
         <button v-else type="button" class="rs-btn rs-btn--fort" :disabled="occupe" @click="relier">Relier mon compte Instagram</button>
         <p class="rs-aide">Il faut un compte Instagram professionnel ou créateur (gratuit, dans les réglages d’Instagram). Bifrost peut seulement lire vos posts : il ne publie jamais rien sur Instagram.</p>
       </template>
@@ -102,6 +109,7 @@ const nomRubrique = (c: string) => NOMS[c] || c.replace(/[-_]+/g, ' ').replace(/
             <option v-for="c in etat.collections" :key="c" :value="c">{{ nomRubrique(c) }}</option>
           </select>
         </label>
+        <router-link v-if="auth.isAdmin" :to="lienRubrique" class="rs-lien">+ Créer une rubrique</router-link>
         <fieldset class="rs-choix">
           <legend>Quand un nouveau post arrive</legend>
           <label><input type="radio" name="rs-mode" :checked="compte.mode === 'brouillon'" @change="regler({ mode: 'brouillon' })"> je le relis avant de publier <span class="rs-aide">(notification sur le téléphone)</span></label>
@@ -134,6 +142,8 @@ const nomRubrique = (c: string) => NOMS[c] || c.replace(/[-_]+/g, ' ').replace(/
 .rs-logo { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; font-size: 22px; background: linear-gradient(135deg, #f58529, #dd2a7b 50%, #8134af); flex: none; }
 .rs-tete p { margin: 2px 0 0; }
 .rs-aide { margin: 0; font-size: 13px; font-weight: 400; color: var(--bf-doux); }
+.rs-lien { justify-self: start; font-size: 13px; font-weight: 700; color: #a78bfa; text-decoration: none; }
+.rs-lien:hover { text-decoration: underline; }
 .rs-erreur { margin: 0; font-size: 13px; color: #c2410c; }
 .rs-champ { display: grid; gap: 6px; font-weight: 600; font-size: 14px; }
 .rs-champ select { min-height: 44px; padding: 0 12px; border-radius: 12px; border: 0; box-shadow: inset 0 0 0 1px var(--bf-bord); background: var(--bf-verre-fort); color: var(--bf-texte); font: inherit; font-weight: 400; }

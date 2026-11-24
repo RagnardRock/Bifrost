@@ -17,6 +17,9 @@ import { unzipSync } from 'fflate'
 import { config } from '../config'
 import { Errors } from '../utils/errors'
 import * as flags from './flags.service'
+import * as rubriques from './rubriques.service'
+import * as pagesSvc from './pages.service'
+import { charger } from './flags.service'
 import { brancherFormulaires } from './formulaires.html'
 import * as modeDev from './mode-dev.service'
 import * as blocs from './blocs.service'
@@ -77,6 +80,7 @@ async function lire(siteId: string, page: string) {
   return fs.readFile(cheminSur(dossiers(siteId).brouillon, page), 'utf-8')
 }
 async function ecrire(siteId: string, page: string, html: string) {
+  await fs.mkdir(path.dirname(cheminSur(dossiers(siteId).brouillon, page)), { recursive: true })
   await fs.writeFile(cheminSur(dossiers(siteId).brouillon, page), html, 'utf-8')
 }
 
@@ -92,13 +96,57 @@ async function collections(siteId: string): Promise<Map<string, string>> {
   const res = new Map<string, string>()
   for (const p of await listerPages(siteId)) {
     const m = /data-bf-page="([^"]+)"/.exec(await lire(siteId, p))
-    if (m?.[1] && !res.has(m[1])) res.set(m[1], p)
+    // la page modèle d'une rubrique créée par Bifrost (<nom>/_modele.html) passe avant les articles
+    if (m?.[1] && (!res.has(m[1]) || path.posix.basename(p) === rubriques.NOM_MODELE)) res.set(m[1], p)
   }
   return res
 }
 
+const NOMS_CONNUS: Record<string, string> = { actualites: 'Actualités', actus: 'Actualités', evenements: 'Événements', agenda: 'Agenda', blog: 'Blog', articles: 'Articles' }
+const joli = (nom: string) => NOMS_CONNUS[nom] ?? nom.charAt(0).toUpperCase() + nom.slice(1).replace(/[-_]+/g, ' ')
+
+/** Rubriques du site avec leur libellé et les champs de leurs articles (formulaire « + » de l'éditeur). */
+export async function listerRubriques(siteId: string) {
+  const res: { nom: string; libelle: string; champs: rubriques.ChampArticle[] }[] = []
+  for (const [nom, modele] of await collections(siteId)) {
+    const { libelle, champs } = rubriques.champsDuModele(await lire(siteId, modele))
+    res.push({ nom, libelle: libelle || joli(nom), champs })
+  }
+  return res
+}
+
+/** Recalcule les fils (data-bf-fil) de toutes les pages depuis les listes de leurs rubriques. */
+export async function majFils(siteId: string) {
+  const pages = await listerPages(siteId)
+  const avecFil: [string, string][] = []
+  for (const p of pages) { const h = await lire(siteId, p); if (h.includes('data-bf-fil=')) avecFil.push([p, h]) }
+  if (!avecFil.length) return
+  const voulues = new Set(avecFil.flatMap(([, h]) => rubriques.rubriquesDesFils(h)))
+  const libelles = new Map((await listerRubriques(siteId)).map((r) => [r.nom, r.libelle]))
+  const articles = new Map<string, rubriques.ArticleFil[]>()
+  for (const nom of voulues) {
+    const source = (await pagesCompletes(siteId, nom))[0]
+    articles.set(nom, source ? rubriques.articlesDe(flags.elementsListe(await lire(siteId, source), source, nom), nom, libelles.get(nom) || joli(nom)) : [])
+  }
+  for (const [p, h] of avecFil) {
+    const n = rubriques.remplirFils(h, p, articles)
+    if (n !== h) await ecrire(siteId, p, n)
+  }
+}
+
 /** Modifie un champ hors liste sur toutes les pages où il apparaît (coordonnées, pied de page…). */
-export async function modifierChamp(siteId: string, cle: string, valeur: string) {
+export async function modifierChamp(siteId: string, cle: string, valeur: string, page?: string) {
+  if (page && page.endsWith('.html')) {
+    const h = await lire(siteId, page).catch(() => '')
+    if (h && flags.champDArticle(h, cle)) {
+      // champ d'une page d'article (titre, texte…) : cette page seulement, puis sa carte dans la rubrique
+      const { html } = flags.modifierChamp(h, page, cle, valeur, 'article')
+      await ecrire(siteId, page, html)
+      const nom = /data-bf-page="([^"]+)"/.exec(h)?.[1]
+      if (nom) await synchroniserCarte(siteId, nom, page, cle, valeur)
+      return { pages: [page] }
+    }
+  }
   const pages: string[] = []
   for (const p of await listerPages(siteId)) {
     const avant = await lire(siteId, p)
@@ -134,6 +182,86 @@ export async function insererBloc(siteId: string, page: string, cible: modeDev.C
   if (bloc.includes('class="bfb')) html = modeDev.lierFeuilleBlocs(html, page) // ne touche qu'au <head> : le chemin dans <body> reste bon
   html = brancherFormulaires(html, (nom) => adresseFormulaire(siteId, nom)) ?? html
   await ecrire(siteId, page, html)
+  return { chemin: r.chemin }
+}
+
+/** Clé libre pour le titre d'une section (« blog », « blog-2 »…). */
+async function cleLibre(siteId: string, base: string) {
+  const pris = new Set<string>()
+  for (const p of await listerPages(siteId)) for (const x of modeDev.prefixes(await lire(siteId, p))) pris.add(x)
+  let cle = base.replace(/-/g, '_') || 'section'
+  for (let i = 2; pris.has(cle); i++) cle = `${base.replace(/-/g, '_')}_${i}`
+  return cle
+}
+
+/** Copie la feuille des blocs et l'image d'attente, et lie la feuille dans la page. */
+async function avecFeuilleBlocs(siteId: string, page: string, html: string) {
+  const d = dossiers(siteId).brouillon
+  for (const [cible, source] of Object.entries({ ...blocs.fichiersDuBloc('class="bfb'), 'assets/bifrost-attente.svg': path.join(blocs.dossierBlocsFournis, 'bifrost-attente.svg') })) {
+    await fs.mkdir(path.dirname(path.join(d, cible)), { recursive: true })
+    await fs.copyFile(source, path.join(d, cible))
+  }
+  return modeDev.lierFeuilleBlocs(html, page)
+}
+
+export interface OptionsRubrique { libelle: string; champs: rubriques.ChampArticle[]; limite: number | null; pageComplete: boolean }
+
+/**
+ * Mode dev : pose la liste d'une rubrique dans une page.
+ * Rubrique nouvelle : crée aussi sa page modèle (<nom>/_modele.html, avec l'en-tête et le pied de la page),
+ * et, si la liste est limitée, une page avec tous les articles (au menu).
+ * Rubrique existante : ajoute une autre vue de ses articles (par exemple les 3 derniers sur l'accueil).
+ */
+export async function creerRubrique(siteId: string, page: string, cible: modeDev.Cible | null, position: modeDev.Position, o: OptionsRubrique) {
+  if (!page.endsWith('.html')) throw Errors.badRequest('Page invalide')
+  const nom = rubriques.nomRubrique(o.libelle)
+  if (!nom || nom === 'photos') throw Errors.badRequest('Choisissez un autre nom de rubrique')
+  const cols = await collections(siteId)
+  const existe = cols.has(nom)
+  const source = existe ? (await pagesCompletes(siteId, nom))[0] : undefined
+  const elements = source ? flags.elementsListe(await lire(siteId, source), source, nom) : []
+  const gabarit = source ? charger(await lire(siteId, source))(`[data-bf-liste="${nom}"][data-bf-gabarit]`).first().attr('data-bf-gabarit') : undefined
+  const carte = elements[0] ?? gabarit ?? rubriques.carteArticle(o.champs)
+  const vue = (limite: number | null, cle: string) => {
+    const html = rubriques.sectionListe(nom, o.libelle, carte, limite, cle)
+    const deja = (limite ? elements.slice(0, limite) : elements).join('')
+    return deja ? html.replace('></ul>', `>${deja}</ul>`) : html
+  }
+  const avant = await lire(siteId, page)
+  const r = modeDev.inserer(avant, page, cible, vue(o.limite, await cleLibre(siteId, nom)), position)
+  await ecrire(siteId, page, await avecFeuilleBlocs(siteId, page, r.html))
+  let pageListe: string | null = o.limite ? null : page
+  if (!existe) {
+    if (o.limite && o.pageComplete) {
+      const c = await outils.creerPage(await textesDuBrouillon(siteId, (f) => f.endsWith('.html')), { titre: o.libelle, depuis: page, menu: true })
+      const $ = charger(c.ecrits[c.page] as string)
+      $('main > section.bfb').first().remove()
+      const section = vue(null, await cleLibre(siteId, nom)).replace(/<h2 /, '<h1 ').replace('</h2>', '</h1>')
+      c.ecrits[c.page] = modeDev.inserer($.html(), c.page, null, section, 'dedans').html
+      await appliquer(siteId, c)
+      pageListe = c.page
+    }
+    const chemin = rubriques.cheminModele(nom)
+    const retour = pageListe ? flags.depuisRacine(pageListe, nom) : null
+    // depuis la page relue : le menu contient déjà la page de tous les articles
+    const $m = charger(pagesSvc.nouvellePage(await lire(siteId, page), page, chemin, o.libelle))
+    $m('main').first().html(`\n${rubriques.sectionArticle(nom, o.libelle, o.champs, retour)}\n`)
+    if (!$m('meta[name="robots"]').length) $m('head').append('<meta name="robots" content="noindex" data-bf-modele>\n')
+    await ecrire(siteId, chemin, await avecFeuilleBlocs(siteId, chemin, $m.html()))
+  }
+  await majFils(siteId)
+  return { chemin: r.chemin, nom, pageListe }
+}
+
+/** Mode dev : pose un fil qui mélange les articles de plusieurs rubriques, triés par date. */
+export async function insererFil(siteId: string, page: string, cible: modeDev.Cible | null, position: modeDev.Position, o: { rubriques: string[]; titre: string; limite: number | null }) {
+  if (!page.endsWith('.html')) throw Errors.badRequest('Page invalide')
+  const cols = await collections(siteId)
+  const choisies = [...new Set(o.rubriques)].filter((r) => cols.has(r))
+  if (!choisies.length) throw Errors.badRequest('Choisissez au moins une rubrique du site')
+  const r = modeDev.inserer(await lire(siteId, page), page, cible, rubriques.sectionFil(choisies, o.titre, o.limite, await cleLibre(siteId, 'fil')), position)
+  await ecrire(siteId, page, await avecFeuilleBlocs(siteId, page, r.html))
+  await majFils(siteId)
   return { chemin: r.chemin }
 }
 
@@ -257,15 +385,31 @@ export async function importerModele(siteId: string, source: string, vider: bool
   }
 }
 
-/** Pages qui contiennent la version complète (non limitée) d'une collection. */
+/**
+ * Pages qui contiennent la version complète (non limitée) d'une collection.
+ * Sans liste complète (rubrique montrée seulement en « 3 derniers »), les pages de ses listes limitées.
+ */
 async function pagesCompletes(siteId: string, nom: string) {
-  const res: string[] = []
+  const res: string[] = [], limitees: string[] = []
   for (const p of await listerPages(siteId)) {
     const h = await lire(siteId, p)
     if (!h.includes(`data-bf-liste="${nom}"`)) continue
     if (flags.analyser(h, p).listes.some((l) => l.nom === nom && l.limite === null)) res.push(p)
+    else limitees.push(p)
   }
-  return res
+  return res.length ? res : limitees.slice(0, 1)
+}
+
+/** Le titre, la date… d'un article ont changé sur sa page : sa carte dans les listes de la rubrique suit. */
+async function synchroniserCarte(siteId: string, nom: string, page: string, cle: string, valeur: string) {
+  const cleCarte = cle === 'texte' ? 'resume' : cle
+  if (!['titre', 'date', 'resume', 'auteur', 'categorie'].includes(cleCarte)) return
+  const source = (await pagesCompletes(siteId, nom))[0]
+  if (!source) return
+  const elements = flags.elementsListe(await lire(siteId, source), source, nom)
+  const index = elements.findIndex((e) => /href="([^"#?]+)"/.exec(e)?.[1] === page)
+  if (index < 0 || !elements[index]?.includes(`data-bf="${cleCarte}"`)) return
+  await operationListe(siteId, source, nom, { op: 'modifier', index, cle: cleCarte, valeur: cle === 'texte' ? flags.resumer(valeur) : valeur })
 }
 
 async function resynchroniser(siteId: string, nom: string, source: string) {
@@ -306,11 +450,12 @@ export async function operationListe(siteId: string, page: string, nom: string, 
   if (lienSupprime && lienSupprime !== cols.get(nom)) {
     await fs.rm(cheminSur(dossiers(siteId).brouillon, lienSupprime), { force: true })
   }
+  await majFils(siteId)
   return { pages: completes }
 }
 
 /** Crée un élément de collection : sa page (depuis le modèle) et sa carte en tête des listes. */
-export async function nouvelElement(siteId: string, nom: string, donnees: { titre: string; date?: string; texte?: string; photos: string[]; source?: flags.NouvelElement['source'] }) {
+export async function nouvelElement(siteId: string, nom: string, donnees: { titre: string; date?: string; texte?: string; photos: string[]; auteur?: string; categorie?: string; lien?: string; source?: flags.NouvelElement['source'] }) {
   const cols = await collections(siteId)
   const modele = cols.get(nom)
   if (!modele) throw Errors.badRequest(`Pas de page modèle pour « ${nom} »`)
@@ -328,6 +473,7 @@ export async function nouvelElement(siteId: string, nom: string, donnees: { titr
     await ecrire(siteId, p, html)
   }
   if (completes[0]) await resynchroniser(siteId, nom, completes[0])
+  await majFils(siteId)
   return { page }
 }
 
@@ -419,6 +565,7 @@ async function copier(de: string, vers: string) {
 /** Publie le brouillon. Les fichiers remplacés sont gardés dans historique/<id>/ pour pouvoir revenir en arrière. */
 export async function publier(siteId: string, publicationId: string) {
   const d = dossiers(siteId)
+  await majFils(siteId).catch(() => { /* fils non recalculés : on publie quand même */ })
   const diff = await differences(siteId)
   const sauvegarde = path.join(d.historique, publicationId)
   for (const f of [...diff.modifies, ...diff.supprimes]) await copier(path.join(d.publie, f), path.join(sauvegarde, f))

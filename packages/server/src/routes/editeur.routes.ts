@@ -80,6 +80,7 @@ router.get('/', action(async (req) => {
   return {
     site,
     pages: await fichiers.listerPages(site.id),
+    rubriques: await fichiers.listerRubriques(site.id),
     ...await (async () => { const differences = await fichiers.differences(site.id); return { differences, changements: await fichiers.changements(site.id, differences) } })(),
     moi: { role: req.roleSite, dev: req.user?.role === 'admin', id: req.user?.userId || null },
     messagesNonLus: req.roleSite === 'responsable' ? await formulaires.nonLus(site.id) : 0,
@@ -95,10 +96,10 @@ router.post('/session', action(async (req, res) => {
 
 router.get('/page', action(async (req) => fichiers.analyserPage(sid(req), String(req.query.chemin || 'index.html'))))
 
-const schemaChamp = z.object({ cle: z.string().min(1).max(200), valeur: z.string().max(100_000) })
+const schemaChamp = z.object({ cle: z.string().min(1).max(200), valeur: z.string().max(100_000), page: z.string().min(1).max(300).optional() })
 router.put('/champ', action(async (req) => {
-  const { cle, valeur } = schemaChamp.parse(req.body)
-  const r = await fichiers.modifierChamp(sid(req), cle, valeur)
+  const { cle, valeur, page } = schemaChamp.parse(req.body)
+  const r = await fichiers.modifierChamp(sid(req), cle, valeur, page)
   journaliser(sid(req), auteur(req), /^medias\//.test(valeur) ? 'image' : 'modification', cle)
   signaler(req)
   return r
@@ -138,6 +139,9 @@ const schemaElement = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   texte: z.string().max(100_000).optional(),
   photos: z.array(z.string().regex(/^medias\/[\w.-]+$/)).max(50).default([]),
+  auteur: z.string().trim().max(120).optional(),
+  categorie: z.string().trim().max(80).optional(),
+  lien: z.string().trim().url().regex(/^https?:\/\//i).max(500).optional().or(z.literal('').transform(() => undefined)),
 })
 router.post('/collection/:nom', action(async (req) => {
   const d = schemaElement.parse(req.body)
@@ -299,6 +303,33 @@ router.post('/blocs', adminMiddleware, action(async (req) => {
     nom: z.string().trim().min(1).max(60), description: z.string().max(160).optional(),
   }).parse(req.body)
   return fichiers.enregistrerBloc(sid(req), b.page, { chemin: b.chemin, balises: b.balises }, b.nom, b.description)
+}))
+// Mode dev : rubriques (blog…) et fils qui en mélangent plusieurs
+const schemaPose = { page: z.string().min(1).max(300), position: schemaPosition, chemin: schemaChemin.optional(), balises: schemaBalises.optional() }
+const cibleDe = (b: { chemin?: number[]; balises?: string[] }) => b.chemin && b.balises ? { chemin: b.chemin, balises: b.balises } : null
+const schemaLimite = z.number().int().min(1).max(100).nullable().default(null)
+router.post('/rubriques', adminMiddleware, action(async (req) => {
+  const b = z.object({
+    ...schemaPose,
+    libelle: z.string().trim().min(1).max(60),
+    champs: z.array(z.enum(['photo', 'date', 'resume', 'texte', 'auteur', 'categorie', 'lien'])).max(7).default(['photo', 'date', 'resume', 'texte']),
+    limite: schemaLimite,
+    pageComplete: z.boolean().default(true),
+  }).parse(req.body)
+  const r = await fichiers.creerRubrique(sid(req), b.page, cibleDe(b), b.position, b)
+  journaliser(sid(req), auteur(req), 'mode-dev', `${b.page} · rubrique « ${b.libelle} » ajoutée`)
+  return r
+}))
+router.post('/fils', adminMiddleware, action(async (req) => {
+  const b = z.object({
+    ...schemaPose,
+    rubriques: z.array(z.string().min(1).max(60)).min(1).max(20),
+    titre: z.string().trim().min(1).max(120),
+    limite: schemaLimite,
+  }).parse(req.body)
+  const r = await fichiers.insererFil(sid(req), b.page, cibleDe(b), b.position, b)
+  journaliser(sid(req), auteur(req), 'mode-dev', `${b.page} · fil « ${b.titre} » ajouté`)
+  return r
 }))
 router.delete('/blocs/:bloc', adminMiddleware, action(async (req) => blocs.supprimer(param(req, 'bloc'))))
 
